@@ -22,6 +22,10 @@ services:
       - 127.0.0.1:7474:7474
       - 127.0.0.1:7687:7687
 
+  mongodb:
+    ports:
+      - 127.0.0.1:27017:27017
+
   langfuse-worker:
     ports:
       - 127.0.0.1:3030:3030
@@ -40,6 +44,11 @@ services:
     ports:
       - 127.0.0.1:9010:9000
       - 127.0.0.1:9011:9001
+
+  supabase-minio:
+    ports:
+      - 127.0.0.1:9020:9020
+      - 127.0.0.1:9021:9021
 
   postgres:
     ports:
@@ -64,3 +73,15 @@ services:
   ollama-gpu-amd:
     ports:
       - 127.0.0.1:11434:11434
+
+  comfyui-cpu:
+    ports:
+      - 127.0.0.1:8188:8188
+
+  comfyui-gpu:
+    ports:
+      - 127.0.0.1:8188:8188
+
+  comfyui-gpu-amd:
+    ports:
+      - 127.0.0.1:8188:8188

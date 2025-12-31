@@ -1,0 +1,35 @@
+# ComfyUI Model Configuration
+# This file defines which models to download automatically on first startup
+# Models are organized by category matching ComfyUI's directory structure
+
+checkpoints:
+  - name: v1-5-pruned-emaonly.ckpt
+    url: https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt
+    description: Stable Diffusion 1.5
+  - name: v2-1_768-ema-pruned.ckpt
+    url: https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.ckpt
+    description: Stable Diffusion 2.1
+  - name: sd_xl_base_1.0.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+    description: Stable Diffusion XL base
+  - name: sd_xl_refiner_1.0.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0/resolve/main/sd_xl_refiner_1.0.safetensors
+    description: Stable Diffusion XL refiner
+
+vae:
+  - name: vae-ft-mse-840000-ema-pruned.safetensors
+    url: https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors
+    description: VAE for better image quality
+
+# Uncomment and add models as needed
+# loras:
+#   - name: example-lora.safetensors
+#     url: https://example.com/path/to/model.safetensors
+#     description: Example LoRA model
+
+# upscale_models:
+#   - name: example-upscaler.pth
+#     url: https://example.com/path/to/upscaler.pth
+#     description: Example upscaler model
+
+
