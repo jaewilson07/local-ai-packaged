@@ -2,10 +2,10 @@
 
 **Self-hosted AI Package** is an open, docker compose template that
 quickly bootstraps a fully featured Local AI and Low Code development
-environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication. 
+environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication.
 
 This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, Neo4j, Langfuse, SearXNG, and Caddy!
-Also, the local RAG AI Agent workflows from the video will be automatically in your 
+Also, the local RAG AI Agent workflows from the video will be automatically in your
 n8n instance if you use this setup instead of the base one provided by n8n!
 
 **IMPORANT**: Supabase has updated a couple environment variables so you may have to add some new default values in your .env that I have in my .env.example if you have had this project up and running already and are just pulling new changes. Specifically, you need to add "POOLER_DB_POOL_SIZE=5" to your .env. This is required if you have had the package running before June 14th.
@@ -47,14 +47,18 @@ builder that pairs very well with n8n
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
 kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
 
-✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
+✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti
 
-✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates 
+✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates
 results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
 
 ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
 
 ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
+
+✅ [**ComfyUI**](https://github.com/comfyanonymous/ComfyUI) - Powerful and modular stable diffusion GUI and backend with nodes/graph interface for advanced workflows
+
+✅ [**Infisical**](https://infisical.com/) - Open source secrets management platform with web UI and CLI for securely managing environment variables and sensitive configuration
 
 ## Prerequisites
 
@@ -67,6 +71,7 @@ Before you begin, make sure you have the following software installed:
 ## Installation
 
 Clone the repository and navigate to the project directory:
+
 ```bash
 git clone -b stable https://github.com/coleam00/local-ai-packaged.git
 cd local-ai-packaged
@@ -76,6 +81,7 @@ Before running the services, you need to set up your environment variables for S
 
 1. Make a copy of `.env.example` and rename it to `.env` in the root directory of the project
 2. Set the following required environment variables:
+
    ```bash
    ############
    # N8N Configuration
@@ -95,9 +101,24 @@ Before running the services, you need to set up your environment variables for S
    POOLER_TENANT_ID=
 
    ############
+   # Supabase Storage (S3 Compatible)
+   ############
+   # Optional: Override default MinIO credentials for Supabase storage
+   # Defaults: SUPABASE_MINIO_ROOT_USER=supa-storage, SUPABASE_MINIO_ROOT_PASSWORD=secret1234
+   SUPABASE_MINIO_ROOT_USER=
+   SUPABASE_MINIO_ROOT_PASSWORD=
+
+   ############
    # Neo4j Secrets
-   ############   
+   ############
    NEO4J_AUTH=
+
+   ############
+   # MongoDB Secrets
+   ############
+   MONGODB_ROOT_USERNAME=admin
+   MONGODB_ROOT_PASSWORD=
+   MONGODB_DATABASE=admin
 
    ############
    # Langfuse credentials
@@ -107,27 +128,261 @@ Before running the services, you need to set up your environment variables for S
    MINIO_ROOT_PASSWORD=
    LANGFUSE_SALT=
    NEXTAUTH_SECRET=
-   ENCRYPTION_KEY=  
+   ENCRYPTION_KEY=
+
+   ############
+   # Docker Hub Credentials (Required for dhi.io registry)
+   ############
+   # Docker Hub username (same credentials used for dhi.io)
+   DOCKER_HUB_USERNAME=
+   # Docker Hub Personal Access Token (PAT) - STRONGLY RECOMMENDED
+   # OR Docker Hub password (less secure)
+   DOCKER_HUB_PASSWORD=
+   # Alternative: You can also use DOCKER_HUB_TOKEN instead of DOCKER_HUB_PASSWORD
+   # DOCKER_HUB_TOKEN=
+
+   ############
+   # Infisical Configuration (Optional - for secret management)
+   ############
+   # Generate with: openssl rand -hex 16
+   INFISICAL_ENCRYPTION_KEY=
+   # Generate with: openssl rand -base64 32
+   INFISICAL_AUTH_SECRET=
+   # For local development (port-based)
+   INFISICAL_HOSTNAME=:8010
+   # For production (domain-based)
+   # INFISICAL_HOSTNAME=infisical.yourdomain.com
+   INFISICAL_SITE_URL=http://localhost:8010
    ```
 
 > [!IMPORTANT]
 > Make sure to generate secure random values for all secrets. Never use the example values in production.
 
-3. Set the following environment variables if deploying to production, otherwise leave commented:
+## Docker Hardened Images (dhi.io) Authentication
+
+This project uses [Docker Hardened Images (DHI)](https://docs.docker.com/dhi/) from the `dhi.io` registry for enhanced security. These images require authentication using your Docker Hub credentials.
+
+### Setting Up Authentication
+
+1. **Create a Docker Hub Account** (if you don't have one):
+
+   - Sign up for free at https://hub.docker.com/signup
+
+2. **Create a Personal Access Token (PAT)** - **Strongly Recommended**:
+
+   - Go to https://hub.docker.com/settings/security
+   - Click "New Access Token"
+   - Give it a descriptive name (e.g., "dhi.io-automation")
+   - Set appropriate permissions (read-only is sufficient for pulling images)
+   - Copy the token immediately (you won't be able to see it again)
+
+3. **Add Credentials to `.env`**:
+   ```bash
+   DOCKER_HUB_USERNAME=your-docker-hub-username
+   DOCKER_HUB_PASSWORD=your-personal-access-token
+   # OR use DOCKER_HUB_TOKEN instead:
+   # DOCKER_HUB_TOKEN=your-personal-access-token
+   ```
+
+### Why Use Personal Access Tokens?
+
+- **Enhanced Security**: PATs can be scoped to specific permissions and revoked independently
+- **Better for Automation**: Ideal for CI/CD pipelines and automated deployments
+- **Audit Trail**: You can investigate token usage if compromised
+- **No Account Impact**: Revoking a PAT doesn't affect your main account password
+
+### Automatic Authentication
+
+The `start_services.py` script automatically authenticates to `dhi.io` before pulling images. Authentication happens:
+
+- Automatically on startup (if credentials are in `.env`)
+- Only when needed (skips if already authenticated)
+- Securely (passwords passed via stdin, not command line)
+
+### Manual Authentication (Optional)
+
+If you prefer to authenticate manually:
+
+```bash
+docker login dhi.io
+# Enter your Docker Hub username and password/token when prompted
+```
+
+### Troubleshooting
+
+If you encounter authentication errors:
+
+1. Verify `DOCKER_HUB_USERNAME` and `DOCKER_HUB_PASSWORD` are set correctly in `.env`
+2. Ensure you're using a valid Personal Access Token or password
+3. Check that your Docker Hub account is active
+4. Try manually running: `docker login dhi.io`
+5. For production deployments, consider using external secret management systems
+
+### Security Best Practices
+
+- ✅ Use Personal Access Tokens instead of passwords
+- ✅ Rotate credentials regularly
+- ✅ Use least-privilege (minimal required permissions for PATs)
+- ✅ Never commit credentials to version control (`.env` should be in `.gitignore`)
+- ✅ For production, consider using external secret managers (AWS Secrets Manager, HashiCorp Vault, etc.)
+
+4. Set the following environment variables if deploying with a custom domain:
+
+   **For Cloudflare Tunnel (Recommended - No port forwarding needed):**
+
    ```bash
    ############
-   # Caddy Config
+   # Cloudflare Tunnel Configuration
    ############
+   CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token-here
 
-   N8N_HOSTNAME=n8n.yourdomain.com
-   WEBUI_HOSTNAME=:openwebui.yourdomain.com
-   FLOWISE_HOSTNAME=:flowise.yourdomain.com
-   SUPABASE_HOSTNAME=:supabase.yourdomain.com
-   OLLAMA_HOSTNAME=:ollama.yourdomain.com
-   SEARXNG_HOSTNAME=searxng.yourdomain.com
-   NEO4J_HOSTNAME=neo4j.yourdomain.com
-   LETSENCRYPT_EMAIL=your-email-address
-   ```   
+   ############
+   # Caddy Hostname Configuration (for datacrew.space)
+   ############
+   N8N_HOSTNAME=n8n.datacrew.space
+   WEBUI_HOSTNAME=webui.datacrew.space
+   FLOWISE_HOSTNAME=flowise.datacrew.space
+   SUPABASE_HOSTNAME=supabase.datacrew.space
+   OLLAMA_HOSTNAME=ollama.datacrew.space
+   SEARXNG_HOSTNAME=searxng.datacrew.space
+   LANGFUSE_HOSTNAME=langfuse.datacrew.space
+   NEO4J_HOSTNAME=neo4j.datacrew.space
+   COMFYUI_HOSTNAME=comfyui.datacrew.space
+   INFISICAL_HOSTNAME=infisical.datacrew.space
+   ```
+
+   See [docs/cloudflare/setup.md](docs/cloudflare/setup.md) for detailed Cloudflare Tunnel setup instructions.
+
+## Infisical Secret Management (Optional)
+
+This project includes [Infisical](https://infisical.com/) for managing secrets and environment variables. Infisical provides a web UI and CLI for securely storing and accessing sensitive configuration.
+
+### Quick Start with Infisical
+
+1. **Install Infisical CLI** (required for secret export):
+
+   - See installation guide: https://infisical.com/docs/cli/overview
+   - Verify: `infisical --version`
+
+2. **Generate encryption keys** and add to `.env`:
+
+   ```bash
+   # Generate ENCRYPTION_KEY (16-byte hex)
+   openssl rand -hex 16
+
+   # Generate AUTH_SECRET (32-byte base64)
+   openssl rand -base64 32
+   ```
+
+3. **Start services** - Infisical will start automatically:
+
+   ```bash
+   python start_services.py --profile gpu-nvidia
+   ```
+
+4. **Access Infisical UI**:
+
+   - Local: `http://localhost:8010/admin/signup`
+   - Create admin account (first user)
+   - Create organization and project
+   - Migrate secrets from `.env` to Infisical
+
+5. **Configure CLI access**:
+   ```bash
+   infisical login
+   infisical init
+   ```
+
+### Using Infisical
+
+- **Web UI**: Manage secrets via browser at `http://localhost:8010`
+- **CLI**: Export secrets automatically when starting services
+- **Hybrid approach**: Keep non-sensitive config in `.env`, secrets in Infisical
+- **Disable Infisical**: Use `--skip-infisical` flag to use `.env` files only
+
+For detailed setup and migration instructions, see [docs/infisical/setup.md](docs/infisical/setup.md).
+
+## Supabase Storage (S3 Compatible)
+
+This setup includes **Supabase Storage with S3-compatible backend** using MinIO. Supabase Storage is configured to use a local MinIO instance for S3-compatible object storage, separate from the Langfuse MinIO instance.
+
+### Features
+
+- ✅ **S3-Compatible Storage**: Full S3 API compatibility for easy integration
+- ✅ **Local MinIO Instance**: Dedicated MinIO service for Supabase storage
+- ✅ **Image Transformation**: Built-in image optimization and transformation via imgproxy
+- ✅ **Fine-grained Access Control**: Row-level security and custom policies
+- ✅ **Automatic Bucket Creation**: Initial bucket is created automatically
+
+### Configuration
+
+The S3 storage is automatically enabled when you start the services. The configuration uses:
+
+- **MinIO Service**: `supabase-minio` (separate from Langfuse MinIO)
+- **Internal Ports**: 9020 (API), 9021 (Console)
+- **External Access** (private mode): `localhost:9020` (API), `localhost:9021` (Console)
+- **Default Credentials**: `supa-storage` / `secret1234` (configurable via environment variables)
+
+### Customizing MinIO Credentials
+
+To use custom credentials for Supabase MinIO, add these to your `.env` file:
+
+```bash
+SUPABASE_MINIO_ROOT_USER=your-custom-username
+SUPABASE_MINIO_ROOT_PASSWORD=your-secure-password
+```
+
+> [!IMPORTANT]
+> Change the default credentials in production! The default values are for development only.
+
+### Accessing MinIO Console
+
+1. **Local Development** (private mode):
+
+   - Console: `http://localhost:9021`
+   - API: `http://localhost:9020`
+
+2. **Using MinIO Client (mc)**:
+
+   ```bash
+   # Configure alias
+   mc alias set supabase-minio http://localhost:9020 supa-storage secret1234
+
+   # List buckets
+   mc ls supabase-minio
+   ```
+
+### Using Supabase Storage
+
+Supabase Storage is accessible via the Supabase API at your configured Supabase hostname. For more information, see the [Supabase Storage documentation](https://supabase.com/docs/guides/storage).
+
+**For direct DNS (requires port forwarding):**
+
+```bash
+############
+# Caddy Config
+############
+N8N_HOSTNAME=n8n.yourdomain.com
+WEBUI_HOSTNAME=webui.yourdomain.com
+FLOWISE_HOSTNAME=flowise.yourdomain.com
+SUPABASE_HOSTNAME=supabase.yourdomain.com
+OLLAMA_HOSTNAME=ollama.yourdomain.com
+SEARXNG_HOSTNAME=searxng.yourdomain.com
+LANGFUSE_HOSTNAME=langfuse.yourdomain.com
+NEO4J_HOSTNAME=neo4j.yourdomain.com
+COMFYUI_HOSTNAME=comfyui.yourdomain.com
+LETSENCRYPT_EMAIL=your-email-address
+```
+
+**For local development (port-based access):**
+
+```bash
+# Leave hostnames as port-based defaults or set explicitly:
+N8N_HOSTNAME=:8001
+WEBUI_HOSTNAME=:8002
+FLOWISE_HOSTNAME=:8003
+# etc.
+```
 
 ---
 
@@ -154,11 +409,13 @@ python start_services.py --profile gpu-amd
 If you're using a Mac with an M1 or newer processor, you can't expose your GPU to the Docker instance, unfortunately. There are two options in this case:
 
 1. Run the starter kit fully on CPU:
+
    ```bash
    python start_services.py --profile cpu
    ```
 
 2. Run Ollama on your Mac for faster inference, and connect to that from the n8n instance:
+
    ```bash
    python start_services.py --profile none
    ```
@@ -170,8 +427,7 @@ If you're using a Mac with an M1 or newer processor, you can't expose your GPU t
 If you're running OLLAMA locally on your Mac (not in Docker), you need to modify the OLLAMA_HOST environment variable in the n8n service configuration. Update the x-n8n section in your Docker Compose file as follows:
 
 ```yaml
-x-n8n: &service-n8n
-  # ... other configurations ...
+x-n8n: &service-n8n # ... other configurations ...
   environment:
     # ... other environment variables ...
     - OLLAMA_HOST=host.docker.internal:11434
@@ -190,50 +446,111 @@ python start_services.py --profile cpu
 ```
 
 ### The environment argument
+
 The **start-services.py** script offers the possibility to pass one of two options for the environment argument, **private** (default environment) and **public**:
+
 - **private:** you are deploying the stack in a safe environment, hence a lot of ports can be made accessible without having to worry about security
 - **public:** the stack is deployed in a public environment, which means the attack surface should be made as small as possible. All ports except for 80 and 443 are closed
 
 The stack initialized with
+
 ```bash
    python start_services.py --profile gpu-nvidia --environment private
-   ```
+```
+
 equals the one initialized with
+
 ```bash
    python start_services.py --profile gpu-nvidia
-   ```
+```
 
 ## Deploying to the Cloud
 
-### Prerequisites for the below steps
+### Option 1: Cloudflare Tunnel (Recommended)
 
-- Linux machine (preferably Unbuntu) with Nano, Git, and Docker installed
+**Cloudflare Tunnel is the recommended approach** - it requires no port forwarding, works behind NAT/firewalls, and hides your origin IP. Perfect for home servers or any environment where you can't open ports.
 
-### Extra steps
+**Prerequisites:**
 
-Before running the above commands to pull the repo and install everything:
+- Cloudflare account (free tier works)
+- Domain added to Cloudflare
+- `cloudflared` CLI installed (for automated setup)
+
+**Automated Setup (Recommended):**
+
+Run the automated setup script:
+
+```bash
+python setup/cloudflare/setup_tunnel.py
+```
+
+This script will:
+
+- Check for cloudflared CLI installation
+- Authenticate with Cloudflare (opens browser)
+- Create a tunnel
+- Configure DNS records for all services
+- Generate tunnel token and update `.env` file
+- Guide you through configuring public hostnames
+
+**Manual Setup:**
+
+If you prefer manual setup, follow the complete guide in [docs/cloudflare/setup.md](docs/cloudflare/setup.md)
+
+**After Setup:**
+
+1. Verify your `.env` file has `CLOUDFLARE_TUNNEL_TOKEN` and domain hostnames
+2. Start services normally - no port forwarding needed!
+
+```bash
+python start_services.py --profile gpu-nvidia
+```
+
+**Benefits:**
+
+- ✅ No port forwarding required
+- ✅ Works with dynamic IP addresses
+- ✅ Origin IP completely hidden
+- ✅ Free SSL certificates
+- ✅ DDoS protection included
+- ✅ No firewall/router configuration needed
+
+### Option 2: Direct DNS with Port Forwarding
+
+For cloud instances with static IPs where you can open ports:
+
+**Prerequisites:**
+
+- Linux machine (preferably Ubuntu) with Nano, Git, and Docker installed
+- Static public IP address
+- Ability to configure firewall/router for port forwarding
+
+**Extra steps:**
 
 1. Run the commands as root to open up the necessary ports:
+
    - ufw enable
    - ufw allow 80 && ufw allow 443
    - ufw reload
-   ---
+
+   ***
+
    **WARNING**
 
    ufw does not shield ports published by docker, because the iptables rules configured by docker are analyzed before those configured by ufw. There is a solution to change this behavior, but that is out of scope for this project. Just make sure that all traffic runs through the caddy service via port 443. Port 80 should only be used to redirect to port 443.
 
-   ---
+   ***
+
 2. Run the **start-services.py** script with the environment argument **public** to indicate you are going to run the package in a public environment. The script will make sure that all ports, except for 80 and 443, are closed down, e.g.
 
 ```bash
    python3 start_services.py --profile gpu-nvidia --environment public
-   ```
+```
 
 3. Set up A records for your DNS provider to point your subdomains you'll set up in the .env file for Caddy
-to the IP address of your cloud instance.
+   to the IP address of your cloud instance.
 
    For example, A record to point n8n to [cloud instance IP] for n8n.yourdomain.com
-
 
 **NOTE**: If you are using a cloud machine without the "docker compose" command available by default, such as a Ubuntu GPU instance on DigitalOcean, run these commands before running start_services.py:
 
@@ -256,7 +573,7 @@ to get started.
 2. Open the included workflow:
    <http://localhost:5678/workflow/vTN9y2dLXqTiDfPT>
 3. Create credentials for every service:
-   
+
    Ollama URL: http://ollama:11434
 
    Postgres (through Supabase): use DB, username, and password from .env. IMPORTANT: Host is 'db'
@@ -267,22 +584,23 @@ to get started.
    Google Drive: Follow [this guide from n8n](https://docs.n8n.io/integrations/builtin/credentials/google/).
    Don't use localhost for the redirect URI, just use another domain you have, it will still work!
    Alternatively, you can set up [local file triggers](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.localfiletrigger/).
+
 4. Select **Test workflow** to start running the workflow.
 5. If this is the first time you’re running the workflow, you may need to wait
    until Ollama finishes downloading Llama3.1. You can inspect the docker
    console logs to check on the progress.
 6. Make sure to toggle the workflow as active and copy the "Production" webhook URL!
 7. Open <http://localhost:3000/> in your browser to set up Open WebUI.
-You’ll only have to do this once. You are NOT creating an account with Open WebUI in the 
-setup here, it is only a local account for your instance!
+   You’ll only have to do this once. You are NOT creating an account with Open WebUI in the
+   setup here, it is only a local account for your instance!
 8. Go to Workspace -> Functions -> Add Function -> Give name + description then paste in
-the code from `n8n_pipe.py`
+   the code from `n8n_pipe.py`
 
    The function is also [published here on Open WebUI's site](https://openwebui.com/f/coleam/n8n_pipe/).
 
 9. Click on the gear icon and set the n8n_url to the production URL for the webhook
-you copied in a previous step.
-10. Toggle the function on and now it will be available in your model dropdown in the top left! 
+   you copied in a previous step.
+10. Toggle the function on and now it will be available in your model dropdown in the top left!
 
 To open n8n at any time, visit <http://localhost:5678/> in your browser.
 To open Open WebUI at any time, visit <http://localhost:3000/>.
@@ -341,6 +659,7 @@ Here are solutions to common issues you might encounter:
 ### GPU Support Issues
 
 - **Windows GPU Support**: If you're having trouble running Ollama with GPU support on Windows with Docker Desktop:
+
   1. Open Docker Desktop settings
   2. Enable WSL 2 backend
   3. See the [Docker GPU documentation](https://docs.docker.com/desktop/features/gpu/) for more details

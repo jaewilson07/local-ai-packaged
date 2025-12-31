@@ -1,5 +1,6 @@
 include:
   - ./supabase/docker/docker-compose.yml
+  - ./supabase/docker/docker-compose.s3.yml
 
 volumes:
   n8n_storage:
@@ -14,6 +15,11 @@ volumes:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
   langfuse_minio_data:
+  comfyui_run:
+  comfyui_basedir:
+  mongodb_data:
+  cloudflared-config:
+  supabase_minio_data:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
@@ -52,6 +58,33 @@ x-init-ollama: &init-ollama
   command:
     - "-c"
     - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull qwen2.5:7b-instruct-q4_K_M; OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text"
+
+x-comfyui: &service-comfyui
+  image: mmartial/comfyui-nvidia-docker:latest
+  container_name: comfyui
+  restart: unless-stopped
+  pull_policy: always
+  expose:
+    - 8188/tcp
+  environment:
+    - BASE_DIRECTORY=/basedir
+    - SECURITY_LEVEL=normal
+    - USE_UV=true
+  volumes:
+    - comfyui_run:/comfy/mnt
+    - comfyui_basedir:/basedir
+
+x-init-comfyui: &init-comfyui
+  image: mmartial/comfyui-nvidia-docker:latest
+  container_name: comfyui-provision
+  volumes:
+    - comfyui_run:/comfy/mnt
+    - comfyui_basedir:/basedir
+    - ./comfyui:/provision:ro
+  entrypoint: /bin/sh
+  command:
+    - "-c"
+    - "sleep 5; if [ -f /provision/provision-models.py ]; then python3 /provision/provision-models.py; elif [ -f /provision/provision-models.sh ]; then chmod +x /provision/provision-models.sh && /provision/provision-models.sh; fi"
 
 services:
   flowise:
@@ -127,17 +160,32 @@ services:
         - NEO4J_AUTH=${NEO4J_AUTH:-"neo4j/your_password"}
     restart: always
 
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: unless-stopped
+    expose:
+      - 27017/tcp
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-admin}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   caddy:
     container_name: caddy
     image: docker.io/library/caddy:2-alpine
     restart: unless-stopped
-    ports:
-      - 80:80/tcp
-      - 443:443/tcp
+    # Ports removed - Cloudflare Tunnel handles external access
+    # Caddy runs on internal port 80 only
     expose:
-      - 2019/tcp
-      - 443/tcp
-      - 443/udp
       - 80/tcp
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -153,11 +201,29 @@ services:
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
+      - COMFYUI_HOSTNAME=${COMFYUI_HOSTNAME:-":8009"}
+      - INFISICAL_HOSTNAME=${INFISICAL_HOSTNAME:-":8010"}
     cap_drop:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+  cloudflared:
+    container_name: cloudflared
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    volumes:
+      - cloudflared-config:/etc/cloudflared
+    depends_on:
+      - caddy
     logging:
       driver: "json-file"
       options:
@@ -243,7 +309,7 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
 
   clickhouse:
-    image: clickhouse/clickhouse-server
+    image: clickhouse/clickhouse-server:latest
     restart: always
     user: "101:101"
     expose:
@@ -286,7 +352,7 @@ services:
       start_period: 1s
 
   postgres:
-    image: postgres:${POSTGRES_VERSION:-17}
+    image: dhi.io/postgres:${POSTGRES_VERSION:-17}-debian13
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -304,7 +370,7 @@ services:
 
   redis:
     container_name: redis
-    image: docker.io/valkey/valkey:8-alpine
+    image: valkey/valkey:8
     command: valkey-server --save 30 1 --loglevel warning
     restart: unless-stopped
     expose:
@@ -352,6 +418,33 @@ services:
         max-size: "1m"
         max-file: "1"
 
+  infisical:
+    container_name: infisical
+    image: infisical/infisical:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - 8080/tcp
+    environment:
+      - ENCRYPTION_KEY=${INFISICAL_ENCRYPTION_KEY}
+      - AUTH_SECRET=${INFISICAL_AUTH_SECRET}
+      - DB_CONNECTION_URI=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      - REDIS_URL=redis://redis:6379
+      - SITE_URL=${INFISICAL_SITE_URL:-http://localhost:8010}
+      - PORT=8080
+      - HOST=0.0.0.0
+      - TELEMETRY_ENABLED=false
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   ollama-cpu:
     profiles: ["cpu"]
     <<: *service-ollama
@@ -393,3 +486,43 @@ services:
     image: ollama/ollama:rocm
     depends_on:
      - ollama-gpu-amd
+
+  comfyui-cpu:
+    profiles: ["cpu"]
+    <<: *service-comfyui
+
+  comfyui-gpu:
+    profiles: ["gpu-nvidia"]
+    <<: *service-comfyui
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  comfyui-gpu-amd:
+    profiles: ["gpu-amd"]
+    <<: *service-comfyui
+    devices:
+      - "/dev/kfd"
+      - "/dev/dri"
+
+  comfyui-provision-cpu:
+    profiles: ["cpu"]
+    <<: *init-comfyui
+    depends_on:
+      - comfyui-cpu
+
+  comfyui-provision-gpu:
+    profiles: ["gpu-nvidia"]
+    <<: *init-comfyui
+    depends_on:
+      - comfyui-gpu
+
+  comfyui-provision-gpu-amd:
+    profiles: ["gpu-amd"]
+    <<: *init-comfyui
+    depends_on:
+      - comfyui-gpu-amd
