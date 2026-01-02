@@ -320,4 +320,6 @@ python start_services.py
 - **Main Compose**: `supabase/docker/docker-compose.yml`
 - **S3 Override**: `supabase/docker/docker-compose.s3.yml`
 - **Environment Template**: `supabase/docker/.env.example`
+- **Environment File**: Uses root `.env` file (not `supabase/docker/.env`)
+
 
