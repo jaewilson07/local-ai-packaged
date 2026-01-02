@@ -21,7 +21,19 @@ import base64
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
     print("Running:", " ".join(cmd))
-    subprocess.run(cmd, cwd=cwd, check=True)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        print(f"Command failed with exit code {result.returncode}")
+        if result.stdout:
+            print("Stdout:", result.stdout)
+        if result.stderr:
+            print("Stderr:", result.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr
+        )
+    if result.stdout:
+        print(result.stdout)
+    return result
 
 
 def load_env_file(env_path=".env"):
@@ -46,10 +58,10 @@ def is_dhi_authenticated():
         docker_config_path = os.path.join(
             os.environ.get("USERPROFILE", ""), ".docker", "config.json"
         )
-    
+
     if not os.path.exists(docker_config_path):
         return False
-    
+
     try:
         with open(docker_config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
@@ -65,52 +77,51 @@ def authenticate_dhi_registry(skip_auth=False):
     if skip_auth:
         print("Skipping dhi.io authentication (--skip-dhi-auth flag set).")
         return True
-    
+
     # Check if already authenticated
     if is_dhi_authenticated():
         print("Already authenticated to dhi.io registry.")
         return True
-    
+
     # Load environment variables from .env
     env_vars = load_env_file()
-    
+
     # Get credentials - support both DOCKER_HUB_PASSWORD and DOCKER_HUB_TOKEN
     username = env_vars.get("DOCKER_HUB_USERNAME") or os.environ.get("DOCKER_HUB_USERNAME")
-    password = env_vars.get("DOCKER_HUB_PASSWORD") or env_vars.get("DOCKER_HUB_TOKEN") or os.environ.get("DOCKER_HUB_PASSWORD") or os.environ.get("DOCKER_HUB_TOKEN")
-    
+    password = (
+        env_vars.get("DOCKER_HUB_PASSWORD")
+        or env_vars.get("DOCKER_HUB_TOKEN")
+        or os.environ.get("DOCKER_HUB_PASSWORD")
+        or os.environ.get("DOCKER_HUB_TOKEN")
+    )
+
     if not username:
         print("Warning: DOCKER_HUB_USERNAME not found in .env file or environment variables.")
         print("Skipping dhi.io authentication. You may need to manually run: docker login dhi.io")
-        print("Or set DOCKER_HUB_USERNAME and DOCKER_HUB_PASSWORD/DOCKER_HUB_TOKEN in your .env file.")
+        print(
+            "Or set DOCKER_HUB_USERNAME and DOCKER_HUB_PASSWORD/DOCKER_HUB_TOKEN in your .env file."
+        )
         return False
-    
+
     if not password:
-        print("Warning: DOCKER_HUB_PASSWORD or DOCKER_HUB_TOKEN not found in .env file or environment variables.")
+        print(
+            "Warning: DOCKER_HUB_PASSWORD or DOCKER_HUB_TOKEN not found in .env file or environment variables."
+        )
         print("Skipping dhi.io authentication. You may need to manually run: docker login dhi.io")
         print("Or set DOCKER_HUB_PASSWORD/DOCKER_HUB_TOKEN in your .env file.")
         print("For better security, use a Personal Access Token (PAT) instead of password.")
         print("Create a PAT at: https://hub.docker.com/settings/security")
         return False
-    
+
     # Perform non-interactive login
     print("Authenticating to dhi.io registry...")
     try:
         # Use subprocess with stdin to securely pass password
-        cmd = [
-            "docker", "login", "dhi.io",
-            "--username", username,
-            "--password-stdin"
-        ]
-        
+        cmd = ["docker", "login", "dhi.io", "--username", username, "--password-stdin"]
+
         # Pass password via stdin to avoid shell history and command line exposure
-        result = subprocess.run(
-            cmd,
-            input=password,
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
+        result = subprocess.run(cmd, input=password, capture_output=True, text=True, check=False)
+
         if result.returncode == 0:
             print("Successfully authenticated to dhi.io registry.")
             return True
@@ -125,7 +136,9 @@ def authenticate_dhi_registry(skip_auth=False):
             print("5. Try manually running: docker login dhi.io")
             return False
     except FileNotFoundError:
-        print("Error: Docker command not found. Please ensure Docker is installed and in your PATH.")
+        print(
+            "Error: Docker command not found. Please ensure Docker is installed and in your PATH."
+        )
         return False
     except Exception as e:
         print(f"Error during dhi.io authentication: {e}")
@@ -158,30 +171,67 @@ def clone_supabase_repo():
         os.chdir("..")
 
 
-def prepare_supabase_env():
-    """Copy .env to .env in supabase/docker."""
-    env_path = os.path.join("supabase", "docker", ".env")
-    env_example_path = os.path.join(".env")
-    print("Copying .env in root to .env in supabase/docker...")
-    shutil.copyfile(env_example_path, env_path)
-
-
 def stop_existing_containers(profile=None):
-    print(
-        "Stopping and removing existing containers for the unified project 'localai'..."
-    )
+    """Stop and remove existing containers for the unified project 'localai'."""
+    print("Stopping and removing existing containers for the unified project 'localai'...")
+    # Build compose file list (same as start_all_services)
+    compose_files = [
+        "compose/core/docker-compose.yml",
+        "compose/supabase/docker-compose.yml",
+        "compose/infisical/docker-compose.yml",
+        "compose/ai/docker-compose.yml",
+        "compose/workflow/docker-compose.yml",
+        "compose/data/docker-compose.yml",
+        "compose/observability/docker-compose.yml",
+        "compose/web/docker-compose.yml",
+    ]
+
     cmd = ["docker", "compose", "-p", "localai"]
-    if profile and profile != "none":
-        cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml", "down"])
-    run_command(cmd)
+    for file in compose_files:
+        if os.path.exists(file):
+            cmd.extend(["-f", file])
+    cmd.append("down")
+    try:
+        run_command(cmd)
+    except subprocess.CalledProcessError:
+        # Continue even if down fails (e.g., no containers to stop, config conflicts)
+        print("Warning: Could not stop existing containers via compose. Trying to stop by name...")
+    
+    # Also stop containers by name that might have been started outside of compose
+    # This handles containers started via docker run or old compose setups
+    container_names = [
+        "redis", "infisical", "caddy", "cloudflared",
+        "n8n", "flowise", "open-webui", "searxng",
+        "qdrant", "neo4j", "mongodb", "minio",
+        "langfuse-worker", "langfuse-web", "clickhouse",
+        "ollama", "comfyui", "ollama-pull-llama", "comfyui-provision",
+    ]
+    
+    for container_name in container_names:
+        try:
+            # Check if container exists and is running
+            check_cmd = ["docker", "ps", "-a", "--filter", f"name=^{container_name}$", "--format", "{{.Names}}"]
+            result = subprocess.run(check_cmd, capture_output=True, text=True, check=False)
+            if container_name in result.stdout:
+                print(f"Stopping and removing container: {container_name}")
+                try:
+                    subprocess.run(["docker", "stop", container_name], capture_output=True, check=False, timeout=10)
+                    subprocess.run(["docker", "rm", container_name], capture_output=True, check=False, timeout=10)
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                    # Try force remove if normal remove fails
+                    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, check=False, timeout=10)
+        except Exception as e:
+            # Continue even if individual container removal fails
+            pass
 
 
 def pull_docker_images(profile=None, environment=None):
     """Pull latest versions of all Docker images before starting services."""
     print("Pulling latest Docker images for all services...")
 
-    # Pull Supabase images
+    # Pull Supabase images (now using modular compose file)
+    # Note: Supabase images are also pulled in the "local AI images" section below
+    # This separate pull is kept for backward compatibility but uses the modular compose file
     print("Pulling Supabase images...")
     cmd = [
         "docker",
@@ -189,26 +239,42 @@ def pull_docker_images(profile=None, environment=None):
         "-p",
         "localai",
         "-f",
-        "supabase/docker/docker-compose.yml",
+        "compose/supabase/docker-compose.yml",
     ]
     if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
+        if os.path.exists("docker-compose.override.public.supabase.yml"):
+            cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
     cmd.extend(["pull"])
     try:
         run_command(cmd)
     except subprocess.CalledProcessError:
         print("Warning: Some Supabase images may not have been updated.")
 
-    # Pull local AI images
+    # Pull local AI images using modular compose files
     print("Pulling local AI service images...")
+    compose_files = [
+        "compose/core/docker-compose.yml",
+        "compose/supabase/docker-compose.yml",
+        "compose/infisical/docker-compose.yml",
+        "compose/ai/docker-compose.yml",
+        "compose/workflow/docker-compose.yml",
+        "compose/data/docker-compose.yml",
+        "compose/observability/docker-compose.yml",
+        "compose/web/docker-compose.yml",
+    ]
+
     cmd = ["docker", "compose", "-p", "localai"]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml"])
+    for file in compose_files:
+        if os.path.exists(file):
+            cmd.extend(["-f", file])
     if environment and environment == "private":
-        cmd.extend(["-f", "docker-compose.override.private.yml"])
+        if os.path.exists("docker-compose.override.private.yml"):
+            cmd.extend(["-f", "docker-compose.override.private.yml"])
     if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.yml"])
+        if os.path.exists("docker-compose.override.public.yml"):
+            cmd.extend(["-f", "docker-compose.override.public.yml"])
     cmd.extend(["pull"])
     try:
         run_command(cmd)
@@ -218,17 +284,69 @@ def pull_docker_images(profile=None, environment=None):
     print("Image pull complete!")
 
 
-def start_infisical(environment=None):
-    """Start the Infisical service."""
-    print("Starting Infisical service...")
-    cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml"]
-    if environment and environment == "private":
-        cmd.extend(["-f", "docker-compose.override.private.yml"])
-    if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.yml"])
-    cmd.extend(["up", "-d", "infisical"])
-    run_command(cmd)
+def start_all_services(profile=None, environment=None, use_infisical=False):
+    """Start all services by stitching together modular compose files."""
+    print("Starting all services using modular Docker Compose files...")
 
+    compose_files = [
+        "compose/core/docker-compose.yml",
+        "compose/supabase/docker-compose.yml",
+    ]
+
+    if use_infisical:
+        compose_files.append("compose/infisical/docker-compose.yml")
+
+    compose_files.extend(
+        [
+            "compose/ai/docker-compose.yml",
+            "compose/workflow/docker-compose.yml",
+            "compose/data/docker-compose.yml",
+            "compose/observability/docker-compose.yml",
+            "compose/web/docker-compose.yml",
+        ]
+    )
+
+    # Add override files
+    if environment == "private":
+        if os.path.exists("docker-compose.override.private.yml"):
+            compose_files.append("docker-compose.override.private.yml")
+    elif environment == "public":
+        if os.path.exists("docker-compose.override.public.yml"):
+            compose_files.append("docker-compose.override.public.yml")
+
+    # Build docker compose command
+    cmd = ["docker", "compose", "-p", "localai"]
+    if profile and profile != "none":
+        cmd.extend(["--profile", profile])
+    for file in compose_files:
+        if os.path.exists(file):
+            cmd.extend(["-f", file])
+
+    # If using Infisical, authenticate and try to export secrets
+    if use_infisical:
+        # Ensure Infisical is authenticated before trying to export
+        if ensure_infisical_authenticated():
+            infisical_env_file = export_infisical_secrets()
+            if infisical_env_file:
+                cmd.extend(["--env-file", infisical_env_file])
+                print(f"Using Infisical secrets from {infisical_env_file}")
+            else:
+                print("Falling back to .env file for secrets")
+        else:
+            print("Infisical authentication failed. Falling back to .env file for secrets.")
+
+    cmd.extend(["up", "-d"])
+
+    try:
+        run_command(cmd)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error starting services: {e}")
+        if e.stdout:
+            print(e.stdout)
+        if e.stderr:
+            print(e.stderr)
+        return False
 
 def wait_for_infisical(max_retries=30, retry_interval=2):
     """Wait for Infisical to become ready by checking its health endpoint."""
@@ -265,31 +383,116 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
             print(f"Error checking Infisical health: {e}")
 
         if i < max_retries - 1:
-            print(
-                f"Infisical not ready yet, waiting {retry_interval}s... ({i+1}/{max_retries})"
-            )
+            print(f"Infisical not ready yet, waiting {retry_interval}s... ({i+1}/{max_retries})")
             time.sleep(retry_interval)
 
     print("Warning: Infisical did not become ready within the expected time.")
     print("You may need to check the Infisical container logs manually.")
     return False
 
+def check_infisical_authenticated():
+    """Check if Infisical CLI is authenticated."""
+    try:
+        # Try to run a command that requires authentication
+        result = subprocess.run(
+            ["infisical", "secrets"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        # If it succeeds or returns a project-related error (not auth error), we're authenticated
+        if result.returncode == 0:
+            return True
+        # Check if error is about authentication/login
+        error_output = (result.stderr or result.stdout or "").lower()
+        if "authenticate" in error_output or "login" in error_output:
+            return False
+        # If it's a project/init error, we're authenticated but not initialized
+        if "init" in error_output or "project" in error_output:
+            return True  # Authenticated, just needs init
+        # Unknown error, assume not authenticated
+        return False
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
-def start_supabase(environment=None):
-    """Start the Supabase services (using its compose file)."""
-    print("Starting Supabase services...")
-    cmd = [
-        "docker",
-        "compose",
-        "-p",
-        "localai",
-        "-f",
-        "supabase/docker/docker-compose.yml",
-    ]
-    if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    cmd.extend(["up", "-d"])
-    run_command(cmd)
+
+def authenticate_infisical():
+    """Authenticate with Infisical CLI.
+    
+    Tries machine identity first (if env vars set), then interactive login.
+    Returns True if authenticated, False otherwise.
+    """
+    print("Authenticating with Infisical...")
+    
+    # Check if already authenticated
+    if check_infisical_authenticated():
+        print("Already authenticated with Infisical.")
+        return True
+    
+    # Try machine identity authentication first (for automation)
+    machine_client_id = os.environ.get("INFISICAL_MACHINE_CLIENT_ID")
+    machine_client_secret = os.environ.get("INFISICAL_MACHINE_CLIENT_SECRET")
+    
+    if machine_client_id and machine_client_secret:
+        print("Attempting machine identity authentication...")
+        try:
+            cmd = [
+                "infisical",
+                "login",
+                "--method=universal-auth",
+                f"--client-id={machine_client_id}",
+                f"--client-secret={machine_client_secret}",
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
+            if result.returncode == 0:
+                print("Successfully authenticated with machine identity.")
+                return True
+            else:
+                print(f"Machine identity authentication failed: {result.stderr}")
+        except Exception as e:
+            print(f"Error during machine identity authentication: {e}")
+    
+    # Fall back to interactive login
+    print("Attempting interactive login...")
+    print("This will open your browser for authentication.")
+    try:
+        # Check if we're in an interactive terminal
+        if not sys.stdin.isatty():
+            print("Warning: Not in an interactive terminal. Cannot perform interactive login.")
+            print("Set INFISICAL_MACHINE_CLIENT_ID and INFISICAL_MACHINE_CLIENT_SECRET for automated login.")
+            return False
+        
+        input("Press Enter to open browser for Infisical login...")
+        cmd = ["infisical", "login"]
+        result = subprocess.run(cmd, timeout=120, check=False)  # Allow 2 minutes for browser login
+        if result.returncode == 0:
+            print("Successfully authenticated with Infisical.")
+            return True
+        else:
+            print("Interactive login failed or was cancelled.")
+            return False
+    except KeyboardInterrupt:
+        print("\nLogin cancelled by user.")
+        return False
+    except Exception as e:
+        print(f"Error during interactive login: {e}")
+        return False
+
+
+def ensure_infisical_authenticated():
+    """Ensure Infisical is authenticated, attempting login if needed."""
+    if check_infisical_authenticated():
+        return True
+    
+    print("Infisical CLI is not authenticated.")
+    if authenticate_infisical():
+        return True
+    else:
+        print("Warning: Could not authenticate with Infisical.")
+        print("You can authenticate manually by running: infisical login")
+        print("Or set INFISICAL_MACHINE_CLIENT_ID and INFISICAL_MACHINE_CLIENT_SECRET for automated login.")
+        return False
 
 
 def export_infisical_secrets(env_file_path=".env.infisical"):
@@ -330,48 +533,29 @@ def export_infisical_secrets(env_file_path=".env.infisical"):
                 print(f"Successfully exported Infisical secrets to {env_file_path}")
                 return env_file_path
             else:
-                print(
-                    "Warning: Infisical export completed but file is empty or missing."
-                )
-                print(
-                    "Make sure you're authenticated and have secrets configured in Infisical."
-                )
+                print("Warning: Infisical export completed but file is empty or missing.")
+                print("Make sure you're authenticated and have secrets configured in Infisical.")
+                print("Falling back to .env file for secrets.")
                 return None
         else:
-            print(f"Warning: Infisical export failed: {result.stderr}")
-            print("You may need to authenticate first: infisical login")
-            print("Skipping Infisical secret export. Services will use .env file only.")
+            # Check for authentication errors
+            error_output = (result.stderr or result.stdout or "").lower()
+            if "authenticate" in error_output or "login" in error_output or "init" in error_output or "project" in error_output:
+                print("Info: Infisical CLI is not authenticated or not initialized.")
+                print("This is normal if you haven't set up Infisical yet.")
+                print("To use Infisical for secret management:")
+                print("  1. Run: infisical login")
+                print("  2. Run: infisical init (to connect to a project)")
+                print("  3. Or pass --projectId flag when exporting")
+                print("For now, services will use .env file for secrets.")
+            else:
+                print(f"Warning: Infisical export failed: {result.stderr}")
+            print("Continuing with .env file for secrets...")
             return None
     except Exception as e:
         print(f"Warning: Error exporting Infisical secrets: {e}")
         print("Skipping Infisical secret export. Services will use .env file only.")
         return None
-
-
-def start_local_ai(profile=None, environment=None, use_infisical=False):
-    """Start the local AI services (using its compose file)."""
-    print("Starting local AI services...")
-    cmd = ["docker", "compose", "-p", "localai"]
-    if profile and profile != "none":
-        cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml"])
-    if environment and environment == "private":
-        cmd.extend(["-f", "docker-compose.override.private.yml"])
-    if environment and environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.yml"])
-
-    # If using Infisical, try to export secrets and use them
-    if use_infisical:
-        infisical_env_file = export_infisical_secrets()
-        if infisical_env_file:
-            cmd.extend(["--env-file", infisical_env_file])
-            print(f"Using Infisical secrets from {infisical_env_file}")
-        else:
-            print("Falling back to .env file for secrets")
-
-    cmd.extend(["up", "-d"])
-    run_command(cmd)
-
 
 def generate_searxng_secret_key():
     """Generate a secret key for SearXNG based on the current platform."""
@@ -405,9 +589,7 @@ def generate_searxng_secret_key():
 
     try:
         if system == "Windows":
-            print(
-                "Detected Windows platform, using PowerShell to generate secret key..."
-            )
+            print("Detected Windows platform, using PowerShell to generate secret key...")
             # PowerShell command to generate a random key and replace in the settings file
             ps_command = [
                 "powershell",
@@ -420,9 +602,7 @@ def generate_searxng_secret_key():
             subprocess.run(ps_command, check=True)
 
         elif system == "Darwin":  # macOS
-            print(
-                "Detected macOS platform, using sed command with empty string parameter..."
-            )
+            print("Detected macOS platform, using sed command with empty string parameter...")
             # macOS sed command requires an empty string for the -i parameter
             openssl_cmd = ["openssl", "rand", "-hex", "32"]
             random_key = subprocess.check_output(openssl_cmd).decode("utf-8").strip()
@@ -448,9 +628,7 @@ def generate_searxng_secret_key():
     except Exception as e:
         print(f"Error generating SearXNG secret key: {e}")
         print("You may need to manually generate the secret key using the commands:")
-        print(
-            '  - Linux: sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" searxng/settings.yml'
-        )
+        print('  - Linux: sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" searxng/settings.yml')
         print(
             "  - macOS: sed -i '' \"s|ultrasecretkey|$(openssl rand -hex 32)|g\" searxng/settings.yml"
         )
@@ -459,17 +637,15 @@ def generate_searxng_secret_key():
         print(
             "    (New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($randomBytes)"
         )
-        print(
-            '    $secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ })'
-        )
+        print('    $secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ })')
         print(
             "    (Get-Content searxng/settings.yml) -replace 'ultrasecretkey', $secretKey | Set-Content searxng/settings.yml"
         )
 
 
 def check_and_fix_docker_compose_for_searxng():
-    """Check and modify docker-compose.yml for SearXNG first run."""
-    docker_compose_path = "docker-compose.yml"
+    """Check and modify compose/web/docker-compose.yml for SearXNG first run."""
+    docker_compose_path = "compose/web/docker-compose.yml"
     if not os.path.exists(docker_compose_path):
         print(f"Warning: Docker Compose file not found at {docker_compose_path}")
         return
@@ -495,9 +671,7 @@ def check_and_fix_docker_compose_for_searxng():
 
             # If SearXNG container is running, check inside for uwsgi.ini
             if any(container for container in searxng_containers if container):
-                container_name = next(
-                    container for container in searxng_containers if container
-                )
+                container_name = next(container for container in searxng_containers if container)
                 print(f"Found running SearXNG container: {container_name}")
 
                 # Check if uwsgi.ini exists inside the container
@@ -516,14 +690,10 @@ def check_and_fix_docker_compose_for_searxng():
                 )
 
                 if "found" in container_check.stdout:
-                    print(
-                        "Found uwsgi.ini inside the SearXNG container - not first run"
-                    )
+                    print("Found uwsgi.ini inside the SearXNG container - not first run")
                     is_first_run = False
                 else:
-                    print(
-                        "uwsgi.ini not found inside the SearXNG container - first run"
-                    )
+                    print("uwsgi.ini not found inside the SearXNG container - first run")
                     is_first_run = True
             else:
                 print("No running SearXNG container found - assuming first run")
@@ -545,12 +715,11 @@ def check_and_fix_docker_compose_for_searxng():
                 file.write(modified_content)
 
             print(
-                "Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to docker-compose.yml for security reasons."
+                "Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to compose/web/docker-compose.yml for security reasons."
             )
         elif (
             not is_first_run
-            and "# cap_drop: - ALL  # Temporarily commented out for first run"
-            in content
+            and "# cap_drop: - ALL  # Temporarily commented out for first run" in content
         ):
             print(
                 "SearXNG has been initialized. Re-enabling 'cap_drop: - ALL' directive for security..."
@@ -566,13 +735,11 @@ def check_and_fix_docker_compose_for_searxng():
                 file.write(modified_content)
 
     except Exception as e:
-        print(f"Error checking/modifying docker-compose.yml for SearXNG: {e}")
+        print(f"Error checking/modifying compose/web/docker-compose.yml for SearXNG: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Start the local AI and Supabase services."
-    )
+    parser = argparse.ArgumentParser(description="Start the local AI and Supabase services.")
     parser.add_argument(
         "--profile",
         choices=["cpu", "gpu-nvidia", "gpu-amd", "none"],
@@ -608,7 +775,6 @@ def main():
         args.use_infisical = False
 
     clone_supabase_repo()
-    prepare_supabase_env()
 
     # Generate SearXNG secret key and check docker-compose.yml
     generate_searxng_secret_key()
@@ -622,33 +788,27 @@ def main():
     # Pull latest Docker images before starting services
     pull_docker_images(args.profile, args.environment)
 
-    # Start Infisical first (if enabled) - it needs postgres and redis
+    # Start all services using modular compose files
+    print("Starting all services using modular Docker Compose architecture...")
+
     if args.use_infisical:
         print("Infisical integration enabled.")
-        # Note: Infisical depends on postgres and redis, which are started with Supabase
-        # So we start Supabase first, then Infisical, then wait for it
-        start_supabase(args.environment)
-
-        # Give postgres and redis time to be ready
-        print("Waiting for postgres and redis to be ready...")
-        time.sleep(10)
-
-        # Start Infisical
-        start_infisical(args.environment)
-
-        # Wait for Infisical to be ready
-        wait_for_infisical()
     else:
         print("Infisical integration disabled. Using .env files directly.")
-        # Start Supabase first
-        start_supabase(args.environment)
 
-        # Give Supabase some time to initialize
-        print("Waiting for Supabase to initialize...")
-        time.sleep(10)
+    # Start all services together using modular compose files
+    success = start_all_services(args.profile, args.environment, args.use_infisical)
 
-    # Then start the local AI services
-    start_local_ai(args.profile, args.environment, args.use_infisical)
+    if not success:
+        print("Error: Failed to start services. Check the error messages above.")
+        sys.exit(1)
+
+    # Wait for Infisical to be ready if it was started
+    if args.use_infisical:
+        print("Waiting for Infisical to be ready...")
+        wait_for_infisical()
+
+    print("All services started successfully!")
 
 
 if __name__ == "__main__":

@@ -562,10 +562,9 @@ For cloud instances with static IPs where you can open ports:
 
 ## ⚡️ Quick start and usage
 
-The main component of the self-hosted AI starter kit is a docker compose file
-pre-configured with network and disk so there isn’t much else you need to
-install. After completing the installation steps above, follow the steps below
-to get started.
+The main component of the self-hosted AI starter kit uses a **modular Docker Compose architecture** where each major component has its own `docker-compose.yml` file in the `compose/` directory. This approach eliminates conflicts, makes updates easier, and provides better organization. See [docs/modular-compose-architecture.md](docs/modular-compose-architecture.md) for detailed documentation.
+
+After completing the installation steps above, follow the steps below to get started.
 
 1. Open <http://localhost:5678/> in your browser to set up n8n. You’ll only
    have to do this once. You are NOT creating an account with n8n in the setup here,
@@ -625,10 +624,28 @@ To update all containers to their latest versions (n8n, Open WebUI, etc.), run t
 
 ```bash
 # Stop all services
-docker compose -p localai -f docker-compose.yml --profile <your-profile> down
+docker compose -p localai \
+  -f compose/core/docker-compose.yml \
+  -f compose/supabase/docker-compose.yml \
+  -f compose/infisical/docker-compose.yml \
+  -f compose/ai/docker-compose.yml \
+  -f compose/workflow/docker-compose.yml \
+  -f compose/data/docker-compose.yml \
+  -f compose/observability/docker-compose.yml \
+  -f compose/web/docker-compose.yml \
+  --profile <your-profile> down
 
 # Pull latest versions of all containers
-docker compose -p localai -f docker-compose.yml --profile <your-profile> pull
+docker compose -p localai \
+  -f compose/core/docker-compose.yml \
+  -f compose/supabase/docker-compose.yml \
+  -f compose/infisical/docker-compose.yml \
+  -f compose/ai/docker-compose.yml \
+  -f compose/workflow/docker-compose.yml \
+  -f compose/data/docker-compose.yml \
+  -f compose/observability/docker-compose.yml \
+  -f compose/web/docker-compose.yml \
+  --profile <your-profile> pull
 
 # Start services again with your desired profile
 python start_services.py --profile <your-profile>
@@ -649,6 +666,12 @@ Here are solutions to common issues you might encounter:
 - **Supabase Analytics Startup Failure**: If the supabase-analytics container fails to start after changing your Postgres password, delete the folder `supabase/docker/volumes/db/data`.
 
 - **If using Docker Desktop**: Go into the Docker settings and make sure "Expose daemon on tcp://localhost:2375 without TLS" is turned on
+
+- **Service Conflicts** - If you see "conflicts with imported resource" errors, ensure you're using the modular compose files. The old `docker-compose.yml` with `include:` directive has been archived. See [docs/modular-compose-architecture.md](docs/modular-compose-architecture.md) for details.
+
+- **Container Name Conflicts** - If you get "container name already in use" errors, the startup script should automatically clean these up. If issues persist, manually remove containers: `docker rm -f <container-name>`
+
+- **Network Issues** - If services can't communicate, verify the `localai_default` network exists: `docker network inspect localai_default`. The network is created by `compose/core/docker-compose.yml`.
 
 - **Supabase Service Unavailable** - Make sure you don't have an "@" character in your Postgres password! If the connection to the kong container is working (the container logs say it is receiving requests from n8n) but n8n says it cannot connect, this is generally the problem from what the community has shared. Other characters might not be allowed too, the @ symbol is just the one I know for sure!
 

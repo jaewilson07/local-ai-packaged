@@ -1,57 +1,42 @@
 # Documentation Index
 
-This directory contains all project documentation, organized by topic.
+This directory contains comprehensive documentation for the Local AI Package project.
 
-## Cloudflare Documentation
+## Architecture Documentation
 
-All Cloudflare-related documentation is in the [`cloudflare/`](./cloudflare/) directory:
+- **[modular-compose-architecture.md](modular-compose-architecture.md)** - Complete guide to the modular Docker Compose architecture, including directory structure, component details, network configuration, and usage examples.
 
-- **[Setup Guide](./cloudflare/setup.md)** - Complete guide for setting up Cloudflare Tunnel, DNS, and email authentication
-- **[Email Health Troubleshooting](./cloudflare/email-health.md)** - Guide for diagnosing and fixing email health issues
-- **[Design Choices](./cloudflare/design-choices.md)** - Architecture decisions, configuration challenges, and solutions
-- **[Caddy Integration](./cloudflare/caddy-integration.md)** - How Caddy and Cloudflare Tunnel work together
+- **[ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md)** - Detailed explanation of why the modular architecture was chosen, including the problems it solves and the design decisions made.
 
-### Quick Links
+- **[QUICK_START.md](QUICK_START.md)** - Quick reference guide for common operations with the modular compose architecture.
 
-- [Cloudflare Tunnel Setup](./cloudflare/setup.md#step-6-create-a-cloudflare-tunnel)
-- [DNS Configuration](./cloudflare/setup.md#step-2-copy-dns-records-critical---prevents-emailwebsite-issues)
-- [Email Authentication (SPF, DKIM, DMARC)](./cloudflare/setup.md#step-5-set-up-google-workspace-email-authentication-spf-dkim-dmarc)
-- [Caddy and Cloudflare Integration](./cloudflare/caddy-integration.md) - How they work together
-- [Troubleshooting Email Issues](./cloudflare/email-health.md)
+## Service-Specific Documentation
 
-## Supabase Documentation
+### Supabase
+- **[supabase/README.md](supabase/README.md)** - Supabase integration overview
+- **[supabase/storage.md](supabase/storage.md)** - Supabase storage configuration
+- **[supabase/docker-directory-requirements.md](supabase/docker-directory-requirements.md)** - Requirements for Supabase docker directory
 
-All Supabase-related documentation is in the [`supabase/`](./supabase/) directory:
+### Infisical
+- **[infisical/README.md](infisical/README.md)** - Infisical secret management overview
+- **[infisical/setup.md](infisical/setup.md)** - Infisical setup and migration guide
+- **[infisical/usage.md](infisical/usage.md)** - Using Infisical for secret management
 
-- **[Configuration Guide](./supabase/README.md)** - Complete guide for configuring and managing Supabase, including environment variables, service access, and troubleshooting
-- **[Storage Configuration](./supabase/storage.md)** - Detailed guide for Supabase Storage with S3-compatible backend, MinIO setup, bucket management, and image transformation
+### Cloudflare
+- **[cloudflare/setup.md](cloudflare/setup.md)** - Cloudflare Tunnel setup
+- **[cloudflare/caddy-integration.md](cloudflare/caddy-integration.md)** - Caddy reverse proxy configuration
+- **[cloudflare/design-choices.md](cloudflare/design-choices.md)** - Design decisions for Cloudflare integration
+- **[cloudflare/email-health.md](cloudflare/email-health.md)** - Email health monitoring
 
-### Quick Links
+## Getting Started
 
-- [Initial Setup](./supabase/README.md#initial-setup)
-- [Environment Variables](./supabase/README.md#environment-variables)
-- [Storage Configuration](./supabase/storage.md)
-- [Accessing Services](./supabase/README.md#accessing-services)
-- [Troubleshooting](./supabase/README.md#troubleshooting)
+1. Start with the [Quick Start Guide](QUICK_START.md) for immediate usage
+2. Read [modular-compose-architecture.md](modular-compose-architecture.md) to understand the architecture
+3. Refer to service-specific docs as needed
 
-## Infisical Documentation
+## Migration
 
-All Infisical-related documentation is in the [`infisical/`](./infisical/) directory:
-
-- **[Setup Guide](./infisical/setup.md)** - Guide for setting up and using Infisical for secret management
-- **[Usage Guide](./infisical/usage.md)** - Why and how we use Infisical, including secret synchronization
-
-### Quick Links
-
-- [Setting Up Infisical](./infisical/setup.md#step-1-generate-infisical-encryption-keys)
-- [Secret Synchronization](./infisical/usage.md#secret-synchronization)
-- [Why We Use Infisical](./infisical/usage.md#why-infisical)
-
-## Setup Scripts
-
-Setup and validation scripts are located in the [`../setup/`](../setup/) directory. See the [setup scripts README](../setup/README.md) for details.
-
-## Main Project Documentation
-
-For general project information, installation instructions, and usage, see the [main README](../README.md) in the project root.
-
+If you're migrating from the old architecture:
+- See [MIGRATION_NOTES.md](../MIGRATION_NOTES.md) in the project root
+- Review [archive/README.md](../archive/README.md) for archived files
+- Check [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) for why changes were made
