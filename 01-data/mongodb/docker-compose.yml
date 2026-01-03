@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongodb/mongodb-enterprise-server:8.0-ubuntu2204
+    container_name: mongodb
+    command: --setParameter searchIndexManagementHostAndPort=mongot:27027
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+      MONGODB_INITDB_DATABASE: rag_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - default
+    depends_on:
+      - mongot
+    restart: unless-stopped
+
+  mongot:
+    image: mongodb/mongodb-atlas-search:latest
+    container_name: mongot
+    environment:
+      MONGOD_HOST_AND_PORT: mongodb:27017
+      MONGOD_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGOD_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+    expose:
+      - "27027"
+    volumes:
+      - mongot_data:/data/db
+    networks:
+      - default
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+  mongot_data:
+
+networks:
+  default:
+    external: true
+    name: ai-network

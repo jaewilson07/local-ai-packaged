@@ -10,6 +10,7 @@
 - `01-data/supabase/docker-compose.yml` - Supabase (PostgreSQL + Auth + Storage)
 - `01-data/qdrant/docker-compose.yml` - Qdrant vector store
 - `01-data/neo4j/docker-compose.yml` - Neo4j graph database
+- `01-data/mongodb/docker-compose.yml` - MongoDB with Atlas Search
 
 **Network**: Uses external `ai-network` (created by infrastructure stack)
 
@@ -29,6 +30,9 @@
   - `docker-compose.yml` - Service-specific compose
   - (Future: `docs/`, `config/` if needed)
 - `neo4j/` - Neo4j graph database
+  - `docker-compose.yml` - Service-specific compose
+  - (Future: `docs/`, `config/` if needed)
+- `mongodb/` - MongoDB database
   - `docker-compose.yml` - Service-specific compose
   - (Future: `docs/`, `config/` if needed)
 
@@ -127,6 +131,25 @@ cat supabase/docker/volumes/api/kong.yml
 - **Storage**: Persistent volume for graph data
 - **Network**: `ai-network` only
 
+## MongoDB
+
+### Architecture
+- **Image**: `mongodb/mongodb-enterprise-server:8.0-ubuntu2204`
+- **Container**: `mongodb`
+- **Sidecar**: `mongot` (Atlas Search)
+- **Port**: 27017 (MongoDB), 27027 (Atlas Search - internal)
+- **Volumes**: `mongodb_data`, `mongodb_config`, `mongot_data`
+
+### Patterns
+- **Authentication**: `MONGODB_INITDB_ROOT_USERNAME`, `MONGODB_INITDB_ROOT_PASSWORD`
+- **Use Case**: Document storage, Vector Search (via Atlas Search)
+- **Internal URL**: `mongodb://mongodb:27017`
+
+### Configuration
+- **Auth**: Set via environment variables in `.env`
+- **Search**: Enabled via `mongot` sidecar container
+- **Network**: `ai-network` only
+
 ## Architecture Patterns
 
 ### Service Discovery
@@ -157,6 +180,9 @@ curl http://qdrant:6333/health
 
 # Neo4j
 curl http://neo4j:7474
+
+# MongoDB
+docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 ```
 
 ### Common Issues
@@ -175,6 +201,8 @@ curl http://neo4j:7474
 - Separate Supabase MinIO from Langfuse MinIO
 
 ### ❌ DON'T
+- do not put any files in the root folder.  files should be created within their respective service stack
+- create minimum necessary scripts.  use `service_stack/scripts` for long living scripts and `service_stack/temp` for onetime use scrips
 - Hardcode database passwords
 - Use `@` symbol in PostgreSQL passwords
 - Mix data volumes between services
@@ -189,6 +217,7 @@ curl http://neo4j:7474
 - **Kong**: API gateway (routes requests to Supabase services)
 - **GoTrue**: Supabase authentication service
 - **MinIO**: S3-compatible object storage
+- **Atlas Search**: MongoDB's full-text and vector search engine (provided by `mongot` container)
 
 ---
 

@@ -27,7 +27,8 @@ STACK_FILES = {
     "data": [
         "01-data/supabase/docker-compose.yml",
         "01-data/qdrant/docker-compose.yml",
-        "01-data/neo4j/docker-compose.yml"
+        "01-data/neo4j/docker-compose.yml",
+        "01-data/mongodb/docker-compose.yml"
     ],
     "compute": ["02-compute/docker-compose.yml"],
     "apps": ["03-apps/docker-compose.yml"]
