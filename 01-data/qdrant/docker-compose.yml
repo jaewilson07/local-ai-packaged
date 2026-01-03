@@ -1,0 +1,24 @@
+# Qdrant Vector Database
+# Network: Uses external network ai-network
+
+volumes:
+  qdrant_storage:
+
+networks:
+  default:
+    external: true
+    name: ai-network
+
+services:
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    restart: unless-stopped
+    expose:
+      - 6333/tcp
+      - 6334/tcp
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - default
+

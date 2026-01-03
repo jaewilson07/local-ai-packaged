@@ -2,9 +2,13 @@
 """
 start_services.py
 
-This script starts the Supabase stack first, waits for it to initialize, and then starts
-the local AI stack. Both stacks use the same Docker Compose project name ("localai")
-so they appear together in Docker Desktop.
+This script manages services using the stack-based architecture:
+- 00-infrastructure: cloudflared, caddy, infisical, redis
+- 01-data: supabase, qdrant, neo4j
+- 02-compute: ollama, comfyui
+- 03-apps: n8n, flowise, open-webui, searxng, langfuse, clickhouse, mongodb, minio
+
+All stacks use the same Docker Compose project name ("localai") and external network ("ai-network").
 """
 
 import os
@@ -17,8 +21,28 @@ import sys
 import json
 import base64
 
+# Define stack-to-file mappings
+STACK_FILES = {
+    "infrastructure": ["00-infrastructure/docker-compose.yml"],
+    "data": [
+        "01-data/supabase/docker-compose.yml",
+        "01-data/qdrant/docker-compose.yml",
+        "01-data/neo4j/docker-compose.yml"
+    ],
+    "compute": ["02-compute/docker-compose.yml"],
+    "apps": ["03-apps/docker-compose.yml"]
+}
 
-def run_command(cmd, cwd=None):
+# Define stack directory mappings
+STACK_DIRS = {
+    "infrastructure": "00-infrastructure",
+    "data": "01-data",
+    "compute": "02-compute",
+    "apps": "03-apps"
+}
+
+
+def run_command(cmd, cwd=None, check=True):
     """Run a shell command and print it."""
     print("Running:", " ".join(cmd))
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
@@ -28,9 +52,10 @@ def run_command(cmd, cwd=None):
             print("Stdout:", result.stdout)
         if result.stderr:
             print("Stderr:", result.stderr)
-        raise subprocess.CalledProcessError(
-            result.returncode, cmd, output=result.stdout, stderr=result.stderr
-        )
+        if check:
+            raise subprocess.CalledProcessError(
+                result.returncode, cmd, output=result.stdout, stderr=result.stderr
+            )
     if result.stdout:
         print(result.stdout)
     return result
@@ -171,156 +196,127 @@ def clone_supabase_repo():
         os.chdir("..")
 
 
-def stop_existing_containers(profile=None):
-    """Stop and remove existing containers for the unified project 'localai'."""
-    print("Stopping and removing existing containers for the unified project 'localai'...")
-    # Build compose file list (same as start_all_services)
-    compose_files = [
-        "compose/core/docker-compose.yml",
-        "compose/supabase/docker-compose.yml",
-        "compose/infisical/docker-compose.yml",
-        "compose/ai/docker-compose.yml",
-        "compose/workflow/docker-compose.yml",
-        "compose/data/docker-compose.yml",
-        "compose/observability/docker-compose.yml",
-        "compose/web/docker-compose.yml",
-    ]
+def get_compose_files(stack, environment="private"):
+    """Get list of compose files for a specific stack."""
+    files = []
+    
+    # Determine which stacks to include
+    target_stacks = []
+    if stack == "all":
+        target_stacks = ["infrastructure", "data", "compute", "apps"]
+    elif stack in STACK_FILES:
+        target_stacks = [stack]
+    else:
+        print(f"Warning: Unknown stack '{stack}'")
+        return []
+    
+    for s in target_stacks:
+        files.extend(STACK_FILES[s])
+        
+        # Add overrides for each stack if they exist
+        stack_dir = STACK_DIRS.get(s)
+        if stack_dir:
+            override_file = os.path.join(stack_dir, f"docker-compose.override.{environment}.yml")
+            if os.path.exists(override_file):
+                files.append(override_file)
+    
+    # Filter out non-existent files
+    return [f for f in files if os.path.exists(f)]
 
+
+def stop_services(stack="all", environment="private"):
+    """Stop services for the specified stack."""
+    print(f"Stopping services for stack: {stack}...")
+    
+    compose_files = get_compose_files(stack, environment)
+    
     cmd = ["docker", "compose", "-p", "localai"]
     for file in compose_files:
-        if os.path.exists(file):
-            cmd.extend(["-f", file])
+        cmd.extend(["-f", file])
     cmd.append("down")
+    
     try:
         run_command(cmd)
     except subprocess.CalledProcessError:
-        # Continue even if down fails (e.g., no containers to stop, config conflicts)
-        print("Warning: Could not stop existing containers via compose. Trying to stop by name...")
+        print(f"Warning: Could not stop services for stack {stack} via compose.")
     
-    # Also stop containers by name that might have been started outside of compose
-    # This handles containers started via docker run or old compose setups
-    container_names = [
-        "redis", "infisical", "caddy", "cloudflared",
-        "n8n", "flowise", "open-webui", "searxng",
-        "qdrant", "neo4j", "mongodb", "minio",
-        "langfuse-worker", "langfuse-web", "clickhouse",
-        "ollama", "comfyui", "ollama-pull-llama", "comfyui-provision",
-    ]
+    # Only perform aggressive container cleanup if stopping ALL services
+    if stack == "all":
+        print("Performing aggressive cleanup of known containers...")
+        container_names = [
+            "redis", "infisical", "caddy", "cloudflared",
+            "n8n", "flowise", "open-webui", "searxng",
+            "qdrant", "neo4j", "mongodb", "minio",
+            "langfuse-worker", "langfuse-web", "clickhouse",
+            "ollama", "comfyui", "ollama-pull-llama", "comfyui-provision",
+        ]
+        
+        for container_name in container_names:
+            try:
+                # Check if container exists and is running
+                check_cmd = ["docker", "ps", "-a", "--filter", f"name=^{container_name}$", "--format", "{{.Names}}"]
+                result = subprocess.run(check_cmd, capture_output=True, text=True, check=False)
+                if container_name in result.stdout:
+                    print(f"Stopping and removing container: {container_name}")
+                    try:
+                        subprocess.run(["docker", "stop", container_name], capture_output=True, check=False, timeout=10)
+                        subprocess.run(["docker", "rm", container_name], capture_output=True, check=False, timeout=10)
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                        # Try force remove if normal remove fails
+                        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, check=False, timeout=10)
+            except Exception as e:
+                # Continue even if individual container removal fails
+                pass
+
+
+def pull_docker_images(profile=None, environment=None, stack="all"):
+    """Pull latest versions of Docker images."""
+    print(f"Pulling latest Docker images for stack: {stack}...")
+
+    compose_files = get_compose_files(stack, environment)
     
-    for container_name in container_names:
-        try:
-            # Check if container exists and is running
-            check_cmd = ["docker", "ps", "-a", "--filter", f"name=^{container_name}$", "--format", "{{.Names}}"]
-            result = subprocess.run(check_cmd, capture_output=True, text=True, check=False)
-            if container_name in result.stdout:
-                print(f"Stopping and removing container: {container_name}")
-                try:
-                    subprocess.run(["docker", "stop", container_name], capture_output=True, check=False, timeout=10)
-                    subprocess.run(["docker", "rm", container_name], capture_output=True, check=False, timeout=10)
-                except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
-                    # Try force remove if normal remove fails
-                    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, check=False, timeout=10)
-        except Exception as e:
-            # Continue even if individual container removal fails
-            pass
-
-
-def pull_docker_images(profile=None, environment=None):
-    """Pull latest versions of all Docker images before starting services."""
-    print("Pulling latest Docker images for all services...")
-
-    # Pull Supabase images (now using modular compose file)
-    # Note: Supabase images are also pulled in the "local AI images" section below
-    # This separate pull is kept for backward compatibility but uses the modular compose file
-    print("Pulling Supabase images...")
-    cmd = [
-        "docker",
-        "compose",
-        "-p",
-        "localai",
-        "-f",
-        "compose/supabase/docker-compose.yml",
-    ]
-    if environment and environment == "public":
-        if os.path.exists("docker-compose.override.public.supabase.yml"):
-            cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    cmd.extend(["pull"])
-    try:
-        run_command(cmd)
-    except subprocess.CalledProcessError:
-        print("Warning: Some Supabase images may not have been updated.")
-
-    # Pull local AI images using modular compose files
-    print("Pulling local AI service images...")
-    compose_files = [
-        "compose/core/docker-compose.yml",
-        "compose/supabase/docker-compose.yml",
-        "compose/infisical/docker-compose.yml",
-        "compose/ai/docker-compose.yml",
-        "compose/workflow/docker-compose.yml",
-        "compose/data/docker-compose.yml",
-        "compose/observability/docker-compose.yml",
-        "compose/web/docker-compose.yml",
-    ]
+    # Pull Supabase images explicitly if data stack is involved (backward compatibility)
+    # The get_compose_files already includes supabase docker-compose, so this might be redundant
+    # but the original script had a specific separate pull for it. 
+    # We will rely on get_compose_files to include supabase files if stack is 'all' or 'data'.
 
     cmd = ["docker", "compose", "-p", "localai"]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
     for file in compose_files:
-        if os.path.exists(file):
-            cmd.extend(["-f", file])
-    if environment and environment == "private":
-        if os.path.exists("docker-compose.override.private.yml"):
-            cmd.extend(["-f", "docker-compose.override.private.yml"])
-    if environment and environment == "public":
-        if os.path.exists("docker-compose.override.public.yml"):
-            cmd.extend(["-f", "docker-compose.override.public.yml"])
+        cmd.extend(["-f", file])
+    
     cmd.extend(["pull"])
     try:
         run_command(cmd)
     except subprocess.CalledProcessError:
-        print("Warning: Some local AI images may not have been updated.")
+        print("Warning: Some images may not have been updated.")
 
     print("Image pull complete!")
 
 
-def start_all_services(profile=None, environment=None, use_infisical=False):
-    """Start all services by stitching together modular compose files."""
-    print("Starting all services using modular Docker Compose files...")
+def manage_services(action="start", stack="all", profile=None, environment=None, use_infisical=False):
+    """Start or stop services using stack-based architecture."""
+    
+    if action == "stop":
+        stop_services(stack, environment)
+        return True
 
-    compose_files = [
-        "compose/core/docker-compose.yml",
-        "compose/supabase/docker-compose.yml",
-    ]
+    print(f"Starting services for stack: {stack}...")
 
-    if use_infisical:
-        compose_files.append("compose/infisical/docker-compose.yml")
-
-    compose_files.extend(
-        [
-            "compose/ai/docker-compose.yml",
-            "compose/workflow/docker-compose.yml",
-            "compose/data/docker-compose.yml",
-            "compose/observability/docker-compose.yml",
-            "compose/web/docker-compose.yml",
-        ]
-    )
-
-    # Add override files
-    if environment == "private":
-        if os.path.exists("docker-compose.override.private.yml"):
-            compose_files.append("docker-compose.override.private.yml")
-    elif environment == "public":
-        if os.path.exists("docker-compose.override.public.yml"):
-            compose_files.append("docker-compose.override.public.yml")
+    compose_files = get_compose_files(stack, environment)
 
     # Build docker compose command
     cmd = ["docker", "compose", "-p", "localai"]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
     for file in compose_files:
-        if os.path.exists(file):
-            cmd.extend(["-f", file])
+        cmd.extend(["-f", file])
+
+    # Always add .env file for environment variables
+    env_file_path = ".env"
+    if os.path.exists(env_file_path):
+        cmd.extend(["--env-file", env_file_path])
 
     # If using Infisical, authenticate and try to export secrets
     if use_infisical:
@@ -328,6 +324,7 @@ def start_all_services(profile=None, environment=None, use_infisical=False):
         if ensure_infisical_authenticated():
             infisical_env_file = export_infisical_secrets()
             if infisical_env_file:
+                # Add Infisical env file after .env (Infisical values will override .env)
                 cmd.extend(["--env-file", infisical_env_file])
                 print(f"Using Infisical secrets from {infisical_env_file}")
             else:
@@ -341,12 +338,129 @@ def start_all_services(profile=None, environment=None, use_infisical=False):
         run_command(cmd)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error starting services: {e}")
+        print(f"\n❌ Error starting services: {e}")
         if e.stdout:
-            print(e.stdout)
+            print("STDOUT:", e.stdout)
         if e.stderr:
-            print(e.stderr)
+            print("STDERR:", e.stderr)
+        
+        # Provide helpful error messages for common issues
+        error_output = (e.stderr or "") + (e.stdout or "")
+        if "nvidia" in error_output.lower() or "gpu" in error_output.lower():
+            print("\n💡 GPU-related error detected. Common solutions:")
+            print("   1. Verify NVIDIA drivers: nvidia-smi")
+            print("   2. Check Docker NVIDIA runtime: docker info | grep -i nvidia")
+            print("   3. Install nvidia-container-toolkit if missing")
+            print("   4. Try CPU mode: python start_services.py --profile cpu")
+        
+        if "profile" in error_output.lower() or "unknown profile" in error_output.lower():
+            print("\n💡 Profile error detected. Valid profiles are:")
+            print("   - cpu (default)")
+            print("   - gpu-nvidia (for NVIDIA GPUs)")
+            print("   - gpu-amd (for AMD GPUs)")
+            print("   - none (no compute services)")
+        
         return False
+
+def check_nvidia_gpu_availability():
+    """Check if NVIDIA GPU is available and Docker can access it."""
+    print("Checking NVIDIA GPU availability...")
+    
+    # Check if nvidia-smi is available on the host
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            gpus = result.stdout.strip().split('\n')
+            print(f"✓ Found {len(gpus)} NVIDIA GPU(s) on host:")
+            for i, gpu in enumerate(gpus):
+                print(f"  GPU {i}: {gpu}")
+            return True
+        else:
+            print("⚠️  nvidia-smi found but no GPUs detected")
+            return False
+    except FileNotFoundError:
+        print("⚠️  nvidia-smi not found. NVIDIA drivers may not be installed.")
+        return False
+    except subprocess.TimeoutExpired:
+        print("⚠️  nvidia-smi command timed out")
+        return False
+    except Exception as e:
+        print(f"⚠️  Error checking NVIDIA GPU: {e}")
+        return False
+
+
+def check_docker_nvidia_runtime():
+    """Check if Docker has NVIDIA runtime configured."""
+    print("Checking Docker NVIDIA runtime configuration...")
+    
+    try:
+        # Check if nvidia-container-runtime is available
+        result = subprocess.run(
+            ["docker", "info", "--format", "{{.Runtimes}}"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            runtimes = result.stdout.strip()
+            if "nvidia" in runtimes.lower():
+                print("✓ Docker NVIDIA runtime is configured")
+                return True
+            else:
+                print("⚠️  Docker NVIDIA runtime not found in available runtimes")
+                print(f"   Available runtimes: {runtimes}")
+                print("   You may need to install nvidia-container-toolkit")
+                return False
+        else:
+            print("⚠️  Could not check Docker runtime configuration")
+            return False
+    except Exception as e:
+        print(f"⚠️  Error checking Docker NVIDIA runtime: {e}")
+        return False
+
+
+def validate_gpu_profile(profile):
+    """Validate GPU profile and check system requirements."""
+    if profile in ["gpu-nvidia", "gpu-amd"]:
+        print(f"\n=== Validating {profile} profile ===")
+        
+        if profile == "gpu-nvidia":
+            gpu_available = check_nvidia_gpu_availability()
+            runtime_available = check_docker_nvidia_runtime()
+            
+            if not gpu_available:
+                print("\n❌ ERROR: NVIDIA GPU not detected on host system")
+                print("   Please ensure:")
+                print("   1. NVIDIA drivers are installed (check with: nvidia-smi)")
+                print("   2. GPU is properly connected and powered")
+                return False
+            
+            if not runtime_available:
+                print("\n❌ ERROR: Docker NVIDIA runtime not configured")
+                print("   Please install and configure nvidia-container-toolkit:")
+                print("   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html")
+                return False
+            
+            print("✓ NVIDIA GPU setup validated\n")
+            return True
+        
+        elif profile == "gpu-amd":
+            # Check for AMD GPU devices
+            if os.path.exists("/dev/kfd") and os.path.exists("/dev/dri"):
+                print("✓ AMD GPU devices found")
+                return True
+            else:
+                print("⚠️  AMD GPU devices not found (/dev/kfd or /dev/dri)")
+                print("   Continuing anyway, but GPU acceleration may not work")
+                return True  # Don't fail, just warn
+    
+    return True
+
 
 def wait_for_infisical(max_retries=30, retry_interval=2):
     """Wait for Infisical to become ready by checking its health endpoint."""
@@ -359,7 +473,7 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
                 [
                     "docker",
                     "exec",
-                    "infisical",
+                    "infisical-backend",
                     "wget",
                     "--no-verbose",
                     "--tries=1",
@@ -644,8 +758,8 @@ def generate_searxng_secret_key():
 
 
 def check_and_fix_docker_compose_for_searxng():
-    """Check and modify compose/web/docker-compose.yml for SearXNG first run."""
-    docker_compose_path = "compose/web/docker-compose.yml"
+    """Check and modify 03-apps/docker-compose.yml for SearXNG first run."""
+    docker_compose_path = "03-apps/docker-compose.yml"
     if not os.path.exists(docker_compose_path):
         print(f"Warning: Docker Compose file not found at {docker_compose_path}")
         return
@@ -715,7 +829,7 @@ def check_and_fix_docker_compose_for_searxng():
                 file.write(modified_content)
 
             print(
-                "Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to compose/web/docker-compose.yml for security reasons."
+                "Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to 03-apps/docker-compose.yml for security reasons."
             )
         elif (
             not is_first_run
@@ -735,16 +849,38 @@ def check_and_fix_docker_compose_for_searxng():
                 file.write(modified_content)
 
     except Exception as e:
-        print(f"Error checking/modifying compose/web/docker-compose.yml for SearXNG: {e}")
+        print(f"Error checking/modifying 03-apps/docker-compose.yml for SearXNG: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Start the local AI and Supabase services.")
+    parser = argparse.ArgumentParser(
+        description="Manage local AI and Supabase services.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python start_services.py --profile gpu-nvidia              # Start all services with NVIDIA GPU
+  python start_services.py --action stop                     # Stop all services
+  python start_services.py --stack apps                      # Start only apps stack
+  python start_services.py --action stop --stack compute     # Stop compute stack
+        """
+    )
+    parser.add_argument(
+        "--action",
+        choices=["start", "stop"],
+        default="start",
+        help="Action to perform: start or stop services (default: start)",
+    )
+    parser.add_argument(
+        "--stack",
+        choices=["all", "infrastructure", "data", "compute", "apps"],
+        default="all",
+        help="Target stack to operate on (default: all)",
+    )
     parser.add_argument(
         "--profile",
-        choices=["cpu", "gpu-nvidia", "gpu-amd", "none"],
+        choices=["cpu", "gpu-nvidia", "gpu-amd", "none", "nvidia"],  # Allow "nvidia" as alias
         default="cpu",
-        help="Profile to use for Docker Compose (default: cpu)",
+        help="Profile to use for Docker Compose. Use 'gpu-nvidia' for NVIDIA GPUs, 'cpu' for CPU-only (default: cpu)",
     )
     parser.add_argument(
         "--environment",
@@ -770,45 +906,68 @@ def main():
     )
     args = parser.parse_args()
 
+    # Normalize profile name (handle "nvidia" as alias for "gpu-nvidia")
+    if args.profile == "nvidia":
+        print("Note: 'nvidia' profile is an alias for 'gpu-nvidia'")
+        args.profile = "gpu-nvidia"
+
     # If skip-infisical is set, disable use-infisical
     if args.skip_infisical:
         args.use_infisical = False
 
+    # Stop logic is simpler - just stop services
+    if args.action == "stop":
+        manage_services(
+            action="stop",
+            stack=args.stack,
+            environment=args.environment
+        )
+        return
+
+    # Start logic (includes pre-flight checks)
     clone_supabase_repo()
 
     # Generate SearXNG secret key and check docker-compose.yml
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
 
+    # Validate GPU profile before proceeding
+    if not validate_gpu_profile(args.profile):
+        print("\n❌ GPU profile validation failed. Exiting.")
+        print("\nTo use CPU-only mode, run:")
+        print("  python start_services.py --profile cpu")
+        sys.exit(1)
+
     # Authenticate to dhi.io registry before pulling images
     authenticate_dhi_registry(skip_auth=args.skip_dhi_auth)
 
-    stop_existing_containers(args.profile)
-
     # Pull latest Docker images before starting services
-    pull_docker_images(args.profile, args.environment)
+    pull_docker_images(args.profile, args.environment, args.stack)
 
-    # Start all services using modular compose files
-    print("Starting all services using modular Docker Compose architecture...")
-
+    # Start services using modular compose files
     if args.use_infisical:
         print("Infisical integration enabled.")
     else:
         print("Infisical integration disabled. Using .env files directly.")
 
-    # Start all services together using modular compose files
-    success = start_all_services(args.profile, args.environment, args.use_infisical)
+    success = manage_services(
+        action="start",
+        stack=args.stack,
+        profile=args.profile,
+        environment=args.environment,
+        use_infisical=args.use_infisical
+    )
 
     if not success:
         print("Error: Failed to start services. Check the error messages above.")
         sys.exit(1)
 
-    # Wait for Infisical to be ready if it was started
-    if args.use_infisical:
+    # Wait for Infisical to be ready if it was started (and we are starting infrastructure or all)
+    if args.use_infisical and (args.stack == "all" or args.stack == "infrastructure"):
         print("Waiting for Infisical to be ready...")
         wait_for_infisical()
 
-    print("All services started successfully!")
+    print(f"Action '{args.action}' on stack '{args.stack}' completed successfully!")
 
 
 if __name__ == "__main__":

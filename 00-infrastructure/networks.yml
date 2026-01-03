@@ -1,0 +1,12 @@
+# Docker Network Definition
+# This file defines the external network used by all stacks
+# 
+# To create the network, run:
+#   docker network create ai-network
+#
+# All stacks reference this network as external
+
+networks:
+  ai-network:
+    external: true
+
