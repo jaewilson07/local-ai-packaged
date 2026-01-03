@@ -134,20 +134,19 @@ cat supabase/docker/volumes/api/kong.yml
 ## MongoDB
 
 ### Architecture
-- **Image**: `mongodb/mongodb-enterprise-server:8.0-ubuntu2204`
-- **Container**: `mongodb`
-- **Sidecar**: `mongot` (Atlas Search)
-- **Port**: 27017 (MongoDB), 27027 (Atlas Search - internal)
-- **Volumes**: `mongodb_data`, `mongodb_config`, `mongot_data`
+- **Image**: `mongodb/mongodb-atlas-local:latest`
+- **Container**: `mongodb` (Single container includes MongoDB + Atlas Search)
+- **Port**: 27017 (MongoDB)
+- **Volumes**: `mongodb_data`, `mongodb_config`, `mongot_data` (Required for Vector Search index persistence)
 
 ### Patterns
 - **Authentication**: `MONGODB_INITDB_ROOT_USERNAME`, `MONGODB_INITDB_ROOT_PASSWORD`
-- **Use Case**: Document storage, Vector Search (via Atlas Search)
+- **Use Case**: Document storage, Vector Search, Local Atlas Development
 - **Internal URL**: `mongodb://mongodb:27017`
 
 ### Configuration
-- **Auth**: Set via environment variables in `.env`
-- **Search**: Enabled via `mongot` sidecar container
+- **Replica Set**: Required and handled by `MONGODB_REPLICA_SET_NAME=rs0`
+- **Search**: Integrated Atlas Search (mongot) process
 - **Network**: `ai-network` only
 
 ## Architecture Patterns
