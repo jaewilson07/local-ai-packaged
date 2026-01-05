@@ -1,0 +1,8 @@
+LICENSE
+README.md
+pyproject.toml
+local_ai_packaged.egg-info/PKG-INFO
+local_ai_packaged.egg-info/SOURCES.txt
+local_ai_packaged.egg-info/dependency_links.txt
+local_ai_packaged.egg-info/requires.txt
+local_ai_packaged.egg-info/top_level.txt

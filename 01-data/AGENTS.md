@@ -11,6 +11,7 @@
 - `01-data/qdrant/docker-compose.yml` - Qdrant vector store
 - `01-data/neo4j/docker-compose.yml` - Neo4j graph database
 - `01-data/mongodb/docker-compose.yml` - MongoDB with Atlas Search
+- `01-data/minio/docker-compose.yml` - MinIO S3-compatible storage
 
 **Network**: Uses external `ai-network` (created by infrastructure stack)
 
@@ -24,28 +25,34 @@
 - `supabase/` - Supabase service
   - `docker-compose.yml` - Service-specific compose
   - `config/` - Supabase configuration (override files)
+  - `data/` - Persistent data storage (mounted volumes)
+  - `upstream/` - Cloned `supabase/supabase` repository (docker config source)
   - `docs/` - Supabase-specific documentation
   - `README.md` - Supabase setup and usage
 - `qdrant/` - Qdrant vector store
   - `docker-compose.yml` - Service-specific compose
-  - (Future: `docs/`, `config/` if needed)
+  - `data/` - Persistent vector data
 - `neo4j/` - Neo4j graph database
   - `docker-compose.yml` - Service-specific compose
-  - (Future: `docs/`, `config/` if needed)
+  - `data/` - Persistent graph data
 - `mongodb/` - MongoDB database
   - `docker-compose.yml` - Service-specific compose
-  - (Future: `docs/`, `config/` if needed)
+  - `data/` - Persistent document data
+- `minio/` - MinIO S3-compatible storage
+  - `docker-compose.yml` - Service-specific compose
+  - `data/` - Persistent object storage data
 
 **Refactoring Notes**:
 - Each data service has its own folder with its own compose file (independent management)
 - Service-specific configs and docs go in the service folder
+- **Pattern**: Use `upstream/` for cloned repos and `data/` for persistence.
 - Follow the pattern: `01-data/{service-name}/docker-compose.yml`
 
 ## Supabase
 
 ### Architecture
 - **Upstream Source**: Cloned from `https://github.com/supabase/supabase.git` (sparse checkout, `docker/` only)
-- **Location**: `01-data/supabase/` (local) and `supabase/` (upstream clone)
+- **Location**: `01-data/supabase/upstream/`
 - **Compose File**: `01-data/supabase/docker-compose.yml` (modular, not upstream)
 - **Key Services**:
   - `supabase-db` - PostgreSQL 15
@@ -119,7 +126,11 @@ cat supabase/docker/volumes/api/kong.yml
 - **Image**: `neo4j:latest`
 - **Container**: `neo4j`
 - **Port**: 7474 (HTTP), 7687 (Bolt)
-- **Volume**: `neo4j_data` (graph database storage)
+- **Volumes**: Named volumes (managed by Docker)
+  - `neo4j_data` - Graph database storage
+  - `neo4j_logs` - Application logs
+  - `neo4j_import` - Import directory for data loading
+  - `neo4j_plugins` - Plugin storage
 
 ### Patterns
 - **Authentication**: `NEO4J_AUTH` (format: `username/password`)
@@ -128,8 +139,9 @@ cat supabase/docker/volumes/api/kong.yml
 
 ### Configuration
 - **Auth**: Set via `NEO4J_AUTH` environment variable
-- **Storage**: Persistent volume for graph data
+- **Storage**: Named volumes for all persistent data (follows same pattern as Qdrant and MongoDB)
 - **Network**: `ai-network` only
+- **Logs**: Stored in Docker-managed volume `localai_neo4j_logs` (not in repository)
 
 ## MongoDB
 
@@ -149,6 +161,28 @@ cat supabase/docker/volumes/api/kong.yml
 - **Search**: Integrated Atlas Search (mongot) process
 - **Network**: `ai-network` only
 
+## MinIO
+
+### Architecture
+- **Image**: `minio/minio`
+- **Container**: `minio`
+- **Ports**: 9000 (API), 9001 (Console)
+- **Volume**: `./data` (bind mount, relative to service directory)
+
+### Patterns
+- **Authentication**: `MINIO_ROOT_USER` (default: `minio`), `MINIO_ROOT_PASSWORD` (required)
+- **Use Case**: S3-compatible object storage for Langfuse and other services
+- **Internal URL**: `http://minio:9000` (API), `http://minio:9001` (Console)
+- **Buckets**: `langfuse` bucket auto-created on startup
+
+### Configuration
+- **Root User**: `MINIO_ROOT_USER` (default: `minio`)
+- **Root Password**: `MINIO_ROOT_PASSWORD` (required, from `.env`)
+- **Storage**: Bind mount to `./minio/data` (persistent)
+- **Network**: `ai-network` only
+
+**Note**: Separate from `supabase-minio` (different service, different credentials, different ports)
+
 ## Architecture Patterns
 
 ### Service Discovery
@@ -156,6 +190,8 @@ All data services use container names as hostnames:
 - `supabase-db:5432` - PostgreSQL
 - `qdrant:6333` - Qdrant API
 - `neo4j:7687` - Neo4j Bolt
+- `mongodb:27017` - MongoDB
+- `minio:9000` - MinIO API
 
 ### Volume Management
 - **Persistent**: All data volumes are named (e.g., `qdrant_data`, `neo4j_data`)
@@ -182,6 +218,9 @@ curl http://neo4j:7474
 
 # MongoDB
 docker exec mongodb mongosh --eval "db.adminCommand('ping')"
+
+# MinIO
+docker exec minio mc ready local
 ```
 
 ### Common Issues
@@ -196,7 +235,7 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 - Use container names for internal connections
 - Keep Supabase upstream updated (`git pull` in `supabase/`)
 - Use persistent volumes for data
-- Generate secure passwords (use `utils/setup/env/generate_passwords.py`)
+- Generate secure passwords (use `setup/generate-env-passwords.py`)
 - Separate Supabase MinIO from Langfuse MinIO
 
 ### ❌ DON'T
@@ -215,7 +254,8 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 - **Neo4j**: Graph database for relationship modeling
 - **Kong**: API gateway (routes requests to Supabase services)
 - **GoTrue**: Supabase authentication service
-- **MinIO**: S3-compatible object storage
+- **MinIO**: S3-compatible object storage (for Langfuse and other services)
+- **Supabase MinIO**: Separate MinIO instance for Supabase Storage (different service)
 - **Atlas Search**: MongoDB's full-text and vector search engine (provided by `mongot` container)
 
 ---

@@ -1,0 +1,42 @@
+# Shared Security Configuration
+# Security hardening templates following principle of least privilege
+# Apply these anchors to services for consistent security posture
+
+# Standard security hardening (most services)
+x-security-hardened: &security-hardened
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+# Security hardening for services needing network binding
+x-security-network: &security-network
+  cap_drop:
+    - ALL
+  cap_add:
+    - NET_BIND_SERVICE
+  security_opt:
+    - no-new-privileges:true
+
+# Security hardening for services needing user/group management
+x-security-usergroup: &security-usergroup
+  cap_drop:
+    - ALL
+  cap_add:
+    - SETGID
+    - SETUID
+    - DAC_OVERRIDE
+  security_opt:
+    - no-new-privileges:true
+
+# Security hardening for services needing chown operations
+x-security-chown: &security-chown
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - SETGID
+    - SETUID
+  security_opt:
+    - no-new-privileges:true
+

@@ -1,4 +1,19 @@
 services:
+  # Caddy - Expose ports for local development
+  caddy:
+    ports:
+      - 127.0.0.1:8001:8001  # n8n
+      - 127.0.0.1:8002:8002  # open-webui
+      - 127.0.0.1:8003:8003  # flowise
+      - 127.0.0.1:8004:8004  # ollama
+      - 127.0.0.1:8005:8005  # supabase
+      - 127.0.0.1:8006:8006  # searxng
+      - 127.0.0.1:8007:8007  # langfuse
+      - 127.0.0.1:8008:8008  # neo4j
+      - 127.0.0.1:8009:8009  # comfyui
+      - 127.0.0.1:8010:8010  # qdrant
+      - 127.0.0.1:80:80      # cloudflare tunnel (domain-based routing)
+  
   redis:
     ports:
       - 127.0.0.1:6379:6379

@@ -1,0 +1,9 @@
+# Shared Network Configuration
+# This file defines the external ai-network used by all services
+# Include this file in all docker-compose.yml files to avoid duplication
+
+networks:
+  default:
+    external: true
+    name: ai-network
+

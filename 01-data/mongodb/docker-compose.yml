@@ -1,4 +1,14 @@
-version: '3.8'
+# Shared configuration anchors
+x-healthcheck-db: &healthcheck-db
+  interval: 10s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+
+networks:
+  default:
+    external: true
+    name: ai-network
 
 services:
   mongodb:
@@ -10,7 +20,7 @@ services:
       # Replica Set is required for Atlas Search
       MONGODB_REPLICA_SET_NAME: rs0
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
@@ -18,20 +28,31 @@ services:
     # Note: Do not override command, the image entrypoint handles mongot startup
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      <<: *healthcheck-db
     networks:
       - default
     restart: unless-stopped
+
+  mongodb-express:
+    image: mongo-express:latest
+    container_name: mongodb-express
+    restart: unless-stopped
+    expose:
+      - 8081/tcp
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGODB_EXPRESS_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGODB_EXPRESS_PASSWORD:-admin123}
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
+    depends_on:
+      - mongodb
+    networks:
+      - default
 
 volumes:
   mongodb_data:
   mongodb_config:
   mongot_data:
-
-networks:
-  default:
-    external: true
-    name: ai-network

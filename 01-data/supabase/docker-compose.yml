@@ -10,7 +10,6 @@ networks:
 
 volumes:
   db-config:
-  supabase_minio_data:
 
 services:
 
@@ -74,7 +73,7 @@ services:
       - ${KONG_HTTPS_PORT}:8443/tcp
     volumes:
       # https://github.com/supabase/supabase/issues/12661
-      - ./upstream/docker/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
+      - ../01-data/supabase/upstream/docker/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
     depends_on:
       analytics:
         condition: service_healthy
@@ -91,7 +90,7 @@ services:
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
     # https://unix.stackexchange.com/a/294837
-    entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+    entrypoint: bash -c 'sed "s|\\$$SUPABASE_ANON_KEY|${SUPABASE_ANON_KEY}|g; s|\\$$SUPABASE_SERVICE_KEY|${SUPABASE_SERVICE_KEY}|g; s|\\$$DASHBOARD_USERNAME|${DASHBOARD_USERNAME}|g; s|\\$$DASHBOARD_PASSWORD|${DASHBOARD_PASSWORD}|g" ~/temp.yml > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
 
   auth:
     container_name: supabase-auth
@@ -255,7 +254,7 @@ services:
       timeout: 10s
       retries: 5
     volumes:
-      - supabase_minio_data:/data
+      - ../01-data/supabase/data/minio:/data
 
   supabase-minio-createbucket:
     image: minio/mc
@@ -319,7 +318,7 @@ services:
       ENABLE_IMAGE_TRANSFORMATION: "true"
       IMGPROXY_URL: http://imgproxy:5001
     volumes:
-      - ./upstream/docker/volumes/storage:/var/lib/storage:z
+      - ../01-data/supabase/data/storage:/var/lib/storage:z
 
   imgproxy:
     container_name: supabase-imgproxy
@@ -332,11 +331,11 @@ services:
       retries: 3
     environment:
       IMGPROXY_BIND: ":5001"
-      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: "/"
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: ${IMGPROXY_ENABLE_WEBP_DETECTION}
     volumes:
-      - ./upstream/docker/volumes/storage:/var/lib/storage:z
+      - ../01-data/supabase/data/storage:/var/lib/storage:z
 
   meta:
     container_name: supabase-meta
@@ -362,7 +361,7 @@ services:
     image: supabase/edge-runtime:v1.69.28
     restart: unless-stopped
     volumes:
-      - ./upstream/docker/volumes/functions:/home/deno/functions:Z
+      - ../01-data/supabase/data/functions:/home/deno/functions:Z
     depends_on:
       analytics:
         condition: service_healthy
@@ -378,7 +377,7 @@ services:
       [
         "start",
         "--main-service",
-        "/home/deno/functions/main"
+        "/home/deno/functions/main/index.ts"
       ]
 
   analytics:
@@ -434,21 +433,21 @@ services:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
-      - ./upstream/docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
-      - ./upstream/docker/volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
       # Must be superuser to alter reserved role
-      - ./upstream/docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       # Initialize the database settings with JWT_SECRET and JWT_EXP
-      - ./upstream/docker/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
       # PGDATA directory is persisted between restarts
-      - ./upstream/docker/volumes/db/data:/var/lib/postgresql/data:Z
+      - ../01-data/supabase/data/db:/var/lib/postgresql/data:Z
       # Changes required for internal supabase data such as _analytics
-      - ./upstream/docker/volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
       # Changes required for Analytics support
-      - ./upstream/docker/volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
       # Changes required for Pooler support
-      - ./upstream/docker/volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      - ../01-data/supabase/upstream/docker/volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
     healthcheck:
@@ -491,8 +490,8 @@ services:
     image: timberio/vector:0.28.1-alpine
     restart: unless-stopped
     volumes:
-      - ./01-data/supabase/upstream/docker/volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
-      - ${DOCKER_SOCKET_LOCATION:-/var/run/docker.sock}:/var/run/docker.sock:ro,z
+      - ${PWD}/01-data/supabase/config/vector:/etc/vector:ro
+      - ${DOCKER_SOCKET_LOCATION:-/var/run/docker.sock}:/var/run/docker.sock:ro
     healthcheck:
       test:
         [
@@ -501,11 +500,12 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://vector:9001/health"
+          "http://127.0.0.1:9001/health"
         ]
       timeout: 5s
       interval: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s
     environment:
       LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
     command:
@@ -525,7 +525,7 @@ services:
       - ${POSTGRES_PORT}:5432
       - ${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
-      - ./upstream/docker/volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
+      - ../01-data/supabase/upstream/docker/volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
     healthcheck:
       test:
         [
@@ -567,5 +567,5 @@ services:
       [
         "/bin/sh",
         "-c",
-        "/app/bin/migrate && /app/bin/supavisor eval \"$$(cat /etc/pooler/pooler.exs)\" && /app/bin/server"
+        "/app/bin/migrate && /app/bin/supavisor eval \"$(cat /etc/pooler/pooler.exs)\" && /app/bin/server"
       ]

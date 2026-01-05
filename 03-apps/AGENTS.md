@@ -12,33 +12,37 @@
 ## Folder Structure
 
 **Stack-Level Files**:
-- `docker-compose.yml` - Stack-level compose (n8n, flowise, open-webui, searxng, langfuse, clickhouse, mongodb, minio)
+- `docker-compose.yml` - Stack-level compose (n8n, flowise, open-webui, searxng, langfuse, clickhouse)
 - `AGENTS.md` - This file (stack-specific rules)
-- `data/` - Shared data directory for app data
-  - `n8n/backup/` - n8n workflow and credential backups
-  - `searxng/` - SearXNG configuration files
 
-**Service-Specific Folders** (Each service should have its own folder):
-- `n8n/` - n8n workflow automation
-  - (Future: `docs/`, `config/` if service-specific configs needed)
-- `flowise/` - Flowise AI agent builder
-  - (Future: `docs/`, `config/` if service-specific configs needed)
-- `open-webui/` - Open WebUI interface
-  - (Future: `docs/`, `config/` if service-specific configs needed)
-- `searxng/` - SearXNG search engine
-  - `settings-base.yml` - Template configuration
-  - `settings.yml` - Generated configuration (not committed)
-  - (Future: `docs/`, `config/` if needed)
-- `langfuse/` - Langfuse observability
-  - (Future: `docs/`, `config/` if service-specific configs needed)
-- `comfyui/` - ComfyUI (if moved from compute stack)
-  - (Note: Currently in 02-compute, may be duplicated here for app access)
+**Service-Specific Folders** (Standardized structure: `upstream/`, `data/`, `config/`, `scripts/`):
+- `n8n/`
+  - `data/`
+    - `home/` - n8n home directory (mounted)
+    - `backup/` - Runtime backups (empty initially)
+  - `config/`
+    - `import/` - Seed workflows and credentials (for import)
+    - `workflows/` - Workflow JSONs
+  - `scripts/` - Utility scripts (e.g., `n8n_pipe.py`)
+- `flowise/`
+  - `data/` - Flowise data directory
+  - `config/` - Config files and seed data (JSONs)
+- `open-webui/`
+  - `data/` - Backend data storage
+- `searxng/`
+  - `config/`
+    - `settings-base.yml` - Template configuration
+    - `settings.yml` - Generated configuration (not committed)
+- `langfuse/`
+  - `data/`, `config/`, `scripts/` - (Placeholders for future use)
+- `clickhouse/`
+  - `data/` - Database storage
+  - `logs/` - Server logs
 
 **Refactoring Notes**:
-- Most services are currently in stack-level compose (shared management)
-- Service-specific folders should be created even if empty (for consistency)
-- When services need independent management or have service-specific resources, move to service-specific compose files
-- Follow the pattern: create service folder → add service-specific compose → move configs/docs
+- **Strict Adherence**: All services strictly follow `service/{data,config,scripts}` pattern.
+- **Bind Mounts**: Named volumes have been replaced with relative bind mounts (e.g., `./n8n/data/home`).
+- **Config Management**: Configuration files reside in `config/` subdirectories.
 
 ## Services Overview
 
@@ -53,8 +57,6 @@
 ### Observability
 - **Langfuse** - LLM observability platform (web + worker)
 - **ClickHouse** - Time-series database (for Langfuse)
-- **MinIO** - S3-compatible storage (for Langfuse)
-- **MongoDB** - Document database (for various services)
 
 ## n8n
 
@@ -63,7 +65,7 @@
 - **Container**: `n8n` (main), `n8n-import` (one-time import)
 - **Port**: 5678 (internal)
 - **Database**: PostgreSQL (via Supabase, `supabase-db:5432`)
-- **Storage**: `n8n_storage` volume + `./data/n8n/backup` (bind mount)
+- **Storage**: `./n8n/data/home` (bind mount) + `./n8n/data/backup` (runtime) + `./n8n/config/import` (seeds)
 
 ### Configuration
 - **Database Type**: `DB_TYPE=postgresdb`
@@ -86,13 +88,15 @@ services:
   n8n:
     <<: *service-n8n
     volumes:
-      - n8n_storage:/home/node/.n8n
+      - ./n8n/data/home:/home/node/.n8n
+      - ./n8n/data/backup:/backup
       - ../../shared:/data/shared  # Shared filesystem access
 ```
 
 ### Key Files
 - `03-apps/docker-compose.yml` - Service definition
-- `03-apps/data/n8n/backup/` - Workflow and credential backups
+- `03-apps/n8n/config/import/` - Seed workflows and credentials
+- `03-apps/n8n/data/backup/` - Runtime backups
 
 ### Integration Points
 - **Ollama**: `http://ollama:11434` (for LLM nodes)
@@ -100,17 +104,51 @@ services:
 - **Qdrant**: `http://qdrant:6333` (for vector store nodes)
 - **Shared Files**: `/data/shared` (mounted from repo root `shared/`)
 
+### Ollama Configuration
+
+n8n connects to Ollama through credentials configured in the UI. Both services run on the `ai-network`, so they can communicate using container names.
+
+**To configure Ollama access in n8n:**
+
+1. **Access n8n UI**: Navigate to `http://localhost:5678` (or your configured hostname)
+2. **Go to Credentials**: Settings → Credentials → Add Credential
+3. **Select Ollama**: Choose "Ollama" from the credential types
+4. **Configure Base URL**:
+   - **Docker (default)**: `http://ollama:11434` (container name on ai-network)
+   - **Local Ollama (Mac)**: `http://host.docker.internal:11434`
+   - **Remote Ollama**: Your remote Ollama instance URL
+5. **API Key** (optional): Leave empty for local Ollama. Required only for authenticated proxy services.
+6. **Save**: Name the credential (e.g., "Ollama account") and save
+
+**Using Ollama in workflows:**
+
+- **Chat Models**: Use "Chat Ollama" node (`@n8n/n8n-nodes-langchain.lmChatOllama`)
+- **LLM Models**: Use "Ollama" node (`@n8n/n8n-nodes-langchain.lmOllama`)
+- **Embeddings**: Use "Embeddings Ollama" node (`@n8n/n8n-nodes-langchain.embeddingsOllama`)
+
+All nodes require selecting the Ollama credential you created. The credential stores the Base URL, so you only need to configure it once.
+
+**Available Models** (from Ollama service):
+- Chat: `qwen2.5:7b-instruct-q4_K_M`, `llama3.1:latest`, etc.
+- Embeddings: `nomic-embed-text:latest`
+
+**Troubleshooting**:
+- If connection fails, verify both `n8n` and `ollama` containers are running: `docker ps | grep -E "n8n|ollama"`
+- Check network connectivity: `docker exec n8n ping -c 2 ollama`
+- Verify Ollama is accessible: `docker exec n8n curl -f http://ollama:11434/api/tags`
+
 ## Flowise
 
 ### Architecture
 - **Image**: `flowiseai/flowise`
 - **Container**: `flowise`
 - **Port**: 3001 (internal)
-- **Storage**: `flowise` volume
+- **Storage**: `./flowise/data` (bind mount)
 
 ### Configuration
 - **Port**: `PORT=3001`
 - **Authentication**: `FLOWISE_USERNAME`, `FLOWISE_PASSWORD` (optional)
+- **Config**: Seed data in `./flowise/config/`
 
 ### Patterns
 - Uses `host.docker.internal` for host machine access
@@ -122,15 +160,24 @@ services:
 - **Image**: `ghcr.io/open-webui/open-webui:main`
 - **Container**: `open-webui`
 - **Port**: 8080 (internal)
-- **Storage**: `open-webui` volume
+- **Storage**: `./open-webui/data` (bind mount)
+- **Database**: PostgreSQL (via Supabase, `supabase-db:5432`)
 
 ### Configuration
+- **Database**: PostgreSQL for persistent conversation storage
+- **OAuth**: Google OAuth (SSO) authentication enabled
+  - Reuses `CLIENT_ID_GOOGLE_LOGIN` and `CLIENT_SECRET_GOOGLE_LOGIN` from `.env`
+  - Automatic account creation on first Google sign-in (if enabled)
+  - Proper logout via OpenID Provider URL
+- **Lambda Integration**: MCP server and RAG APIs via `LAMBDA_SERVER_URL`
 - Connects to Ollama at `http://ollama:11434`
 - Supports custom functions (e.g., n8n integration via webhook)
 
 ### Integration
 - **n8n Pipe**: Custom function to route requests to n8n workflows
 - **Ollama**: Direct connection for model inference
+- **Lambda Server**: MCP tools, conversation export, topic classification, RAG search
+- **PostgreSQL**: Persistent conversation and user data storage
 
 ## SearXNG
 
@@ -138,7 +185,7 @@ services:
 - **Image**: `docker.io/searxng/searxng:latest`
 - **Container**: `searxng`
 - **Port**: 8080 (internal)
-- **Config**: `./data/searxng/settings.yml` (generated from `settings-base.yml`)
+- **Config**: `./searxng/config/settings.yml` (mounted to `/etc/searxng`)
 
 ### Configuration
 - **Base URL**: `SEARXNG_BASE_URL` (derived from `SEARXNG_HOSTNAME`)
@@ -152,8 +199,8 @@ services:
 - **Capabilities**: `CHOWN`, `SETGID`, `SETUID` only (hardened after first run)
 
 ### Key Files
-- `searxng/settings-base.yml` - Template configuration
-- `searxng/settings.yml` - Generated configuration (with secret key)
+- `searxng/config/settings-base.yml` - Template configuration
+- `searxng/config/settings.yml` - Generated configuration (with secret key)
 
 ## Langfuse
 
@@ -168,13 +215,13 @@ services:
 ### Configuration
 - **Database**: PostgreSQL via Supabase (`supabase-db:5432`)
 - **ClickHouse**: For time-series data (`clickhouse:8123`)
-- **MinIO**: For event and media storage (`minio:9000`)
+- **MinIO**: For event and media storage (`minio:9000`) - See data layer
 - **Redis**: For job queue (`redis:6379`)
 - **Secrets**: `LANGFUSE_SALT`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`
 
 ### Patterns
 - Uses shared environment anchor (`&langfuse-worker-env`) for common config
-- S3-compatible storage via MinIO (separate from Supabase MinIO)
+- S3-compatible storage via MinIO (from data layer, separate from Supabase MinIO)
 - Event uploads to `langfuse` bucket with `events/` prefix
 - Media uploads to `langfuse` bucket with `media/` prefix
 
@@ -184,40 +231,12 @@ services:
 - **Image**: `clickhouse/clickhouse-server:latest`
 - **Container**: `clickhouse`
 - **Ports**: 8123 (HTTP), 9000 (native), 9009 (inter-server)
-- **Volumes**: `langfuse_clickhouse_data`, `langfuse_clickhouse_logs`
+- **Volumes**: `./clickhouse/data`, `./clickhouse/logs` (bind mounts)
 
 ### Configuration
 - **User**: `clickhouse`
 - **Password**: `CLICKHOUSE_PASSWORD` (from `.env`)
 - **User ID**: `101:101` (non-root)
-
-## MinIO (Langfuse)
-
-### Architecture
-- **Image**: `minio/minio`
-- **Container**: `minio`
-- **Ports**: 9000 (API), 9001 (Console)
-- **Volume**: `langfuse_minio_data`
-
-### Configuration
-- **Root User**: `minio`
-- **Root Password**: `MINIO_ROOT_PASSWORD` (from `.env`)
-- **Buckets**: `langfuse` (auto-created)
-
-**Note**: Separate from `supabase-minio` (different service, different credentials)
-
-## MongoDB
-
-### Architecture
-- **Image**: `mongo:latest`
-- **Container**: `mongodb`
-- **Port**: 27017 (internal)
-- **Volume**: `mongodb_data`
-
-### Configuration
-- **Root Username**: `MONGODB_ROOT_USERNAME` (default: `admin`)
-- **Root Password**: `MONGODB_ROOT_PASSWORD` (required)
-- **Database**: `MONGODB_DATABASE` (default: `admin`)
 
 ## Architecture Patterns
 
@@ -227,8 +246,9 @@ services:
 - **All Services**: Depend on `ai-network` (external network)
 
 ### Volume Strategy
-- **Named Volumes**: For application data (e.g., `n8n_storage`, `flowise`)
-- **Bind Mounts**: For configuration and backups (e.g., `./data/n8n/backup`)
+- **Bind Mounts**: All persistent storage uses local bind mounts relative to the service directory.
+  - Pattern: `./<service>/data[/<subdirectory>]`
+  - Advantage: Clear data ownership, easy backup/restore, git-ignore friendly.
 
 ### Environment Variable Patterns
 - **Service URLs**: Use container names for internal, hostnames for external
@@ -256,19 +276,7 @@ curl http://langfuse-web:3000/api/public/health
 
 # ClickHouse
 curl http://clickhouse:8123/ping
-
-# MinIO
-docker exec minio mc ready local
-
-# MongoDB
-docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 ```
-
-### Common Issues
-1. **n8n Database Connection**: Verify `supabase-db` is running and password doesn't contain `@`
-2. **SearXNG Restart Loop**: Run `chmod 755 searxng` to fix permissions
-3. **Langfuse Dependencies**: Ensure ClickHouse, MinIO, and Redis are healthy
-4. **MinIO vs Supabase MinIO**: Don't confuse credentials (different services)
 
 ## Do's and Don'ts
 
@@ -277,13 +285,11 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 - Share volumes between related services when needed
 - Use health checks for service dependencies
 - Generate secure secrets (use password generator script)
-- Separate MinIO instances (Langfuse vs Supabase)
 
 ### ❌ DON'T
 - Hardcode service URLs (use environment variables)
-- Mix MinIO credentials between services
 - Expose database ports directly (use reverse proxy)
-- Commit generated configuration files (e.g., `searxng/settings.yml`)
+- Commit generated configuration files (e.g., `searxng/config/settings.yml`)
 - Skip health checks in dependencies
 
 ## Domain Dictionary
@@ -294,12 +300,9 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 - **SearXNG**: Privacy-focused search engine aggregator
 - **Langfuse**: LLM observability and analytics platform
 - **ClickHouse**: Columnar database for analytics
-- **MinIO**: S3-compatible object storage
-- **MongoDB**: Document database
 
 ---
 
 **See Also**: 
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [start_services.py](../start_services.py) for SearXNG secret generation
-

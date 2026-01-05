@@ -1,0 +1,31 @@
+# Shared Volume Strategy Documentation
+# 
+# This file documents the volume strategy used across all stacks.
+# Follow these patterns for consistency:
+#
+# 1. NAMED VOLUMES (Docker-managed):
+#    - Use for: Databases, caches, persistent application data
+#    - Benefits: Better performance, Docker-managed lifecycle, easier backup
+#    - Pattern: service_data:/data
+#    - Examples: qdrant_storage, neo4j_data, mongodb_data, valkey-data
+#
+# 2. BIND MOUNTS (Host-accessible):
+#    - Use for: Configuration files, development data, logs
+#    - Benefits: Direct host access, easier debugging, version control
+#    - Pattern: ./service/config:/etc/service:ro (read-only for configs)
+#    - Examples: ./caddy/Caddyfile, ./n8n/data/home, ./comfyui/data
+#
+# 3. CURRENT IMPLEMENTATION:
+#    - Infrastructure: Named volumes (caddy-data, valkey-data) ✅
+#    - Data Layer: Named volumes for databases (qdrant_storage, neo4j_data, mongodb_data) ✅
+#    - Compute: Bind mounts for model storage (./ollama/data, ./comfyui/data) ✅
+#    - Apps: Bind mounts for application data (./n8n/data, ./flowise/data) ✅
+#
+# 4. RATIONALE:
+#    - Databases use named volumes for performance and Docker management
+#    - Model storage uses bind mounts for easy access and sharing
+#    - Application data uses bind mounts for development flexibility
+#    - Config files always use bind mounts (read-only where possible)
+#
+# This mixed approach is INTENTIONAL and follows best practices for each use case.
+

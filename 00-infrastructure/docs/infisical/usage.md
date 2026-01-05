@@ -1,56 +1,34 @@
-# Why and How We Use Infisical
+# Infisical Usage Guide
 
-This document explains the rationale behind using Infisical for secret management and how it integrates with this project.
+Day-to-day operations, secret management, and best practices for using Infisical with local-ai-packaged.
 
-## Why Infisical?
+## Table of Contents
 
-### Problem: Secret Management Challenges
+1. [How Secrets Are Synced](#how-secrets-are-synced)
+2. [Managing Secrets](#managing-secrets)
+3. [Using with start_services.py](#using-with-start_servicespy)
+4. [Migration Strategy](#migration-strategy)
+5. [Best Practices](#best-practices)
+6. [Quick Reference](#quick-reference)
 
-Managing secrets in a self-hosted environment presents several challenges:
+---
 
-1. **Security Risks:**
-   - `.env` files can be accidentally committed to version control
-   - Secrets stored in plain text are vulnerable to exposure
-   - No centralized way to rotate or audit secrets
+## How Secrets Are Synced
 
-2. **Operational Complexity:**
-   - Secrets scattered across multiple `.env` files
-   - Difficult to share secrets across team members securely
-   - No version history for secret changes
-   - Manual synchronization between environments
+### Integration Flow
 
-3. **Scalability Issues:**
-   - Adding new services requires updating multiple files
-   - No easy way to manage secrets for multiple environments
-   - Difficult to maintain consistency across deployments
-
-### Solution: Infisical
-
-Infisical is an open-source secret management platform that provides:
-
-✅ **Centralized Secret Storage** - All secrets in one secure location  
-✅ **Web UI** - Easy-to-use interface for managing secrets  
-✅ **CLI Integration** - Automated secret fetching for scripts  
-✅ **Environment Management** - Separate secrets for dev/prod  
-✅ **Audit Logging** - Track who accessed what secrets and when  
-✅ **Version History** - See changes to secrets over time  
-✅ **Team Collaboration** - Share secrets securely with team members  
-✅ **Self-Hosted** - Complete control over your secrets (no cloud dependency)
-
-## How We Use Infisical
-
-### Architecture
+Infisical integrates with the local-ai-packaged project through a simple export mechanism:
 
 ```
 ┌─────────────────┐
 │   Infisical UI  │  ← Manage secrets via web interface
-│   (Port 8010)   │
+│   (Port 8020)   │
 └────────┬────────┘
          │
          │ Stores secrets in
          ▼
 ┌─────────────────┐
-│   PostgreSQL     │  ← Infisical database (via Supabase)
+│   PostgreSQL     │  ← Infisical database
 └─────────────────┘
          │
          │ CLI fetches secrets
@@ -68,27 +46,15 @@ Infisical is an open-source secret management platform that provides:
 └─────────────────┘
 ```
 
-### Integration Flow
+### Automatic Sync (Default)
 
-1. **Secret Storage:**
-   - Secrets are stored in Infisical (via web UI or CLI)
-   - Organized by project and environment (development/production)
+When you start services, secrets are automatically exported from Infisical:
 
-2. **Secret Export:**
-   - `start_services.py` calls `export_infisical_secrets()`
-   - Infisical CLI exports secrets to `.env.infisical` file
-   - Format: Standard `.env` format (KEY=VALUE)
-
-3. **Service Startup:**
-   - Docker Compose reads `.env.infisical` as an env file
-   - Services receive secrets as environment variables
-   - Works seamlessly with existing Docker Compose setup
-
-4. **Fallback:**
-   - If Infisical is unavailable, falls back to `.env` file
-   - Ensures services can start even if Infisical is down
-
-### Code Integration
+```bash
+python start_services.py --profile cpu
+# Automatically exports secrets from Infisical
+# Services use .env.infisical file
+```
 
 The integration is handled in `start_services.py`:
 
@@ -108,29 +74,26 @@ def start_local_ai(profile=None, environment=None, use_infisical=False):
             # Docker Compose uses .env.infisical for secrets
 ```
 
-## Secret Synchronization
+### Manual Export
 
-### How Secrets Are Synced
+You can manually export secrets at any time:
 
-**From Infisical to Services:**
+```bash
+# Export to file
+infisical export --format=dotenv > .env.infisical
 
-1. **Automatic Sync (Default):**
-   ```bash
-   python start_services.py --profile cpu
-   # Automatically exports secrets from Infisical
-   # Services use .env.infisical file
-   ```
+# View secrets in terminal
+infisical export --format=dotenv
+```
 
-2. **Manual Export:**
-   ```bash
-   infisical export --format=dotenv > .env.infisical
-   ```
+### Fallback Behavior
 
-3. **CLI Access:**
-   ```bash
-   infisical secrets  # View secrets
-   infisical run -- your-command  # Run command with secrets
-   ```
+If Infisical is unavailable, services automatically fall back to `.env`:
+
+```bash
+# Disable Infisical explicitly
+python start_services.py --skip-infisical
+```
 
 ### What Gets Synced
 
@@ -148,12 +111,126 @@ def start_local_ai(profile=None, environment=None, use_infisical=False):
 - Non-sensitive configuration
 - Infisical configuration itself
 
-### Sync Workflow
+---
+
+## Managing Secrets
+
+### Adding Secrets
+
+#### Option A: Via UI (Recommended for First-Time)
+
+1. Go to Infisical UI (`http://localhost:8020` or `https://infisical.datacrew.space`)
+2. Select project: `local-ai-packaged`
+3. Select environment: `development`
+4. Click **"Add Secret"**
+5. Add secrets from your `.env` file:
+   - `POSTGRES_PASSWORD`
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_TUNNEL_TOKEN`
+   - `INFISICAL_POSTGRES_PASSWORD`
+   - `INFISICAL_ENCRYPTION_KEY`
+   - `INFISICAL_AUTH_SECRET`
+   - And other sensitive secrets
+
+#### Option B: Via CLI
+
+```bash
+# Add secrets one by one
+infisical secrets set POSTGRES_PASSWORD "your-password"
+infisical secrets set CLOUDFLARE_API_TOKEN "your-token"
+infisical secrets set CLOUDFLARE_TUNNEL_TOKEN "your-tunnel-token"
+
+# Add multiple secrets interactively
+infisical secrets set
+```
+
+### Viewing Secrets
+
+#### Via Web UI
+
+1. Navigate to `http://localhost:8020` or `https://infisical.datacrew.space`
+2. Select project and environment
+3. View all secrets in organized folders
+
+#### Via CLI
+
+```bash
+# List all secrets
+infisical secrets
+
+# Get specific secret
+infisical secrets get POSTGRES_PASSWORD
+
+# Export all secrets (formatted)
+infisical export --format=dotenv
+```
+
+### Updating Secrets
+
+#### Via Web UI
+
+1. Navigate to secret in Infisical UI
+2. Click **"Edit"**
+3. Update value
+4. Click **"Save"**
+5. Restart services to apply: `python start_services.py`
+
+#### Via CLI
+
+```bash
+# Update a secret
+infisical secrets set POSTGRES_PASSWORD "new-password"
+
+# Restart services to apply changes
+python start_services.py --profile cpu
+```
+
+### Deleting Secrets
+
+#### Via Web UI
+
+1. Navigate to secret in Infisical UI
+2. Click **"Delete"**
+3. Confirm deletion
+
+#### Via CLI
+
+```bash
+# Delete a secret
+infisical secrets delete POSTGRES_PASSWORD
+```
+
+---
+
+## Using with start_services.py
+
+### Basic Usage
+
+```bash
+# Start with Infisical (automatic secret export)
+python start_services.py --profile cpu
+
+# Start specific stack with Infisical
+python start_services.py --stack infrastructure --use-infisical
+
+# Start without Infisical (use .env file)
+python start_services.py --skip-infisical
+```
+
+### How It Works
+
+1. `start_services.py` checks if Infisical CLI is available
+2. If available, it runs `infisical export --format=dotenv > .env.infisical`
+3. Docker Compose uses `.env.infisical` as an additional env file
+4. Services receive secrets as environment variables
+5. If Infisical is unavailable, falls back to `.env` file
+
+### Workflow Examples
 
 **Initial Setup:**
 1. Create `.env` file with all secrets (one-time)
 2. Start Infisical: `python start_services.py`
-3. Access Infisical UI: `http://localhost:8010`
+3. Access Infisical UI: `http://localhost:8020`
 4. Migrate secrets from `.env` to Infisical (via UI or CLI)
 5. Remove secrets from `.env`, keep only non-sensitive config
 
@@ -167,36 +244,23 @@ def start_local_ai(profile=None, environment=None, use_infisical=False):
 2. Restart services: `python start_services.py`
 3. New secret value automatically used
 
-## Benefits in Practice
-
-### Security
-
-- **No secrets in version control** - `.env` files only contain non-sensitive config
-- **Encrypted storage** - Secrets encrypted at rest in PostgreSQL
-- **Access control** - Who can access which secrets
-- **Audit trail** - See who changed what and when
-
-### Operational Efficiency
-
-- **Single source of truth** - All secrets in one place
-- **Easy rotation** - Update once, all services get new value
-- **Environment separation** - Different secrets for dev/prod
-- **Team collaboration** - Share secrets securely
-
-### Developer Experience
-
-- **Web UI** - No need to edit `.env` files manually
-- **CLI integration** - Works with existing scripts
-- **Automatic sync** - No manual copying needed
-- **Fallback support** - Can still use `.env` if needed
+---
 
 ## Migration Strategy
 
 ### Phase 1: Hybrid Approach (Current)
 
-- Keep non-sensitive config in `.env`
-- Store sensitive secrets in Infisical
-- Services read from both (Infisical takes precedence)
+**Keep non-sensitive config in `.env`**
+- Hostnames, ports, feature flags
+- Non-sensitive configuration
+
+**Store sensitive secrets in Infisical**
+- Passwords, API keys, tokens
+- Encryption keys, credentials
+
+**Services read from both**
+- Infisical takes precedence
+- Falls back to `.env` if Infisical unavailable
 
 **Benefits:**
 - Gradual migration
@@ -205,119 +269,225 @@ def start_local_ai(profile=None, environment=None, use_infisical=False):
 
 ### Phase 2: Full Migration (Future)
 
-- All secrets in Infisical
-- `.env` only for non-sensitive configuration
-- Machine identities for automated access
+**All secrets in Infisical**
+- Complete centralized management
+- No secrets in `.env` file
+
+**`.env` only for non-sensitive configuration**
+- Hostnames, ports, URLs
+- Feature flags, debug settings
+
+**Machine identities for automated access**
+- CI/CD pipelines
+- Automated deployments
 
 **Benefits:**
 - Complete security
 - Centralized management
 - Better auditability
 
-## Usage Examples
-
-### Viewing Secrets
-
-**Via Web UI:**
-1. Navigate to `http://localhost:8010`
-2. Select project and environment
-3. View all secrets in organized folders
-
-**Via CLI:**
-```bash
-infisical secrets  # List all secrets
-infisical secrets get POSTGRES_PASSWORD  # Get specific secret
-```
-
-### Updating Secrets
-
-**Via Web UI:**
-1. Navigate to secret in Infisical UI
-2. Click "Edit"
-3. Update value
-4. Save
-
-**Via CLI:**
-```bash
-infisical secrets set POSTGRES_PASSWORD "new-password"
-```
-
-### Adding New Secrets
-
-**Via Web UI:**
-1. Click "Add Secret"
-2. Enter key and value
-3. Select folder (optional)
-4. Save
-
-**Via CLI:**
-```bash
-infisical secrets set NEW_API_KEY "value"
-```
-
-## Troubleshooting
-
-### Secrets Not Syncing
-
-**Check Infisical CLI:**
-```bash
-infisical --version  # Verify CLI installed
-infisical login      # Verify authentication
-infisical init       # Verify project configured
-```
-
-**Check Export:**
-```bash
-infisical export --format=dotenv > .env.test
-cat .env.test  # Verify secrets exported
-```
-
-**Check Service Logs:**
-```bash
-docker logs comfyui  # Check if service has secrets
-```
-
-### Infisical Not Starting
-
-**Check Dependencies:**
-- PostgreSQL must be running (via Supabase)
-- Redis must be running (via Supabase)
-- Check logs: `docker logs infisical`
-
-**Check Configuration:**
-- Verify `INFISICAL_ENCRYPTION_KEY` in `.env`
-- Verify `INFISICAL_AUTH_SECRET` in `.env`
-- Verify `INFISICAL_HOSTNAME` in `.env`
-
-### Fallback to .env
-
-If Infisical is unavailable, services automatically fall back to `.env`:
-
-```bash
-# Disable Infisical explicitly
-python start_services.py --skip-infisical
-```
+---
 
 ## Best Practices
 
-1. **Never commit secrets** - Use Infisical for all sensitive values
-2. **Use environment separation** - Different secrets for dev/prod
-3. **Rotate regularly** - Update secrets periodically
-4. **Use machine identities** - For automated access (CI/CD)
-5. **Audit access** - Review who accessed what secrets
-6. **Backup Infisical data** - Infisical data is in PostgreSQL (already backed up)
+### Security
+
+1. **Never commit secrets to git**
+   - Use Infisical for all sensitive values
+   - Keep `.env` file in `.gitignore`
+   - Never commit encryption keys or auth secrets
+
+2. **Rotate encryption keys periodically**
+   - Generate new keys and migrate data
+   - Update `.env` file with new keys
+   - Restart Infisical services
+
+3. **Use machine identities for production**
+   - Don't use personal logins for automated access
+   - Create machine identities with minimal required permissions
+   - Rotate machine identity credentials regularly
+
+4. **Limit permissions**
+   - Give machine identities only the access they need
+   - Use environment-specific access when possible
+   - Review and audit access regularly
+
+5. **Audit access**
+   - Use Infisical's audit logs to track secret access
+   - Review who accessed what secrets and when
+   - Set up alerts for suspicious activity
+
+6. **Backup Infisical data**
+   - Infisical data is stored in PostgreSQL (already backed up)
+   - Regularly backup the `infisical-db` volume
+   - Test restore procedures
+
+7. **Use HTTPS in production**
+   - Always use `https://` for production `INFISICAL_SITE_URL`
+   - Set `HTTPS_ENABLED=true` for production
+   - Google requires HTTPS for production OAuth redirects (except localhost)
+
+8. **Keep Infisical updated**
+   - Regularly update Infisical Docker image
+   - Check for security patches
+   - Review changelog for breaking changes
+
+### Operational
+
+1. **Use environment separation**
+   - Different secrets for dev/prod
+   - Never use production secrets in development
+   - Use separate projects or environments
+
+2. **Document secret purposes**
+   - Add comments/descriptions to secrets in Infisical UI
+   - Document which services use which secrets
+   - Keep a secret inventory
+
+3. **Regular secret rotation**
+   - Rotate secrets periodically
+   - Update secrets in Infisical (services automatically get new values)
+   - Remove old/unused secrets
+
+4. **Monitor secret usage**
+   - Check which secrets are actually being used
+   - Remove unused secrets
+   - Consolidate duplicate secrets
+
+5. **Team collaboration**
+   - Use Infisical's team features for collaboration
+   - Set appropriate permissions for team members
+   - Use folders to organize secrets
+
+### Developer Experience
+
+1. **Web UI for management**
+   - Use UI for adding/updating secrets
+   - Easier than editing `.env` files manually
+   - Visual organization with folders
+
+2. **CLI for automation**
+   - Use CLI in scripts and CI/CD
+   - Automated secret fetching
+   - Works with existing workflows
+
+3. **Automatic sync**
+   - No manual copying needed
+   - Secrets automatically exported on service start
+   - Fallback to `.env` if Infisical unavailable
+
+---
+
+## Quick Reference
+
+### Common CLI Commands
+
+```bash
+# Login
+infisical login --host=https://infisical.datacrew.space
+
+# Initialize project
+infisical init
+
+# List secrets
+infisical secrets
+
+# Get specific secret
+infisical secrets get POSTGRES_PASSWORD
+
+# Set secret
+infisical secrets set KEY "value"
+
+# Delete secret
+infisical secrets delete KEY
+
+# Export secrets
+infisical export --format=dotenv
+
+# Export to file
+infisical export --format=dotenv > .env.infisical
+
+# Run command with secrets
+infisical run -- your-command
+
+# Use with start_services.py
+python start_services.py --use-infisical
+```
+
+### Environment Variables Reference
+
+**Required for Infisical:**
+```bash
+INFISICAL_ENCRYPTION_KEY=<16-byte-hex-string>
+INFISICAL_AUTH_SECRET=<32-byte-base64-string>
+INFISICAL_HOSTNAME=:8020  # or infisical.datacrew.space
+INFISICAL_SITE_URL=http://localhost:8020  # or https://infisical.datacrew.space
+INFISICAL_HTTPS_ENABLED=false  # or true for production
+```
+
+**Database Configuration:**
+```bash
+INFISICAL_POSTGRES_HOST=infisical-db
+INFISICAL_POSTGRES_PORT=5432
+INFISICAL_POSTGRES_DATABASE=postgres
+INFISICAL_POSTGRES_USERNAME=postgres
+INFISICAL_POSTGRES_PASSWORD=<password>
+```
+
+**Optional - Google OAuth:**
+```bash
+GOOGLE_CLIENT_ID=<client-id>
+GOOGLE_CLIENT_SECRET=<client-secret>
+```
+
+**Optional - SMTP:**
+```bash
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USERNAME=<username>
+SMTP_PASSWORD=<password>
+SMTP_FROM_ADDRESS=<email>
+SMTP_FROM_NAME=Infisical
+```
+
+### Service URLs
+
+- **Local UI**: `http://localhost:8020`
+- **Production UI**: `https://infisical.datacrew.space`
+- **Admin Signup**: `/admin/signup`
+- **Health Check**: `/api/health`
+
+### Container Names
+
+- `infisical-backend` - Main Infisical application
+- `infisical-db` - PostgreSQL database
+- `infisical-redis` - Redis cache
+
+### Useful Commands
+
+```bash
+# Check Infisical services
+docker ps | grep infisical
+
+# View Infisical logs
+docker logs infisical-backend --tail 50
+
+# Check health
+docker exec infisical-backend wget -qO- http://localhost:8080/api/health
+
+# Restart Infisical
+docker restart infisical-backend
+
+# Export secrets for debugging
+infisical export --format=dotenv | grep -i postgres
+```
+
+---
 
 ## Related Documentation
 
-- [Infisical Setup Guide](./setup.md) - Initial setup and configuration
-- [Infisical Conflicts Guide](./conflicts.md) - Resolving Docker Compose conflicts
-- [Environment Setup](../../utils/setup/env/README.md) - Setting up `.env` file
-- [Main README](../../README.md) - Project overview
-- [Infrastructure Documentation](../../00-infrastructure/docs/README.md) - Infrastructure stack overview
-
-## References
-
-- [Infisical Documentation](https://infisical.com/docs)
+- [Setup Guide](./setup.md) - Initial setup and configuration
+- [Design Documentation](./design.md) - Architecture and design decisions
+- [Troubleshooting Guide](./troubleshooting_configuration.md) - Comprehensive troubleshooting
+- [Infisical Official Documentation](https://infisical.com/docs)
 - [Infisical GitHub](https://github.com/Infisical/infisical)
-- [Secret Management Best Practices](https://infisical.com/docs/documentation/platform/secret-management)
-

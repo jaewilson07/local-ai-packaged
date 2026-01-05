@@ -212,7 +212,7 @@ Environment configuration files and scripts are in the [`env/`](./env/) director
 Generate passwords for your `.env` file:
 
 ```bash
-python setup/env/generate_passwords.py
+python setup/generate-env-passwords.py
 ```
 
 This will generate XKCD-style passphrases and hex strings for all required secrets.

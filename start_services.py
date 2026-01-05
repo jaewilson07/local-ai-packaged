@@ -3,12 +3,14 @@
 start_services.py
 
 This script manages services using the stack-based architecture:
-- 00-infrastructure: cloudflared, caddy, infisical, redis
-- 01-data: supabase, qdrant, neo4j
+- 00-infrastructure: cloudflared, caddy, redis
+- 00-infrastructure/infisical: infisical-backend, infisical-db, infisical-redis
+- 01-data: supabase, qdrant, neo4j, mongodb, minio
 - 02-compute: ollama, comfyui
-- 03-apps: n8n, flowise, open-webui, searxng, langfuse, clickhouse, mongodb, minio
+- 03-apps: n8n, flowise, open-webui, searxng, langfuse, clickhouse
+- 04-lambda: FastAPI server with MCP and REST APIs
 
-All stacks use the same Docker Compose project name ("localai") and external network ("ai-network").
+Each stack uses its own Docker Compose project name but shares the external network ("ai-network").
 """
 
 import os
@@ -20,26 +22,44 @@ import platform
 import sys
 import json
 import base64
+import re
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 # Define stack-to-file mappings
 STACK_FILES = {
     "infrastructure": ["00-infrastructure/docker-compose.yml"],
+    "infisical": ["00-infrastructure/infisical/docker-compose.yml"],
     "data": [
         "01-data/supabase/docker-compose.yml",
         "01-data/qdrant/docker-compose.yml",
         "01-data/neo4j/docker-compose.yml",
-        "01-data/mongodb/docker-compose.yml"
+        "01-data/mongodb/docker-compose.yml",
+        "01-data/minio/docker-compose.yml"
     ],
     "compute": ["02-compute/docker-compose.yml"],
-    "apps": ["03-apps/docker-compose.yml"]
+    "apps": ["03-apps/docker-compose.yml"],
+    "lambda": ["04-lambda/docker-compose.yml"]
 }
 
 # Define stack directory mappings
 STACK_DIRS = {
     "infrastructure": "00-infrastructure",
+    "infisical": "00-infrastructure/infisical",
     "data": "01-data",
     "compute": "02-compute",
-    "apps": "03-apps"
+    "apps": "03-apps",
+    "lambda": "04-lambda"
+}
+
+# Define stack-to-project name mappings
+STACK_PROJECTS = {
+    "infrastructure": "localai-infra",
+    "infisical": "localai-infisical",
+    "data": "localai-data",
+    "compute": "localai-compute",
+    "apps": "localai-apps",
+    "lambda": "localai-lambda"
 }
 
 
@@ -60,6 +80,33 @@ def run_command(cmd, cwd=None, check=True):
     if result.stdout:
         print(result.stdout)
     return result
+
+
+def ensure_network_exists(network_name="ai-network"):
+    """Ensure the external Docker network exists, creating it if necessary."""
+    print(f"Checking for network '{network_name}'...")
+    
+    # Check if network exists
+    result = subprocess.run(
+        ["docker", "network", "inspect", network_name],
+        capture_output=True,
+        text=True,
+        check=False
+    )
+    
+    if result.returncode == 0:
+        print(f"✓ Network '{network_name}' already exists")
+        return True
+    
+    # Network doesn't exist, create it
+    print(f"Network '{network_name}' not found. Creating it...")
+    try:
+        run_command(["docker", "network", "create", network_name])
+        print(f"✓ Network '{network_name}' created successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to create network '{network_name}': {e}")
+        return False
 
 
 def load_env_file(env_path=".env"):
@@ -173,28 +220,28 @@ def authenticate_dhi_registry(skip_auth=False):
 
 
 def clone_supabase_repo():
-    """Clone the Supabase repository using sparse checkout if not already present."""
-    if not os.path.exists("supabase"):
-        print("Cloning the Supabase repository...")
-        run_command(
-            [
-                "git",
-                "clone",
-                "--filter=blob:none",
-                "--no-checkout",
-                "https://github.com/supabase/supabase.git",
-            ]
-        )
-        os.chdir("supabase")
-        run_command(["git", "sparse-checkout", "init", "--cone"])
-        run_command(["git", "sparse-checkout", "set", "docker"])
-        run_command(["git", "checkout", "master"])
-        os.chdir("..")
-    else:
-        print("Supabase repository already exists, updating...")
-        os.chdir("supabase")
-        run_command(["git", "pull"])
-        os.chdir("..")
+    """Initialize and update the Supabase submodule."""
+    target_dir = os.path.join("01-data", "supabase", "upstream")
+    
+    print(f"Initializing and updating Supabase submodule at {target_dir}...")
+    
+    # Initialize submodules if needed
+    run_command(["git", "submodule", "update", "--init", "--recursive", target_dir], check=False)
+    
+    # Update the submodule to latest
+    run_command(["git", "submodule", "update", "--remote", target_dir], check=False)
+    
+    # Configure sparse checkout if not already configured
+    sparse_checkout_file = os.path.join(target_dir, ".git", "info", "sparse-checkout")
+    if not os.path.exists(sparse_checkout_file):
+        print(f"Configuring sparse checkout for Supabase submodule...")
+        cwd = os.getcwd()
+        os.chdir(target_dir)
+        try:
+            run_command(["git", "sparse-checkout", "init", "--cone"], check=False)
+            run_command(["git", "sparse-checkout", "set", "docker"], check=False)
+        finally:
+            os.chdir(cwd)
 
 
 def get_compose_files(stack, environment="private"):
@@ -204,7 +251,7 @@ def get_compose_files(stack, environment="private"):
     # Determine which stacks to include
     target_stacks = []
     if stack == "all":
-        target_stacks = ["infrastructure", "data", "compute", "apps"]
+        target_stacks = ["infrastructure", "infisical", "data", "compute", "apps", "lambda"]
     elif stack in STACK_FILES:
         target_stacks = [stack]
     else:
@@ -225,31 +272,36 @@ def get_compose_files(stack, environment="private"):
     return [f for f in files if os.path.exists(f)]
 
 
+def get_stack_project_name(stack):
+    """Get the Docker Compose project name for a specific stack."""
+    if stack == "all":
+        # For "all", we'll handle each stack separately
+        return None
+    return STACK_PROJECTS.get(stack, "localai")
+
+
 def stop_services(stack="all", environment="private"):
     """Stop services for the specified stack."""
     print(f"Stopping services for stack: {stack}...")
     
-    compose_files = get_compose_files(stack, environment)
-    
-    cmd = ["docker", "compose", "-p", "localai"]
-    for file in compose_files:
-        cmd.extend(["-f", file])
-    cmd.append("down")
-    
-    try:
-        run_command(cmd)
-    except subprocess.CalledProcessError:
-        print(f"Warning: Could not stop services for stack {stack} via compose.")
+    if stack == "all":
+        # Stop each stack individually with its own project name
+        for stack_name in STACK_PROJECTS.keys():
+            print(f"Stopping {stack_name} stack...")
+            stop_single_stack(stack_name, environment)
+    else:
+        stop_single_stack(stack, environment)
     
     # Only perform aggressive container cleanup if stopping ALL services
     if stack == "all":
         print("Performing aggressive cleanup of known containers...")
         container_names = [
-            "redis", "infisical", "caddy", "cloudflared",
+            "redis", "caddy", "cloudflared",
             "n8n", "flowise", "open-webui", "searxng",
             "qdrant", "neo4j", "mongodb", "minio",
             "langfuse-worker", "langfuse-web", "clickhouse",
             "ollama", "comfyui", "ollama-pull-llama", "comfyui-provision",
+            "lambda-server", "infisical-backend", "infisical-db", "infisical-redis",
         ]
         
         for container_name in container_names:
@@ -270,18 +322,53 @@ def stop_services(stack="all", environment="private"):
                 pass
 
 
+def stop_single_stack(stack, environment="private"):
+    """Stop a single stack using its project name."""
+    if stack not in STACK_FILES:
+        print(f"Warning: Unknown stack '{stack}'")
+        return
+    
+    compose_files = get_compose_files(stack, environment)
+    if not compose_files:
+        print(f"No compose files found for stack '{stack}'")
+        return
+    
+    project_name = get_stack_project_name(stack)
+    cmd = ["docker", "compose", "-p", project_name]
+    for file in compose_files:
+        cmd.extend(["-f", file])
+    cmd.append("down")
+    
+    try:
+        run_command(cmd)
+    except subprocess.CalledProcessError:
+        print(f"Warning: Could not stop services for stack {stack} via compose.")
+
+
 def pull_docker_images(profile=None, environment=None, stack="all"):
     """Pull latest versions of Docker images."""
     print(f"Pulling latest Docker images for stack: {stack}...")
 
-    compose_files = get_compose_files(stack, environment)
-    
-    # Pull Supabase images explicitly if data stack is involved (backward compatibility)
-    # The get_compose_files already includes supabase docker-compose, so this might be redundant
-    # but the original script had a specific separate pull for it. 
-    # We will rely on get_compose_files to include supabase files if stack is 'all' or 'data'.
+    if stack == "all":
+        # Pull images for each stack individually
+        for stack_name in STACK_PROJECTS.keys():
+            print(f"Pulling images for {stack_name} stack...")
+            pull_stack_images(stack_name, profile, environment)
+    else:
+        pull_stack_images(stack, profile, environment)
 
-    cmd = ["docker", "compose", "-p", "localai"]
+    print("Image pull complete!")
+
+
+def pull_stack_images(stack, profile=None, environment=None):
+    """Pull images for a single stack."""
+    compose_files = get_compose_files(stack, environment)
+    if not compose_files:
+        print(f"No compose files found for stack '{stack}'")
+        return
+    
+    project_name = get_stack_project_name(stack)
+    cmd = ["docker", "compose", "-p", project_name]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
     for file in compose_files:
@@ -291,24 +378,46 @@ def pull_docker_images(profile=None, environment=None, stack="all"):
     try:
         run_command(cmd)
     except subprocess.CalledProcessError:
-        print("Warning: Some images may not have been updated.")
-
-    print("Image pull complete!")
+        print(f"Warning: Some images may not have been updated for stack '{stack}'.")
 
 
-def manage_services(action="start", stack="all", profile=None, environment=None, use_infisical=False):
+def manage_services(action="start", stack="all", profile=None, environment=None):
     """Start or stop services using stack-based architecture."""
     
     if action == "stop":
         stop_services(stack, environment)
         return True
 
+    # Ensure network exists before starting any services
+    if not ensure_network_exists("ai-network"):
+        print("❌ Failed to ensure network exists. Cannot start services.")
+        return False
+
+    if stack == "all":
+        # Start each stack individually with its own project name
+        success = True
+        for stack_name in STACK_PROJECTS.keys():
+            print(f"\n=== Starting {stack_name} stack ===")
+            if not start_single_stack(stack_name, profile, environment):
+                success = False
+        return success
+    else:
+        return start_single_stack(stack, profile, environment)
+
+
+def start_single_stack(stack, profile=None, environment=None):
+    """Start a single stack using its project name."""
     print(f"Starting services for stack: {stack}...")
 
     compose_files = get_compose_files(stack, environment)
+    if not compose_files:
+        print(f"No compose files found for stack '{stack}'")
+        return False
+
+    project_name = get_stack_project_name(stack)
 
     # Build docker compose command
-    cmd = ["docker", "compose", "-p", "localai"]
+    cmd = ["docker", "compose", "-p", project_name]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
     for file in compose_files:
@@ -319,27 +428,13 @@ def manage_services(action="start", stack="all", profile=None, environment=None,
     if os.path.exists(env_file_path):
         cmd.extend(["--env-file", env_file_path])
 
-    # If using Infisical, authenticate and try to export secrets
-    if use_infisical:
-        # Ensure Infisical is authenticated before trying to export
-        if ensure_infisical_authenticated():
-            infisical_env_file = export_infisical_secrets()
-            if infisical_env_file:
-                # Add Infisical env file after .env (Infisical values will override .env)
-                cmd.extend(["--env-file", infisical_env_file])
-                print(f"Using Infisical secrets from {infisical_env_file}")
-            else:
-                print("Falling back to .env file for secrets")
-        else:
-            print("Infisical authentication failed. Falling back to .env file for secrets.")
-
     cmd.extend(["up", "-d"])
 
     try:
         run_command(cmd)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Error starting services: {e}")
+        print(f"\n❌ Error starting services for stack '{stack}': {e}")
         if e.stdout:
             print("STDOUT:", e.stdout)
         if e.stderr:
@@ -463,222 +558,13 @@ def validate_gpu_profile(profile):
     return True
 
 
-def wait_for_infisical(max_retries=30, retry_interval=2):
-    """Wait for Infisical to become ready by checking its health endpoint."""
-    print("Waiting for Infisical to become ready...")
-
-    for i in range(max_retries):
-        try:
-            # Try to check health endpoint via docker exec using wget
-            result = subprocess.run(
-                [
-                    "docker",
-                    "exec",
-                    "infisical-backend",
-                    "wget",
-                    "--no-verbose",
-                    "--tries=1",
-                    "--spider",
-                    "http://localhost:8080/api/health",
-                ],
-                capture_output=True,
-                timeout=5,
-                check=False,
-            )
-            if result.returncode == 0:
-                print("Infisical is ready!")
-                return True
-        except (
-            subprocess.TimeoutExpired,
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-        ):
-            pass
-        except Exception as e:
-            print(f"Error checking Infisical health: {e}")
-
-        if i < max_retries - 1:
-            print(f"Infisical not ready yet, waiting {retry_interval}s... ({i+1}/{max_retries})")
-            time.sleep(retry_interval)
-
-    print("Warning: Infisical did not become ready within the expected time.")
-    print("You may need to check the Infisical container logs manually.")
-    return False
-
-def check_infisical_authenticated():
-    """Check if Infisical CLI is authenticated."""
-    try:
-        # Try to run a command that requires authentication
-        result = subprocess.run(
-            ["infisical", "secrets"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        # If it succeeds or returns a project-related error (not auth error), we're authenticated
-        if result.returncode == 0:
-            return True
-        # Check if error is about authentication/login
-        error_output = (result.stderr or result.stdout or "").lower()
-        if "authenticate" in error_output or "login" in error_output:
-            return False
-        # If it's a project/init error, we're authenticated but not initialized
-        if "init" in error_output or "project" in error_output:
-            return True  # Authenticated, just needs init
-        # Unknown error, assume not authenticated
-        return False
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-def authenticate_infisical():
-    """Authenticate with Infisical CLI.
-    
-    Tries machine identity first (if env vars set), then interactive login.
-    Returns True if authenticated, False otherwise.
-    """
-    print("Authenticating with Infisical...")
-    
-    # Check if already authenticated
-    if check_infisical_authenticated():
-        print("Already authenticated with Infisical.")
-        return True
-    
-    # Try machine identity authentication first (for automation)
-    machine_client_id = os.environ.get("INFISICAL_MACHINE_CLIENT_ID")
-    machine_client_secret = os.environ.get("INFISICAL_MACHINE_CLIENT_SECRET")
-    
-    if machine_client_id and machine_client_secret:
-        print("Attempting machine identity authentication...")
-        try:
-            cmd = [
-                "infisical",
-                "login",
-                "--method=universal-auth",
-                f"--client-id={machine_client_id}",
-                f"--client-secret={machine_client_secret}",
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
-            if result.returncode == 0:
-                print("Successfully authenticated with machine identity.")
-                return True
-            else:
-                print(f"Machine identity authentication failed: {result.stderr}")
-        except Exception as e:
-            print(f"Error during machine identity authentication: {e}")
-    
-    # Fall back to interactive login
-    print("Attempting interactive login...")
-    print("This will open your browser for authentication.")
-    try:
-        # Check if we're in an interactive terminal
-        if not sys.stdin.isatty():
-            print("Warning: Not in an interactive terminal. Cannot perform interactive login.")
-            print("Set INFISICAL_MACHINE_CLIENT_ID and INFISICAL_MACHINE_CLIENT_SECRET for automated login.")
-            return False
-        
-        input("Press Enter to open browser for Infisical login...")
-        cmd = ["infisical", "login"]
-        result = subprocess.run(cmd, timeout=120, check=False)  # Allow 2 minutes for browser login
-        if result.returncode == 0:
-            print("Successfully authenticated with Infisical.")
-            return True
-        else:
-            print("Interactive login failed or was cancelled.")
-            return False
-    except KeyboardInterrupt:
-        print("\nLogin cancelled by user.")
-        return False
-    except Exception as e:
-        print(f"Error during interactive login: {e}")
-        return False
-
-
-def ensure_infisical_authenticated():
-    """Ensure Infisical is authenticated, attempting login if needed."""
-    if check_infisical_authenticated():
-        return True
-    
-    print("Infisical CLI is not authenticated.")
-    if authenticate_infisical():
-        return True
-    else:
-        print("Warning: Could not authenticate with Infisical.")
-        print("You can authenticate manually by running: infisical login")
-        print("Or set INFISICAL_MACHINE_CLIENT_ID and INFISICAL_MACHINE_CLIENT_SECRET for automated login.")
-        return False
-
-
-def export_infisical_secrets(env_file_path=".env.infisical"):
-    """Export secrets from Infisical to a temporary .env file."""
-    print("Exporting secrets from Infisical...")
-
-    # Check if Infisical CLI is available
-    try:
-        result = subprocess.run(
-            ["infisical", "--version"], capture_output=True, timeout=5, check=False
-        )
-        if result.returncode != 0:
-            print("Warning: Infisical CLI not found or not working.")
-            print("Skipping Infisical secret export. Services will use .env file only.")
-            return None
-    except FileNotFoundError:
-        print("Warning: Infisical CLI not installed.")
-        print("Install it from: https://infisical.com/docs/cli/overview")
-        print("Skipping Infisical secret export. Services will use .env file only.")
-        return None
-    except Exception as e:
-        print(f"Warning: Error checking Infisical CLI: {e}")
-        print("Skipping Infisical secret export. Services will use .env file only.")
-        return None
-
-    # Try to export secrets
-    try:
-        cmd = [
-            "infisical",
-            "export",
-            "--format=dotenv",
-            f"--output-file={env_file_path}",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-        if result.returncode == 0:
-            if os.path.exists(env_file_path) and os.path.getsize(env_file_path) > 0:
-                print(f"Successfully exported Infisical secrets to {env_file_path}")
-                return env_file_path
-            else:
-                print("Warning: Infisical export completed but file is empty or missing.")
-                print("Make sure you're authenticated and have secrets configured in Infisical.")
-                print("Falling back to .env file for secrets.")
-                return None
-        else:
-            # Check for authentication errors
-            error_output = (result.stderr or result.stdout or "").lower()
-            if "authenticate" in error_output or "login" in error_output or "init" in error_output or "project" in error_output:
-                print("Info: Infisical CLI is not authenticated or not initialized.")
-                print("This is normal if you haven't set up Infisical yet.")
-                print("To use Infisical for secret management:")
-                print("  1. Run: infisical login")
-                print("  2. Run: infisical init (to connect to a project)")
-                print("  3. Or pass --projectId flag when exporting")
-                print("For now, services will use .env file for secrets.")
-            else:
-                print(f"Warning: Infisical export failed: {result.stderr}")
-            print("Continuing with .env file for secrets...")
-            return None
-    except Exception as e:
-        print(f"Warning: Error exporting Infisical secrets: {e}")
-        print("Skipping Infisical secret export. Services will use .env file only.")
-        return None
-
 def generate_searxng_secret_key():
     """Generate a secret key for SearXNG based on the current platform."""
     print("Checking SearXNG settings...")
 
-    # Define paths for SearXNG settings files
-    settings_path = os.path.join("searxng", "settings.yml")
-    settings_base_path = os.path.join("searxng", "settings-base.yml")
+    # Define paths for SearXNG settings files (in 03-apps/searxng/config/)
+    settings_path = os.path.join("03-apps", "searxng", "config", "settings.yml")
+    settings_base_path = os.path.join("03-apps", "searxng", "config", "settings-base.yml")
 
     # Check if settings-base.yml exists
     if not os.path.exists(settings_base_path):
@@ -712,7 +598,7 @@ def generate_searxng_secret_key():
                 "$randomBytes = New-Object byte[] 32; "
                 + "(New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($randomBytes); "
                 + '$secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ }); '
-                + "(Get-Content searxng/settings.yml) -replace 'ultrasecretkey', $secretKey | Set-Content searxng/settings.yml",
+                + f"(Get-Content {settings_path}) -replace 'ultrasecretkey', $secretKey | Set-Content {settings_path}",
             ]
             subprocess.run(ps_command, check=True)
 
@@ -743,9 +629,9 @@ def generate_searxng_secret_key():
     except Exception as e:
         print(f"Error generating SearXNG secret key: {e}")
         print("You may need to manually generate the secret key using the commands:")
-        print('  - Linux: sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" searxng/settings.yml')
+        print(f'  - Linux: sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" {settings_path}')
         print(
-            "  - macOS: sed -i '' \"s|ultrasecretkey|$(openssl rand -hex 32)|g\" searxng/settings.yml"
+            f"  - macOS: sed -i '' \"s|ultrasecretkey|$(openssl rand -hex 32)|g\" {settings_path}"
         )
         print("  - Windows (PowerShell):")
         print("    $randomBytes = New-Object byte[] 32")
@@ -754,8 +640,268 @@ def generate_searxng_secret_key():
         )
         print('    $secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ })')
         print(
-            "    (Get-Content searxng/settings.yml) -replace 'ultrasecretkey', $secretKey | Set-Content searxng/settings.yml"
+            f"    (Get-Content {settings_path}) -replace 'ultrasecretkey', $secretKey | Set-Content {settings_path}"
         )
+
+
+# Patterns for variables that should be synced from Infisical (secrets)
+SECRET_PATTERNS = [
+    r".*_PASSWORD$",  # All passwords
+    r".*_SECRET$",  # All secrets
+    r".*_KEY$",  # All keys (encryption keys, etc.)
+    r".*_TOKEN$",  # All tokens
+    r".*_API_KEY$",  # API keys
+    r".*_CLIENT_ID$",  # OAuth client IDs
+    r".*_CLIENT_SECRET$",  # OAuth client secrets
+    r"^DOCKER_HUB_USERNAME$",  # Docker Hub username
+    r"^DOCKER_HUB_PASSWORD$",  # Docker Hub password
+    r"^DOCKER_HUB_TOKEN$",  # Docker Hub token
+    r"^SMTP_.*$",  # SMTP credentials
+]
+
+# Patterns for variables that should NOT be synced from Infisical
+NON_SECRET_PATTERNS = [
+    r".*_HOSTNAME$",  # Hostnames (N8N_HOSTNAME, etc.)
+    r".*_PORT$",  # Port numbers
+    r".*_URL$",  # URLs (SITE_URL, etc.)
+    r".*_SITE_URL$",  # Site URLs
+    r"^INFISICAL_HOSTNAME$",  # Infisical hostname config
+    r"^INFISICAL_SITE_URL$",  # Infisical site URL config
+    r"^INFISICAL_HTTPS_ENABLED$",  # Infisical HTTPS setting
+    r"^INFISICAL_POSTGRES_HOST$",  # Infisical DB host (non-secret)
+    r"^INFISICAL_POSTGRES_PORT$",  # Infisical DB port (non-secret)
+    r"^INFISICAL_POSTGRES_DATABASE$",  # Infisical DB name (non-secret)
+    r"^INFISICAL_POSTGRES_USERNAME$",  # Infisical DB user (non-secret)
+]
+
+
+def is_secret_key(key: str) -> bool:
+    """Check if a key should be treated as a secret."""
+    # Check exclusion patterns first
+    for pattern in NON_SECRET_PATTERNS:
+        if re.match(pattern, key, re.IGNORECASE):
+            return False
+    
+    # Check inclusion patterns
+    for pattern in SECRET_PATTERNS:
+        if re.match(pattern, key, re.IGNORECASE):
+            return True
+    
+    return False
+
+
+def check_infisical_cli() -> bool:
+    """Check if Infisical CLI is installed and available."""
+    try:
+        result = subprocess.run(
+            ["infisical", "--version"],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+    except Exception:
+        return False
+
+
+def check_infisical_auth() -> bool:
+    """Check if Infisical CLI is authenticated."""
+    try:
+        result = subprocess.run(
+            ["infisical", "secrets"],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        # If authenticated, this should either succeed or show a project error
+        # If not authenticated, it will show auth error
+        output = (result.stdout or result.stderr or "").lower()
+        if "authenticate" in output or "login" in output:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def get_infisical_secrets() -> Dict[str, str]:
+    """
+    Get all secrets from Infisical.
+    
+    Returns:
+        Dictionary of secret key-value pairs
+    """
+    secrets_dict = {}
+    
+    try:
+        # Export secrets from Infisical
+        result = subprocess.run(
+            ["infisical", "export", "--format=dotenv"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        
+        if result.returncode == 0 and result.stdout:
+            # Parse the dotenv format output
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes if present
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]
+                    elif value.startswith("'") and value.endswith("'"):
+                        value = value[1:-1]
+                    secrets_dict[key] = value
+        
+    except Exception as e:
+        print(f"Warning: Could not fetch secrets from Infisical: {e}")
+        return {}
+    
+    return secrets_dict
+
+
+def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
+    """
+    Sync secrets from Infisical directly to .env file.
+    Preserves non-secret configuration like hostnames, ports, and URLs.
+    
+    Args:
+        env_path: Path to .env file (default: ".env")
+        quiet: If True, suppress output messages
+    
+    Returns:
+        True if sync was successful or skipped, False on error
+    """
+    # Check if Infisical CLI is available
+    if not check_infisical_cli():
+        if not quiet:
+            print("Infisical CLI not found - skipping secret sync")
+        return True  # Not an error, just skip
+    
+    # Check if authenticated
+    if not check_infisical_auth():
+        if not quiet:
+            print("Infisical CLI not authenticated - skipping secret sync")
+            print("  To authenticate: infisical login")
+        return True  # Not an error, just skip
+    
+    # Get secrets from Infisical
+    infisical_secrets = get_infisical_secrets()
+    if not infisical_secrets:
+        if not quiet:
+            print("No secrets found in Infisical - skipping sync")
+        return True  # Not an error, just skip
+    
+    # Filter secrets (only sync secret keys, not config)
+    secrets_to_sync = {}
+    for key, value in infisical_secrets.items():
+        if is_secret_key(key):
+            secrets_to_sync[key] = value
+    
+    if not secrets_to_sync:
+        if not quiet:
+            print("No secrets to sync from Infisical")
+        return True
+    
+    # Read existing .env file
+    env_file_path = Path(env_path)
+    if not env_file_path.exists():
+        if not quiet:
+            print(f"Warning: .env file not found at {env_path} - cannot sync")
+        return False
+    
+    # Parse .env file
+    env_vars = {}
+    env_lines = []
+    
+    with open(env_file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            env_lines.append(line)
+            stripped = line.strip()
+            
+            # Skip empty lines and comments
+            if not stripped or stripped.startswith("#"):
+                continue
+            
+            # Parse KEY=VALUE
+            if "=" not in stripped:
+                continue
+            
+            key, value = stripped.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            
+            # Remove quotes if present
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            elif value.startswith("'") and value.endswith("'"):
+                value = value[1:-1]
+            
+            if key:
+                env_vars[key] = value
+    
+    # Update .env file with Infisical secrets
+    updated_count = 0
+    added_count = 0
+    processed_keys = set()
+    new_lines = []
+    
+    for line in env_lines:
+        stripped = line.strip()
+        
+        # Preserve comments and empty lines
+        if not stripped or stripped.startswith("#"):
+            new_lines.append(line)
+            continue
+        
+        # Process KEY=VALUE lines
+        if "=" in stripped:
+            key, value = stripped.split("=", 1)
+            key = key.strip()
+            processed_keys.add(key)
+            
+            # Update if this is a secret from Infisical
+            if key in secrets_to_sync:
+                new_lines.append(f"{key}={secrets_to_sync[key]}\n")
+                updated_count += 1
+                if not quiet:
+                    print(f"  Updated {key} from Infisical")
+            else:
+                # Keep original line
+                new_lines.append(line)
+        else:
+            new_lines.append(line)
+    
+    # Add new secrets at the end
+    for key, value in secrets_to_sync.items():
+        if key not in processed_keys:
+            new_lines.append(f"{key}={value}\n")
+            added_count += 1
+            if not quiet:
+                print(f"  Added {key} from Infisical")
+    
+    # Write updated .env file
+    try:
+        with open(env_file_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+        
+        if not quiet and (updated_count > 0 or added_count > 0):
+            print(f"✓ Synced {updated_count + added_count} secret(s) from Infisical to .env")
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error: Failed to write .env file: {e}")
+        return False
 
 
 def check_and_fix_docker_compose_for_searxng():
@@ -873,7 +1019,7 @@ Examples:
     )
     parser.add_argument(
         "--stack",
-        choices=["all", "infrastructure", "data", "compute", "apps"],
+        choices=["all", "infrastructure", "infisical", "data", "compute", "apps", "lambda"],
         default="all",
         help="Target stack to operate on (default: all)",
     )
@@ -890,17 +1036,6 @@ Examples:
         help="Environment to use for Docker Compose (default: private)",
     )
     parser.add_argument(
-        "--use-infisical",
-        action="store_true",
-        default=True,
-        help="Use Infisical for secret management (default: True)",
-    )
-    parser.add_argument(
-        "--skip-infisical",
-        action="store_true",
-        help="Skip Infisical startup and use .env files directly",
-    )
-    parser.add_argument(
         "--skip-dhi-auth",
         action="store_true",
         help="Skip dhi.io registry authentication",
@@ -911,10 +1046,6 @@ Examples:
     if args.profile == "nvidia":
         print("Note: 'nvidia' profile is an alias for 'gpu-nvidia'")
         args.profile = "gpu-nvidia"
-
-    # If skip-infisical is set, disable use-infisical
-    if args.skip_infisical:
-        args.use_infisical = False
 
     # Stop logic is simpler - just stop services
     if args.action == "stop":
@@ -945,28 +1076,21 @@ Examples:
     # Pull latest Docker images before starting services
     pull_docker_images(args.profile, args.environment, args.stack)
 
-    # Start services using modular compose files
-    if args.use_infisical:
-        print("Infisical integration enabled.")
-    else:
-        print("Infisical integration disabled. Using .env files directly.")
+    # Sync Infisical secrets directly to .env (two-way sync)
+    print("\n=== Syncing Infisical secrets to .env ===")
+    sync_infisical_to_env(quiet=False)
 
+    # Start services using modular compose files
     success = manage_services(
         action="start",
         stack=args.stack,
         profile=args.profile,
-        environment=args.environment,
-        use_infisical=args.use_infisical
+        environment=args.environment
     )
 
     if not success:
         print("Error: Failed to start services. Check the error messages above.")
         sys.exit(1)
-
-    # Wait for Infisical to be ready if it was started (and we are starting infrastructure or all)
-    if args.use_infisical and (args.stack == "all" or args.stack == "infrastructure"):
-        print("Waiting for Infisical to be ready...")
-        wait_for_infisical()
 
     print(f"Action '{args.action}' on stack '{args.stack}' completed successfully!")
 

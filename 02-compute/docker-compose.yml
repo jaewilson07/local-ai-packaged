@@ -2,8 +2,18 @@
 # Uses profiles for CPU vs GPU variants
 # Network: Uses external network ai-network
 
-volumes:
-  ollama_storage:
+# Shared configuration anchors
+x-healthcheck-http: &healthcheck-http
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-healthcheck-slow: &healthcheck-slow
+  interval: 60s
+  timeout: 15s
+  retries: 5
+  start_period: 120s
 
 networks:
   default:
@@ -22,15 +32,18 @@ x-ollama: &service-ollama
     - OLLAMA_KV_CACHE_TYPE=q8_0
     - OLLAMA_MAX_LOADED_MODELS=2
   volumes:
-    - ollama_storage:/root/.ollama
+    - ../02-compute/ollama/data:/root/.ollama
   networks:
     - default
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+    <<: *healthcheck-http
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
   container_name: ollama-pull-llama
   volumes:
-    - ollama_storage:/root/.ollama
+    - ../02-compute/ollama/data:/root/.ollama
   entrypoint: /bin/sh
   command:
     - "-c"
@@ -48,10 +61,30 @@ x-comfyui: &service-comfyui
   environment:
     - BASE_DIRECTORY=/basedir
     - SECURITY_LEVEL=normal
-    - USE_UV=true
+    - USE_UV=false
+    - WEB_ENABLE_AUTH=true
+    - WEB_USER=${COMFYUI_WEB_USER:-user}
+    - WEB_PASSWORD=${COMFYUI_WEB_PASSWORD:-password}
   volumes:
-    - ./data/comfyui:/comfy/mnt
-    - ./data/comfyui/basedir:/basedir
+    - ../02-compute/comfyui/data:/comfy/mnt
+    - ../02-compute/comfyui/data/basedir:/basedir
+  networks:
+    - default
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8188/"]
+    <<: *healthcheck-slow
+
+x-init-comfyui-fix-perms: &init-comfyui-fix-perms
+  image: mmartial/comfyui-nvidia-docker:latest
+  container_name: comfyui-fix-perms
+  user: root
+  volumes:
+    - ../02-compute/comfyui/data:/comfy/mnt
+    - ../02-compute/comfyui/data/basedir:/basedir
+  entrypoint: /bin/sh
+  command:
+    - "-c"
+    - "chown -R 1024:1024 /comfy/mnt /basedir 2>/dev/null || true; exit 0"
   networks:
     - default
 
@@ -59,9 +92,9 @@ x-init-comfyui: &init-comfyui
   image: mmartial/comfyui-nvidia-docker:latest
   container_name: comfyui-provision
   volumes:
-    - ./data/comfyui:/comfy/mnt
-    - ./data/comfyui/basedir:/basedir
-    - ./data/comfyui:/provision:ro
+    - ../02-compute/comfyui/data:/comfy/mnt
+    - ../02-compute/comfyui/data/basedir:/basedir
+    - ../02-compute/comfyui/scripts:/provision:ro
   entrypoint: /bin/sh
   command:
     - "-c"
@@ -134,21 +167,35 @@ services:
       - "/dev/kfd"
       - "/dev/dri"
 
+  comfyui-fix-perms-cpu:
+    profiles: ["cpu"]
+    <<: *init-comfyui-fix-perms
+
+  comfyui-fix-perms-gpu:
+    profiles: ["gpu-nvidia"]
+    <<: *init-comfyui-fix-perms
+
+  comfyui-fix-perms-gpu-amd:
+    profiles: ["gpu-amd"]
+    <<: *init-comfyui-fix-perms
+
   comfyui-provision-cpu:
     profiles: ["cpu"]
     <<: *init-comfyui
     depends_on:
       - comfyui-cpu
+      - comfyui-fix-perms-cpu
 
   comfyui-provision-gpu:
     profiles: ["gpu-nvidia"]
     <<: *init-comfyui
     depends_on:
       - comfyui-gpu
+      - comfyui-fix-perms-gpu
 
   comfyui-provision-gpu-amd:
     profiles: ["gpu-amd"]
     <<: *init-comfyui
     depends_on:
       - comfyui-gpu-amd
-
+      - comfyui-fix-perms-gpu-amd

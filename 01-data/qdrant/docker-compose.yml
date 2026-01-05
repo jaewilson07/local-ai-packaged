@@ -1,13 +1,20 @@
 # Qdrant Vector Database
 # Network: Uses external network ai-network
 
-volumes:
-  qdrant_storage:
+# Shared configuration anchors
+x-healthcheck-fast: &healthcheck-fast
+  interval: 5s
+  timeout: 5s
+  retries: 3
+  start_period: 10s
 
 networks:
   default:
     external: true
     name: ai-network
+
+volumes:
+  qdrant_storage:
 
 services:
   qdrant:
@@ -21,4 +28,7 @@ services:
       - qdrant_storage:/qdrant/storage
     networks:
       - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      <<: *healthcheck-fast
 

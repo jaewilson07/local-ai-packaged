@@ -18,6 +18,10 @@ dev = [
     "ruff>=0.1.0",
 ]
 
+# This is not an installable package - just for dependency management
+[tool.setuptools]
+packages = []
+
 [tool.uv]
 dev-dependencies = []
 

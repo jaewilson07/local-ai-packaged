@@ -1,0 +1,16 @@
+# Shared Logging Configuration
+# Standard logging configuration for all services
+# Use the anchor in your service definitions: logging: *logging-json
+
+x-logging-json: &logging-json
+  driver: "json-file"
+  options:
+    max-size: "1m"
+    max-file: "1"
+
+x-logging-json-verbose: &logging-json-verbose
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+

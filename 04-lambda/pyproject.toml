@@ -1,0 +1,39 @@
+[project]
+name = "lambda-server"
+version = "1.0.0"
+description = "FastAPI multi-project server with MCP support"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.17",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "pydantic-ai>=0.1.0",
+    "pymongo>=4.10.0",
+    "openai>=1.58.0",
+    "docling>=2.14.0",
+    "docling-core>=2.4.0",
+    "transformers>=4.47.0",
+    "python-dotenv>=1.0.1",
+    "aiofiles>=24.1.0",
+    "crawl4ai>=0.6.2",
+    "playwright>=1.40.0",
+    "sentence-transformers>=4.1.0",
+    "fastmcp>=2.0.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+graphiti = [
+    "graphiti-core>=0.30.0rc5",
+    "neo4j>=5.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+py-modules = []
+

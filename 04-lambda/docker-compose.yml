@@ -1,0 +1,54 @@
+# Lambda Stack - FastAPI Server + MCP
+networks:
+  default:
+    external: true
+    name: ai-network
+
+volumes:
+  lambda-packages:
+    driver: local
+
+services:
+  lambda-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lambda-server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000/tcp"
+    environment:
+      # MongoDB (Docker internal network)
+      # Using directConnection for single-node replica set (mongodb-atlas-local uses container ID as replica set name)
+      MONGODB_URI: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/?directConnection=true
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-rag_db}
+      
+      # LLM (Ollama by default)
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-not-needed}
+      
+      # Embeddings (Ollama by default)
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-ollama}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://ollama:11434/v1}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-not-needed}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
+      
+      # Server
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+    volumes:
+      - ./uploads:/app/uploads
+      - ./server:/app/server  # Writable mount (app needs to generate MCP server code)
+      - ./pyproject.toml:/app/pyproject.toml:ro  # Read-only mount for package installation
+      - lambda-packages:/opt/venv  # Persistent Python packages (installed once, reused)
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+

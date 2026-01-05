@@ -1,0 +1,118 @@
+# Infisical Stack
+# Contains: infisical-backend, infisical-db, infisical-redis
+# Network: Uses external ai-network
+
+networks:
+  default:
+    external: true
+    name: ai-network
+
+volumes:
+  infisical-pg-data:
+  infisical-redis-data:
+
+services:
+  # Infisical PostgreSQL Database (dedicated, separate from Supabase)
+  infisical-db:
+    container_name: infisical-db
+    image: postgres:14-alpine
+    restart: unless-stopped
+    env_file: 
+      - ../../.env.global
+      - ../../.env
+    environment:
+      - POSTGRES_USER=${INFISICAL_POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${INFISICAL_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${INFISICAL_POSTGRES_DB:-postgres}
+    volumes:
+      - infisical-pg-data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=${INFISICAL_POSTGRES_USER:-postgres} && psql --username=${INFISICAL_POSTGRES_USER:-postgres} --list"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+  # Infisical Redis (separate from main Redis)
+  infisical-redis:
+    container_name: infisical-redis
+    image: redis:latest
+    restart: unless-stopped
+    env_file: 
+      - ../../.env.global
+      - ../../.env
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - infisical-redis-data:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Infisical Backend
+  infisical-backend:
+    container_name: infisical-backend
+    image: infisical/infisical:latest
+    restart: unless-stopped
+    pull_policy: always
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+      infisical-redis:
+        condition: service_healthy
+    env_file: 
+      - ../../.env.global
+      - ../../.env
+    volumes:
+      # PATCH: Custom app.mjs that handles empty JSON bodies in POST requests
+      # Fixes FST_ERR_CTP_EMPTY_JSON_BODY error when frontend sends POST with no body
+      - ./patches/app.mjs:/backend/dist/server/app.mjs:ro
+    expose:
+      - 8080/tcp
+    environment:
+      - NODE_ENV=production
+      # Encryption keys (loaded from env_file)
+      # Note: These are loaded from ../../.env.global and ../../.env via env_file above
+      # The env_file will make INFISICAL_ENCRYPTION_KEY available, but we need to map it to ENCRYPTION_KEY
+      - ENCRYPTION_KEY=${INFISICAL_ENCRYPTION_KEY:-}
+      - AUTH_SECRET=${INFISICAL_AUTH_SECRET:-}
+      # DB connection - use URL-encoded password if available, otherwise use regular password
+      - DB_CONNECTION_URI=postgresql://${INFISICAL_POSTGRES_USER:-postgres}:${INFISICAL_POSTGRES_PASSWORD_URL_ENCODED:-${INFISICAL_POSTGRES_PASSWORD}}@infisical-db:5432/${INFISICAL_POSTGRES_DB:-postgres}
+      - REDIS_URL=redis://infisical-redis:6379
+      # SITE_URL must match the external URL for cookies/sessions to work
+      # Smart defaults: production domain for public, localhost for private (via override)
+      # Can be explicitly set in .env to override defaults
+      - SITE_URL=${INFISICAL_SITE_URL:-https://infisical.datacrew.space}
+      - PORT=8080
+      - HOST=0.0.0.0
+      - TELEMETRY_ENABLED=false
+      # Trust proxy for proper cookie/session handling behind reverse proxy
+      - TRUST_PROXY=true
+      # Enable HTTPS for secure cookies
+      # Smart detection: if SITE_URL is https://, enable HTTPS; otherwise disable
+      # Can be explicitly set via INFISICAL_HTTPS_ENABLED to override
+      - HTTPS_ENABLED=${INFISICAL_HTTPS_ENABLED:-true}
+      # SMTP Configuration (disabled to prevent lookup errors)
+      - SMTP_HOST=
+      - SMTP_PORT=
+      - SMTP_USERNAME=
+      - SMTP_PASSWORD=
+      - SMTP_FROM_ADDRESS=
+      - SMTP_FROM_NAME=Infisical
+      # Google OAuth/SSO Configuration (optional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+

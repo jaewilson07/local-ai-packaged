@@ -28,17 +28,23 @@ Profiles:
 ### Start Individual Stacks
 
 ```bash
-# Infrastructure (cloudflared, caddy, infisical, redis)
-./start-stack.sh infrastructure
+# Infrastructure (cloudflared, caddy, redis)
+python start_services.py --stack infrastructure
 
-# Data (supabase, qdrant, neo4j)
-./start-stack.sh data
+# Infisical (infisical-backend, infisical-db, infisical-redis)
+python start_services.py --stack infisical
+
+# Data (supabase, qdrant, neo4j, mongodb, minio)
+python start_services.py --stack data
 
 # Compute (ollama, comfyui) - requires profile
-./start-stack.sh compute gpu-nvidia
+python start_services.py --stack compute --profile gpu-nvidia
 
-# Apps (n8n, flowise, open-webui, searxng, langfuse, etc.)
-./start-stack.sh apps
+# Apps (n8n, flowise, open-webui, searxng, langfuse, clickhouse)
+python start_services.py --stack apps
+
+# Lambda (lambda-server)
+python start_services.py --stack lambda
 ```
 
 ## Stopping Services
@@ -46,30 +52,29 @@ Profiles:
 ### Stop All Stacks
 
 ```bash
-docker compose -p localai \
-  -f 00-infrastructure/docker-compose.yml \
-  -f 01-data/supabase/docker-compose.yml \
-  -f 01-data/qdrant/docker-compose.yml \
-  -f 01-data/neo4j/docker-compose.yml \
-  -f 02-compute/docker-compose.yml \
-  -f 03-apps/docker-compose.yml \
-  down
+python start_services.py --action stop
 ```
 
 ### Stop Individual Stacks
 
 ```bash
 # Stop infrastructure
-./stop-stack.sh infrastructure
+python start_services.py --action stop --stack infrastructure
+
+# Stop infisical
+python start_services.py --action stop --stack infisical
 
 # Stop data
-./stop-stack.sh data
+python start_services.py --action stop --stack data
 
 # Stop compute
-./stop-stack.sh compute
+python start_services.py --action stop --stack compute
 
 # Stop apps
-./stop-stack.sh apps
+python start_services.py --action stop --stack apps
+
+# Stop lambda
+python start_services.py --action stop --stack lambda
 ```
 
 ## Updating Services
@@ -84,26 +89,49 @@ python start_services.py --profile gpu-nvidia
 
 ```bash
 # Update infrastructure
-cd 00-infrastructure
-docker compose -p localai -f docker-compose.yml pull
-docker compose -p localai -f docker-compose.yml up -d
+python start_services.py --stack infrastructure
+
+# Update infisical
+python start_services.py --stack infisical
+
+# Update data
+python start_services.py --stack data
 
 # Update compute (with profile)
-cd 02-compute
-docker compose -p localai -f docker-compose.yml --profile gpu-nvidia pull
-docker compose -p localai -f docker-compose.yml --profile gpu-nvidia up -d
+python start_services.py --stack compute --profile gpu-nvidia
+
+# Update apps
+python start_services.py --stack apps
+
+# Update lambda
+python start_services.py --stack lambda
 ```
 
 ## Viewing Logs
 
 ```bash
-# All services
-docker compose -p localai logs -f
+# Infrastructure stack
+docker compose -p localai-infra logs -f
 
-# Specific service
-docker compose -p localai logs -f n8n
-docker compose -p localai logs -f ollama
-docker compose -p localai logs -f infisical-backend
+# Infisical stack
+docker compose -p localai-infisical logs -f
+
+# Data stack
+docker compose -p localai-data logs -f
+
+# Compute stack
+docker compose -p localai-compute logs -f
+
+# Apps stack
+docker compose -p localai-apps logs -f
+
+# Lambda stack
+docker compose -p localai-lambda logs -f
+
+# Specific service (example)
+docker compose -p localai-apps logs -f n8n
+docker compose -p localai-compute logs -f ollama
+docker compose -p localai-infisical logs -f infisical-backend
 ```
 
 ## Service URLs
@@ -148,9 +176,24 @@ docker restart <container-name>
 ## Stack Dependencies
 
 Start order (if starting manually):
-1. **Infrastructure** - Network, reverse proxy, secrets
-2. **Data** - Databases must be ready
-3. **Compute** - AI inference services
-4. **Apps** - Application services depend on data and compute
+1. **Infrastructure** - Network, reverse proxy (creates `ai-network`)
+2. **Infisical** - Secret management (optional, can start later)
+3. **Data** - Databases must be ready
+4. **Compute** - AI inference services
+5. **Apps** - Application services depend on data and compute
+6. **Lambda** - API server depends on data and compute
+
+## Project Names
+
+Each stack uses its own Docker Compose project name:
+
+- `localai-infra` - Infrastructure services
+- `localai-infisical` - Infisical secret management
+- `localai-data` - Data persistence services
+- `localai-compute` - AI compute services
+- `localai-apps` - Application services
+- `localai-lambda` - Lambda API server
+
+All stacks share the external `ai-network` for inter-service communication.
 
 

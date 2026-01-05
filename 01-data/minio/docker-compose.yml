@@ -1,0 +1,33 @@
+# MinIO S3-compatible Object Storage
+# Network: Uses external network ai-network
+
+networks:
+  default:
+    external: true
+    name: ai-network
+
+services:
+  # MinIO (for Langfuse and other services)
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: always
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    expose:
+      - 9000/tcp
+      - 9001/tcp
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ../01-data/minio/data:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+

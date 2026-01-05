@@ -95,6 +95,50 @@
 - Health check: `redis-cli ping`
 - Capabilities: `SETGID`, `SETUID`, `DAC_OVERRIDE` only
 
+## Scripts
+
+Location: `00-infrastructure/scripts/`
+
+### Infisical Management
+
+#### `manage-infisical.py`
+- **Purpose**: Manage Infisical state (nuclear reset or data wipe).
+- **Usage**: `python3 00-infrastructure/scripts/manage-infisical.py [reset-infra|reset-data]`
+
+#### `sync-env-to-infisical.py`
+- **Purpose**: Sync secrets from `.env` file to Infisical.
+- **Usage**: `python3 00-infrastructure/scripts/sync-env-to-infisical.py [--dry-run] [--env-file .env]`
+
+#### `sync-infisical-to-env.py`
+- **Purpose**: Sync secrets from Infisical to `.env` file.
+- **Usage**: `python3 00-infrastructure/scripts/sync-infisical-to-env.py [--dry-run] [--env-file .env]`
+
+#### `check-env-sync-status.py`
+- **Purpose**: Check sync status between `.env` file and Infisical.
+- **Usage**: `python3 00-infrastructure/scripts/check-env-sync-status.py [--env-file .env] [--verbose]`
+
+### Cloudflare Management
+
+#### `check-cloudflare-config.py`
+- **Purpose**: Diagnose and fix Cloudflare configuration issues (SSL/TLS mode, page rules, transform rules, etc.).
+- **Usage**: `python3 00-infrastructure/scripts/check-cloudflare-config.py [--fix-ssl] [--create-page-rule] [--purge-cache] [--fix-all]`
+
+#### `manage-cloudflare-access.py`
+- **Purpose**: Manage unified Cloudflare Access policies across all applications.
+- **Usage**: `python3 00-infrastructure/scripts/manage-cloudflare-access.py [--create-policy] [--list] [--apply-to-all]`
+
+#### `setup-cloudflare-tunnel-routes.py`
+- **Purpose**: Configure or remove Cloudflare Tunnel public hostnames.
+- **Usage**: 
+  - Add routes: `python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py`
+  - Remove route: `python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py --remove HOSTNAME`
+
+### Infrastructure Management
+
+#### `update_images.py`
+- **Purpose**: Update Docker images for all stacks without restarting services.
+- **Usage**: `python3 00-infrastructure/scripts/update_images.py [--profile cpu|gpu-nvidia|gpu-amd|none] [--environment private|public] [--skip-dhi-auth]`
+
 ## Architecture Patterns
 
 ### Network Creation

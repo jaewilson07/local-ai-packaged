@@ -1,0 +1,4 @@
+[submodule "01-data/supabase/upstream"]
+	path = 01-data/supabase/upstream
+	url = https://github.com/supabase/supabase.git
+	branch = master

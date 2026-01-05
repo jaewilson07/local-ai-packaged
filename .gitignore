@@ -1,14 +1,25 @@
 .env
+.env.infisical
+.env.env.bak
+*.bak
+*.backup
 volumes/
 shared/
-neo4j/
 shared-backup/
 .env.test
 searxng/settings.yml
 searxng/uwsgi*
+**/searxng/config/settings.yml
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+# Service Data and Upstream
+**/data/
+**/upstream/
+
+# Log files
+**/logs/
+*.log

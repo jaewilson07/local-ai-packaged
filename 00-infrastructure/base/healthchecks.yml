@@ -1,0 +1,32 @@
+# Shared Health Check Patterns
+# Standard health check configurations for common service types
+# Use these as templates, adjusting ports and paths as needed
+
+# HTTP-based health checks
+x-healthcheck-http: &healthcheck-http
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+# Database health checks
+x-healthcheck-db: &healthcheck-db
+  interval: 10s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+
+# Fast health checks (for lightweight services)
+x-healthcheck-fast: &healthcheck-fast
+  interval: 5s
+  timeout: 5s
+  retries: 3
+  start_period: 10s
+
+# Slow health checks (for heavy services)
+x-healthcheck-slow: &healthcheck-slow
+  interval: 60s
+  timeout: 15s
+  retries: 5
+  start_period: 120s
+

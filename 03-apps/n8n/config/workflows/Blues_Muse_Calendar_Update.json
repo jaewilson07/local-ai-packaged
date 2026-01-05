@@ -1,0 +1,369 @@
+{
+  "name": "Blues Muse Calendar Update",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.bluesmuse.dance/",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Fetch Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract event information from the Blues Muse website\nconst html = $input.first().json.data || $input.first().json.body || '';\n\n// Extract event name\nlet eventName = 'Blues Muse';\nconst nameMatch = html.match(/Blues Muse (\\d{4})/i) || html.match(/<title>([^<]*Blues Muse[^<]*)<\\/title>/i);\nif (nameMatch) {\n  eventName = nameMatch[1] || nameMatch[0] || 'Blues Muse';\n}\n\n// Extract dates - looking for \"October 16th, 17th, and 18th, 2026\" pattern\nlet startDate = null;\nlet endDate = null;\nconst datePatterns = [\n  /(October|November|December|January|February|March|April|May|June|July|August|September)\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,\\s*(?:and\\s+)?(\\d{1,2})(?:st|nd|rd|th)?)?(?:,\\s+and\\s+(\\d{1,2})(?:st|nd|rd|th)?)?,\\s+(\\d{4})/i,\n  /(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})/,\n  /(\\d{4})-(\\d{2})-(\\d{2})/\n];\n\nfor (const pattern of datePatterns) {\n  const match = html.match(pattern);\n  if (match) {\n    if (match[0].includes('October') && match[5]) {\n      // Format: \"October 16th, 17th, and 18th, 2026\"\n      const year = parseInt(match[5]);\n      const month = 9; // October (0-indexed)\n      const day1 = parseInt(match[2]);\n      const day2 = parseInt(match[3] || match[4] || day1);\n      const day3 = parseInt(match[4] || day2);\n      \n      startDate = new Date(year, month, day1);\n      endDate = new Date(year, month, day3, 23, 59, 59);\n      break;\n    } else if (match[1] && match[2] && match[3]) {\n      // Format: MM/DD/YYYY or YYYY-MM-DD\n      const month = parseInt(match[1]) - 1;\n      const day = parseInt(match[2]);\n      const year = parseInt(match[3]);\n      startDate = new Date(year, month, day);\n      endDate = new Date(year, month, day, 23, 59, 59);\n      break;\n    }\n  }\n}\n\n// Default dates if not found (from web search: Oct 16-18, 2026)\nif (!startDate) {\n  startDate = new Date(2026, 9, 16); // October 16, 2026\n  endDate = new Date(2026, 9, 18, 23, 59, 59); // October 18, 2026\n}\n\n// Extract location\nlet location = 'Philadelphia, PA';\nconst locationMatch = html.match(/Philadelphia[^<]*PA/i) || html.match(/Location[^<]*Philadelphia[^<]*PA/i);\nif (locationMatch) {\n  location = locationMatch[0].trim();\n}\n\n// Extract description\nlet description = 'Blues Muse is an event dedicated to partnership above all else. Three Nights of Social Dancing, Two Days of Classes, One Delightful Weekend.';\nconst descMatch = html.match(/<meta[^>]*description[^>]*content=\"([^\"]+)\"/i) || \n                   html.match(/<p[^>]*>([^<]*partnership[^<]*)<\\/p>/i);\nif (descMatch) {\n  description = descMatch[1].trim();\n}\n\n// Format dates for Google Calendar (ISO 8601)\nconst formatDate = (date) => {\n  return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';\n};\n\nreturn [{\n  json: {\n    summary: eventName,\n    description: description + '\\n\\nWebsite: https://www.bluesmuse.dance/',\n    location: location,\n    start: {\n      dateTime: formatDate(startDate),\n      timeZone: 'America/New_York'\n    },\n    end: {\n      dateTime: formatDate(endDate),\n      timeZone: 'America/New_York'\n    },\n    // Additional metadata\n    eventName: eventName,\n    startDate: startDate.toISOString(),\n    endDate: endDate.toISOString(),\n    rawLocation: location\n  }\n}];"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Parse Event Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "start": "={{ $json.start.dateTime }}",
+        "end": "={{ $json.end.dateTime }}",
+        "summary": "={{ $json.summary }}",
+        "description": "={{ $json.description }}",
+        "location": "={{ $json.location }}",
+        "options": {
+          "sendUpdates": "none"
+        }
+      },
+      "id": "d4e5f6a7-b8c9-0123-def0-123456789013",
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "options": {
+          "q": "={{ $('Parse Event Data').item.json.summary }}",
+          "timeMin": "={{ $('Parse Event Data').item.json.start.dateTime }}",
+          "maxResults": 1
+        }
+      },
+      "id": "e5f6a7b8-c9d0-1234-ef01-123456789014",
+      "name": "Check Existing Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        900,
+        480
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "f6a7b8c9-d0e1-2345-f012-123456789015",
+              "leftValue": "={{ $json.items.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2345-f012-123456789015",
+      "name": "Event Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendarId": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "eventId": "={{ $json.items[0].id }}",
+        "start": "={{ $('Parse Event Data').item.json.start.dateTime }}",
+        "end": "={{ $('Parse Event Data').item.json.end.dateTime }}",
+        "summary": "={{ $('Parse Event Data').item.json.summary }}",
+        "description": "={{ $('Parse Event Data').item.json.description }}",
+        "location": "={{ $('Parse Event Data').item.json.location }}",
+        "options": {
+          "sendUpdates": "none"
+        }
+      },
+      "id": "a7b8c9d0-e1f2-3456-0123-123456789016",
+      "name": "Update Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        380
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8c9d0e1-f2a3-4567-1234-123456789017",
+              "name": "action",
+              "type": "string",
+              "value": "created"
+            },
+            {
+              "id": "c9d0e1f2-a3b4-5678-2345-123456789018",
+              "name": "eventId",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "d0e1f2a3-b4c5-6789-3456-123456789019",
+              "name": "summary",
+              "type": "string",
+              "value": "={{ $json.summary }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b8c9d0e1-f2a3-4567-1234-123456789017",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1f2a3b4-c5d6-7890-4567-123456789020",
+              "name": "action",
+              "type": "string",
+              "value": "updated"
+            },
+            {
+              "id": "f2a3b4c5-d6e7-8901-5678-123456789021",
+              "name": "eventId",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "a3b4c5d6-e7f8-9012-6789-123456789022",
+              "name": "summary",
+              "type": "string",
+              "value": "={{ $json.summary }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7890-4567-123456789020",
+      "name": "Format Update Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "merge",
+        "mergeByFields": {
+          "values": []
+        },
+        "options": {}
+      },
+      "id": "f3a4b5c6-d7e8-9012-7890-123456789023",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        1780,
+        390
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website": {
+      "main": [
+        [
+          {
+            "node": "Parse Event Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Event Data": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Event": {
+      "main": [
+        [
+          {
+            "node": "Event Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Exists?": {
+      "main": [
+        [
+          {
+            "node": "Update Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Format Update Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Update Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "blues-muse-calendar-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "620f0d7e3114cb344761d7d45a21ef2a32096f91d8696e7057756042e1999e2c"
+  },
+  "id": "BluesMuseCalendar",
+  "tags": []
+}
+
