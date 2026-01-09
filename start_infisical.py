@@ -37,8 +37,18 @@ def run_command(cmd, cwd=None, check=True):
     return result
 
 
-def load_env_file(env_path=".env"):
+def load_env_file(env_path=None):
     """Load environment variables from .env file."""
+    if env_path is None:
+        # Try to find .env file in current directory or infisical-standalone
+        env_paths = [".env", os.path.expanduser("~/infisical-standalone/.env")]
+        for path in env_paths:
+            if os.path.exists(path):
+                env_path = path
+                break
+        else:
+            return {}
+    
     env_vars = {}
     if os.path.exists(env_path):
         with open(env_path, "r", encoding="utf-8") as f:
@@ -92,7 +102,7 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
                     "--no-verbose",
                     "--tries=1",
                     "--spider",
-                    "http://localhost:8080/api/health",
+                    "http://localhost:8080/api/status",
                 ],
                 capture_output=True,
                 timeout=5,
@@ -122,24 +132,41 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
 def manage_infisical(action="start", environment="private"):
     """Start or stop Infisical services."""
     
-    compose_file = "00-infrastructure/infisical/docker-compose.yml"
-    override_file = f"00-infrastructure/infisical/docker-compose.override.{environment}.yml"
+    # Use standalone Infisical directory
+    infisical_dir = "/home/jaewilson07/GitHub/infisical-standalone"
+    compose_file = os.path.join(infisical_dir, "docker-compose.yml")
+    override_file = os.path.join(infisical_dir, f"docker-compose.override.{environment}.yml")
     
     if not os.path.exists(compose_file):
         print(f"❌ Error: Docker Compose file not found at {compose_file}")
+        print(f"   Please ensure Infisical is set up in {infisical_dir}")
         return False
     
     # Build docker compose command
-    cmd = ["docker", "compose", "-p", "localai"]
+    cmd = ["docker", "compose", "-p", "infisical"]
     cmd.extend(["-f", compose_file])
     
     if os.path.exists(override_file):
         cmd.extend(["-f", override_file])
     
-    # Always add .env file for environment variables
-    env_file_path = ".env"
-    if os.path.exists(env_file_path):
+    # Try to use .env from local-ai-packaged project, or from infisical-standalone
+    # Use absolute paths to avoid issues when running from different directories
+    current_dir = os.getcwd()
+    env_file_paths = [
+        os.path.join(current_dir, ".env"),  # Current directory (local-ai-packaged)
+        os.path.join(infisical_dir, ".env"),  # Standalone directory
+    ]
+    
+    env_file_path = None
+    for path in env_file_paths:
+        if os.path.exists(path):
+            env_file_path = os.path.abspath(path)
+            break
+    
+    if env_file_path:
         cmd.extend(["--env-file", env_file_path])
+    else:
+        print("⚠️  Warning: No .env file found. Using environment variables from shell.")
     
     if action == "stop":
         cmd.append("down")
@@ -149,7 +176,8 @@ def manage_infisical(action="start", environment="private"):
         print(f"Starting Infisical services...")
     
     try:
-        run_command(cmd)
+        # Run from the infisical directory
+        run_command(cmd, cwd=infisical_dir)
         return True
     except subprocess.CalledProcessError as e:
         print(f"\n❌ Error {action}ing Infisical services: {e}")
@@ -229,6 +257,8 @@ Examples:
     print("✓ Infisical services started successfully!")
     print("=" * 70)
     print()
+    print("Infisical is running standalone at: /home/jaewilson07/GitHub/infisical-standalone")
+    print()
     print("Access Infisical:")
     print("  - Local: http://localhost:8020")
     print("  - Via Caddy: https://infisical.datacrew.space (if configured)")
@@ -237,6 +267,8 @@ Examples:
     print("  1. Open Infisical UI in your browser")
     print("  2. Create a project and add secrets")
     print("  3. Sync secrets to .env: python 00-infrastructure/scripts/sync-infisical-to-env.py")
+    print()
+    print("Note: Infisical runs independently from local-ai-packaged services.")
 
 
 if __name__ == "__main__":

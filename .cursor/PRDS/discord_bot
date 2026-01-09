@@ -1,0 +1,36 @@
+# Phase 2 Specification: The Discord Bridge Bot
+
+## 1. Architecture
+* **Language:** Python 3.11+.
+* **Libraries:** `discord.py`, `aiohttp`, `python-dotenv`.
+* **Database:** `bot.sqlite` (Simple key-value store).
+
+## 2. Core Features
+
+### A. The "Drag-and-Drop" Ingest
+* **Trigger:** User uploads an attachment (mp4, mov, jpg, png) to `#event-uploads`.
+* **Action:**
+    1.  Bot downloads the file to memory/temp.
+    2.  Bot authenticates with Immich (Admin Key).
+    3.  Bot uploads asset to Immich.
+    4.  **Metadata:** Set `Asset Description` = "Uploaded by [DiscordUserName]".
+* **Constraint:** Handle Discord's 25MB file limit. If file is too big, reply: "File too large for Discord. Please use this [Direct Upload Link] (link to your frontend)."
+
+### B. User Mapping (`bot.sqlite`)
+* **Schema:** `table_users (discord_id TEXT, immich_person_id TEXT, notify_enabled BOOLEAN)`
+* **Command:** `/claim_face [SearchName]`
+    * Bot searches Immich for people matching "SearchName".
+    * Bot returns thumbnails of candidates.
+    * User selects "That's Me".
+    * Bot saves `DiscordID <-> ImmichPersonID` link.
+
+### C. The "Spotted" Notification
+* **Polling Loop (Every 2 mins):**
+    * Check Immich for *new* assets.
+    * If asset has detected faces:
+        * Check if Face ID maps to a Discord User.
+        * If yes -> DM that user: "You were spotted in a new video! [View in Gallery]"
+
+## 3. Definition of Done
+* Uploading a photo to Discord results in it appearing in the Immich timeline.
+* A user claiming their face results in a DM when a new photo of them is uploaded.

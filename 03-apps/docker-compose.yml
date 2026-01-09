@@ -114,7 +114,7 @@ services:
 
   # Open WebUI
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:0.6.43
     restart: unless-stopped
     container_name: open-webui
     expose:
@@ -271,3 +271,192 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
     networks:
       - default
+
+  # Immich PostgreSQL Database
+  immich-postgres:
+    image: postgres:14
+    container_name: immich-postgres
+    restart: unless-stopped
+    expose:
+      - 5432/tcp
+    environment:
+      POSTGRES_USER: ${IMMICH_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
+      POSTGRES_DB: ${IMMICH_DB_DATABASE_NAME:-immich}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    volumes:
+      - ../03-apps/immich/data/postgres:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${IMMICH_DB_USERNAME:-postgres} -d ${IMMICH_DB_DATABASE_NAME:-immich}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *logging-json
+
+  # Immich Typesense (Search Engine)
+  immich-typesense:
+    image: typesense/typesense:latest
+    container_name: immich-typesense
+    restart: unless-stopped
+    expose:
+      - 8108/tcp
+      - 8107/tcp
+    environment:
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_ENABLE_CORS: "true"
+    volumes:
+      - ../03-apps/immich/data/typesense:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging: *logging-json
+
+  # Immich Machine Learning (Face Detection)
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    expose:
+      - 3003/tcp
+    environment:
+      IMMICH_MACHINE_LEARNING_PORT: 3003
+      IMMICH_MACHINE_LEARNING_HOST: 0.0.0.0
+      MODEL_CACHE_FOLDER: /cache
+    volumes:
+      - ../03-apps/immich/data/model-cache:/cache
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *logging-json
+
+  # Immich Microservices (Background Jobs - CPU)
+  immich-microservices-cpu:
+    profiles: ["cpu"]
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    container_name: immich-microservices-cpu
+    restart: unless-stopped
+    command: ["start.sh", "microservices"]
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-typesense:
+        condition: service_healthy
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${IMMICH_DB_USERNAME:-postgres}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME:-immich}
+      REDIS_HOSTNAME: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DBINDEX: 0
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+      TYPESENSE_ENABLED: "true"
+      TYPESENSE_HOST: immich-typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
+      IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ../03-apps/immich/data/library:/usr/src/app/upload
+    networks:
+      - default
+    logging: *logging-json
+
+  # Immich Microservices (Background Jobs - GPU)
+  immich-microservices-gpu:
+    profiles: ["gpu-nvidia"]
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    container_name: immich-microservices-gpu
+    restart: unless-stopped
+    command: ["start.sh", "microservices"]
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-typesense:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${IMMICH_DB_USERNAME:-postgres}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME:-immich}
+      REDIS_HOSTNAME: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DBINDEX: 0
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+      TYPESENSE_ENABLED: "true"
+      TYPESENSE_HOST: immich-typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
+      IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ../03-apps/immich/data/library:/usr/src/app/upload
+    networks:
+      - default
+    logging: *logging-json
+
+  # Immich Server (Main API)
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    container_name: immich-server
+    restart: unless-stopped
+    command: ["start.sh", "immich"]
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-typesense:
+        condition: service_healthy
+    expose:
+      - 2283/tcp
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${IMMICH_DB_USERNAME:-postgres}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME:-immich}
+      REDIS_HOSTNAME: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DBINDEX: 0
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+      TYPESENSE_ENABLED: "true"
+      TYPESENSE_HOST: immich-typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
+      IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+      IMMICH_PORT: 2283
+      IMMICH_HOST: 0.0.0.0
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ../03-apps/immich/data/library:/usr/src/app/upload
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2283/api/server-info/ping"]
+      <<: *healthcheck-http
+    logging: *logging-json

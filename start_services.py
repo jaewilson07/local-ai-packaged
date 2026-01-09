@@ -725,6 +725,56 @@ def check_infisical_auth() -> bool:
         return False
 
 
+def check_infisical_running() -> bool:
+    """
+    Check if Infisical containers are running.
+    
+    Returns:
+        True if all required Infisical containers are running, False otherwise
+    """
+    required_containers = ["infisical-backend", "infisical-db", "infisical-redis"]
+    running_containers = []
+    missing_containers = []
+    
+    for container_name in required_containers:
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.Status}}", container_name],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            
+            if result.returncode == 0:
+                status = result.stdout.strip()
+                if status == "running":
+                    running_containers.append(container_name)
+                else:
+                    missing_containers.append(f"{container_name} (status: {status})")
+            else:
+                missing_containers.append(f"{container_name} (not found)")
+        except Exception as e:
+            missing_containers.append(f"{container_name} (error: {str(e)})")
+    
+    if len(running_containers) == len(required_containers):
+        return True
+    
+    # Print detailed error message
+    print("\n❌ Error: Infisical services are not running!")
+    print(f"   Required containers: {', '.join(required_containers)}")
+    if running_containers:
+        print(f"   ✓ Running: {', '.join(running_containers)}")
+    if missing_containers:
+        print(f"   ✗ Missing/stopped: {', '.join(missing_containers)}")
+    print("\n   To start Infisical services, run:")
+    print("     python start_services.py --stack infisical")
+    print("   Or use the dedicated script:")
+    print("     python start_infisical.py")
+    
+    return False
+
+
 def get_infisical_secrets() -> Dict[str, str]:
     """
     Get all secrets from Infisical.
@@ -1075,6 +1125,25 @@ Examples:
 
     # Pull latest Docker images before starting services
     pull_docker_images(args.profile, args.environment, args.stack)
+
+    # Check if Infisical is running (skip check if starting infisical or infrastructure stack)
+    # Infrastructure can start without Infisical, but other stacks require it
+    if args.stack not in ["infisical", "infrastructure"]:
+        print("\n=== Checking Infisical services ===")
+        if not check_infisical_running():
+            print("\n❌ Cannot proceed: Infisical services must be running before starting other stacks.")
+            print("   Infisical is required for secret management and service configuration.")
+            sys.exit(1)
+        print("✓ Infisical services are running")
+    elif args.stack == "all":
+        # When starting all stacks, check Infisical but don't fail if it's not running
+        # (it will be started as part of the all stacks)
+        print("\n=== Checking Infisical services ===")
+        if not check_infisical_running():
+            print("⚠ Warning: Infisical services are not running.")
+            print("   They will be started as part of the 'all' stacks.")
+        else:
+            print("✓ Infisical services are running")
 
     # Sync Infisical secrets directly to .env (two-way sync)
     print("\n=== Syncing Infisical secrets to .env ===")

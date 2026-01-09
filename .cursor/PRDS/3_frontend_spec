@@ -1,0 +1,35 @@
+# Phase 3 Specification: The Social Layer (Frontend)
+
+## 1. Tech Stack
+* **Framework:** Next.js 14 (React).
+* **Styling:** Tailwind CSS + Shadcn UI.
+* **Database (Social Data):** PostgreSQL (Separate from Immich DB, or a separate schema).
+* **Auth:** NextAuth.js (Login with Discord).
+
+## 2. The "Sidecar" Database Schema
+* We do NOT modify Immich's database. We reference it.
+* **Table `posts`:** `immich_asset_id` (PK), `caption`, `created_at`.
+* **Table `comments`:** `id`, `immich_asset_id`, `user_id`, `text`.
+* **Table `reactions`:** `immich_asset_id`, `user_id`, `type` (heart, fire).
+
+## 3. Key Views
+
+### A. The Feed (`/feed`)
+* **Logic:** Fetch recent assets from Immich API.
+* **Enrichment:** For each asset, fetch `comments` and `likes` from the Sidecar DB.
+* **Display:** Infinite scroll card view. Video player auto-plays on hover.
+
+### B. The Discovery Engine (`/discover`)
+* **Logic:** Fetch "People" clusters from Immich.
+* **UX:** "Who are you looking for?" -> Click Face -> Show Grid of Videos.
+
+### C. The "Smart Player"
+* **Feature:** When a video plays, fetch `Face Coordinates` from Immich.
+* **Overlay:** Draw a clickable box around faces in the video.
+    * *Hover:* Shows "Jenny".
+    * *Click:* Goes to `/discover/jenny`.
+
+## 4. Definition of Done
+* User can log in via Discord.
+* User can comment on a photo (comment stored in Postgres, photo stays in Immich).
+* Video player shows bounding boxes for detected faces.

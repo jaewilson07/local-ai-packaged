@@ -210,16 +210,33 @@ MongoDB (01-data stack) + Neo4j (01-data stack, optional) + Ollama (02-compute s
 - **Max body size**: 50MB (sufficient for document uploads)
 - **Timeouts**: Extended (300s read/write) for long RAG operations
 
-### Access Control (Optional)
-To add authentication via Cloudflare Access:
+### Access Control (Recommended)
 
-```bash
-python 00-infrastructure/scripts/manage-cloudflare-access.py --create-policy --application api.datacrew.space
-```
+**Current Status**: The Cloudflare Tunnel for `api.datacrew.space` is already configured and routing traffic. 
 
-**Note**: If Postman currently has a Cloudflare Access policy on `api.datacrew.space`, you may want to:
-1. Remove or update that policy
-2. Create a new policy for `postman.datacrew.space` if needed
+**Access Authentication**: Check if a wildcard access policy (`*.datacrew.space`) exists. If so, `api.datacrew.space` may already be covered. Verify by checking the tunnel route's Access setting in the Cloudflare dashboard.
+
+**To add authentication via Cloudflare Access** (if not already covered by wildcard):
+
+1. **Via Cloudflare Dashboard** (Recommended):
+   - Go to https://one.dash.cloudflare.com/
+   - Access → Applications → Add an application
+   - Select **Self-hosted**
+   - Configure:
+     - **Application name**: `Lambda API`
+     - **Application domain**: `api.datacrew.space`
+   - Add a policy with your access rules (emails, Google OAuth, etc.)
+   - Link the application to your tunnel route (Networks → Tunnels → Your tunnel → Edit route → Access)
+
+2. **Verify Access Application**:
+   ```bash
+   python3 00-infrastructure/scripts/manage-cloudflare-access.py --list
+   # Look for "api.datacrew.space" in the output
+   ```
+
+**Security Note**: Without Cloudflare Access, anyone on the internet can access your API endpoints. It's strongly recommended to enable authentication before using the external URL in production.
+
+**See**: [MCP Security Setup Guide](../../docs/MCP_SECURITY_SETUP.md) for detailed setup instructions.
 
 ## Troubleshooting
 

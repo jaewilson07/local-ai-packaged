@@ -43,7 +43,9 @@
     header {
         # Relaxed CSP to support modern web apps with inline scripts/styles
         # Production deployments should tighten this based on actual requirements
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'self';"
+        # Includes Cloudflare Insights for analytics
+        # connect-src allows connections to self, https URLs, and api.datacrew.space for MCP/REST API
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: https://cloudflareinsights.com https://api.datacrew.space; frame-ancestors 'self';"
     }
 }
 
@@ -244,7 +246,7 @@
             max_size 50MB  # Open WebUI handles file uploads
         }
         reverse_proxy open-webui:8080 {
-            import standard_proxy
+            import standard_proxy  # Open WebUI doesn't need Origin/Referer preservation
             import extended_timeouts  # LLM responses can take time
         }
     }
@@ -272,6 +274,20 @@
         reverse_proxy lambda-server:8000 {
             import standard_proxy
             import extended_timeouts  # RAG operations and LLM responses can take time
+        }
+    }
+    
+    # Immich route for Cloudflare Tunnel
+    @immich host immich.datacrew.space
+    handle @immich {
+        import security_headers_base
+        import csp_standard
+        request_body {
+            max_size 500MB  # Support large video uploads
+        }
+        reverse_proxy immich-server:2283 {
+            import standard_proxy
+            import extended_timeouts  # Video transcoding takes time
         }
     }
     
@@ -406,6 +422,19 @@
     reverse_proxy ollama:11434 {
         import standard_proxy
         import extended_timeouts
+    }
+}
+
+# Immich
+{$IMMICH_HOSTNAME} {
+    import security_headers_base
+    import csp_standard
+    request_body {
+        max_size 500MB  # Support large video uploads
+    }
+    reverse_proxy immich-server:2283 {
+        import standard_proxy
+        import extended_timeouts  # Video transcoding takes time
     }
 }
 

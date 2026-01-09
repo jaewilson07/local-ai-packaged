@@ -1,0 +1,15 @@
+# Phase 4 Specification: The YouTube Bridge
+
+## 1. Workflow
+1.  User creates an album in the Frontend called "My Reel".
+2.  User clicks "Connect YouTube" in settings.
+3.  Service monitors "My Reel".
+4.  New videos added to "My Reel" are uploaded to the user's YouTube channel.
+
+## 2. Technical Components
+* **Google Auth:** OAuth2 Web Flow (offline access).
+* **Storage:** Store `refresh_token` in the Sidecar DB (Encrypted).
+* **Deduplication:** Store `youtube_video_id` alongside the `immich_asset_id` to prevent double uploads.
+
+## 3. Definition of Done
+* Adding a video to the "My Reel" album triggers a YouTube upload within 10 minutes.
