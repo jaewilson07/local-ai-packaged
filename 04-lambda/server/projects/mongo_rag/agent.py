@@ -2,37 +2,25 @@
 
 from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from pydantic_ai.ag_ui import StateDeps
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIModel
 
+from server.projects.shared.llm import get_llm_model
+from server.projects.shared.wrappers import DepsWrapper
 from server.projects.mongo_rag.config import config
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.prompts import MAIN_SYSTEM_PROMPT
 from server.projects.mongo_rag.tools import semantic_search, hybrid_search, text_search
 from server.projects.mongo_rag.neo4j_client import Neo4jClient, Neo4jConfig
+from server.projects.mongo_rag.memory_tools import MemoryTools
+from server.projects.mongo_rag.nodes.decompose import decompose_query
+from server.projects.mongo_rag.nodes.grade import grade_documents
+from server.projects.mongo_rag.nodes.citations import extract_citations, format_citations
+from server.projects.mongo_rag.nodes.synthesize import synthesize_results
+from server.projects.mongo_rag.nodes.rewrite import rewrite_query
 
 
-def get_llm_model(model_choice: Optional[str] = None) -> OpenAIModel:
-    """
-    Get LLM model configuration based on environment variables.
-    Supports any OpenAI-compatible API provider.
-
-    Args:
-        model_choice: Optional override for model choice
-
-    Returns:
-        Configured OpenAI-compatible model
-    """
-    llm_choice = model_choice or config.llm_model
-    base_url = config.llm_base_url
-    api_key = config.llm_api_key
-
-    # Create provider based on configuration
-    provider = OpenAIProvider(base_url=base_url, api_key=api_key)
-
-    return OpenAIModel(llm_choice, provider=provider)
+# Use shared LLM utility
 
 
 class RAGState(BaseModel):
@@ -73,10 +61,6 @@ async def search_knowledge_base(
         await agent_deps.initialize()
 
         # Create a context wrapper for the search tools
-        class DepsWrapper:
-            def __init__(self, deps):
-                self.deps = deps
-
         deps_ctx = DepsWrapper(agent_deps)
 
         # Perform the search based on type
@@ -205,4 +189,344 @@ async def get_entity_timeline(
         return "\n".join(lines)
     except Exception as e:
         return f"Error retrieving timeline: {str(e)}"
+
+
+@rag_agent.tool
+async def record_message(
+    ctx: RunContext[StateDeps[RAGState]],
+    user_id: str,
+    persona_id: str,
+    content: str,
+    role: str = "user"
+) -> str:
+    """
+    Record a message in memory for context window management.
+    
+    Args:
+        ctx: Agent runtime context
+        user_id: User ID
+        persona_id: Persona ID
+        content: Message content
+        role: Message role ("user" or "assistant")
+    
+    Returns:
+        Success message
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            memory_tools = MemoryTools(deps=agent_deps)
+            memory_tools.record_message(user_id, persona_id, content, role)
+            return f"Message recorded successfully for {user_id}/{persona_id}"
+        finally:
+            await agent_deps.cleanup()
+    except Exception as e:
+        return f"Error recording message: {str(e)}"
+
+
+@rag_agent.tool
+async def get_context_window(
+    ctx: RunContext[StateDeps[RAGState]],
+    user_id: str,
+    persona_id: str,
+    limit: int = 20
+) -> str:
+    """
+    Get recent messages for context window.
+    
+    Args:
+        ctx: Agent runtime context
+        user_id: User ID
+        persona_id: Persona ID
+        limit: Maximum number of messages to return
+    
+    Returns:
+        Formatted context window as string
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            memory_tools = MemoryTools(deps=agent_deps)
+            messages = memory_tools.get_context_window(user_id, persona_id, limit)
+            
+            if not messages:
+                return "No messages found in context window."
+            
+            formatted = [f"Context Window ({len(messages)} messages):"]
+            for msg in messages:
+                formatted.append(f"{msg.role}: {msg.content}")
+            
+            return "\n".join(formatted)
+        finally:
+            await agent_deps.cleanup()
+    except Exception as e:
+        return f"Error getting context window: {str(e)}"
+
+
+@rag_agent.tool
+async def store_fact(
+    ctx: RunContext[StateDeps[RAGState]],
+    user_id: str,
+    persona_id: str,
+    fact: str,
+    tags: Optional[List[str]] = None
+) -> str:
+    """
+    Store a fact in memory.
+    
+    Args:
+        ctx: Agent runtime context
+        user_id: User ID
+        persona_id: Persona ID
+        fact: Fact to store
+        tags: Optional tags for the fact
+    
+    Returns:
+        Success message
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            memory_tools = MemoryTools(deps=agent_deps)
+            memory_tools.store_fact(user_id, persona_id, fact, tags)
+            return f"Fact stored successfully: {fact[:50]}..."
+        finally:
+            await agent_deps.cleanup()
+    except Exception as e:
+        return f"Error storing fact: {str(e)}"
+
+
+@rag_agent.tool
+async def search_facts(
+    ctx: RunContext[StateDeps[RAGState]],
+    user_id: str,
+    persona_id: str,
+    query: str,
+    limit: int = 10
+) -> str:
+    """
+    Search for facts in memory.
+    
+    Args:
+        ctx: Agent runtime context
+        user_id: User ID
+        persona_id: Persona ID
+        query: Search query
+        limit: Maximum number of facts to return
+    
+    Returns:
+        Formatted search results
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            memory_tools = MemoryTools(deps=agent_deps)
+            facts = memory_tools.search_facts(user_id, persona_id, query, limit)
+            
+            if not facts:
+                return f"No facts found matching '{query}'"
+            
+            formatted = [f"Found {len(facts)} facts matching '{query}':"]
+            for fact in facts:
+                tags_str = f" [{', '.join(fact.tags)}]" if fact.tags else ""
+                formatted.append(f"- {fact.fact}{tags_str}")
+            
+            return "\n".join(formatted)
+        finally:
+            await agent_deps.cleanup()
+    except Exception as e:
+        return f"Error searching facts: {str(e)}"
+
+
+@rag_agent.tool
+async def store_web_content(
+    ctx: RunContext[StateDeps[RAGState]],
+    user_id: str,
+    persona_id: str,
+    content: str,
+    source_url: str,
+    source_title: str = "",
+    source_description: str = "",
+    tags: Optional[List[str]] = None
+) -> str:
+    """
+    Store web content in memory.
+    
+    Args:
+        ctx: Agent runtime context
+        user_id: User ID
+        persona_id: Persona ID
+        content: Web content to store
+        source_url: Source URL
+        source_title: Source title
+        source_description: Source description
+        tags: Optional tags
+    
+    Returns:
+        Success message
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            memory_tools = MemoryTools(deps=agent_deps)
+            chunks = memory_tools.store_web_content(
+                user_id, persona_id, content, source_url,
+                source_title, source_description, tags
+            )
+            return f"Web content stored successfully ({chunks} chunks) from {source_url}"
+        finally:
+            await agent_deps.cleanup()
+    except Exception as e:
+        return f"Error storing web content: {str(e)}"
+
+
+@rag_agent.tool
+async def enhanced_search(
+    ctx: RunContext[StateDeps[RAGState]],
+    query: str,
+    match_count: Optional[int] = 5,
+    use_decomposition: bool = True,
+    use_grading: bool = True,
+    use_citations: bool = True,
+    use_rewrite: bool = False
+) -> str:
+    """
+    Enhanced search with query decomposition, document grading, and citation extraction.
+    
+    This tool provides advanced RAG capabilities including:
+    - Query decomposition for complex multi-part questions
+    - Document grading to filter irrelevant results
+    - Citation extraction for source tracking
+    - Result synthesis from multiple sub-queries
+    
+    Args:
+        ctx: Agent runtime context
+        query: Search query text
+        match_count: Number of results per sub-query (default: 5)
+        use_decomposition: Whether to decompose complex queries (default: True)
+        use_grading: Whether to grade documents for relevance (default: True)
+        use_citations: Whether to extract citations (default: True)
+        use_rewrite: Whether to rewrite query first (default: False)
+    
+    Returns:
+        Formatted search results with citations
+    """
+    try:
+        agent_deps = AgentDependencies()
+        await agent_deps.initialize()
+        
+        try:
+            # Step 1: Optionally rewrite query
+            if use_rewrite:
+                rewritten_query = await rewrite_query(query, agent_deps.openai_client)
+                query = rewritten_query
+            
+            # Step 2: Decompose query if needed
+            sub_queries = [query]
+            if use_decomposition:
+                needs_decomp, sub_queries = await decompose_query(query, agent_deps.openai_client)
+            
+            # Step 3: Search for each sub-query
+            all_results = []
+            
+            # Create a context wrapper for the search tools
+            deps_ctx = DepsWrapper(agent_deps)
+            
+            for sub_query in sub_queries:
+                # Perform hybrid search
+                results = await hybrid_search(
+                    ctx=deps_ctx,
+                    query=sub_query,
+                    match_count=match_count
+                )
+                
+                # Convert SearchResult to dict format
+                result_dicts = [
+                    {
+                        "content": r.content,
+                        "metadata": r.metadata,
+                        "similarity": r.similarity,
+                        "chunk_id": r.chunk_id,
+                        "document_id": r.document_id,
+                        "document_title": r.document_title,
+                        "document_source": r.document_source,
+                    }
+                    for r in results
+                ]
+                
+                all_results.append({
+                    "query": sub_query,
+                    "results": result_dicts
+                })
+            
+            # Step 4: Grade documents if enabled
+            if use_grading and agent_deps.openai_client:
+                graded_results = []
+                for sub_result in all_results:
+                    results = sub_result["results"]
+                    filtered, scores = await grade_documents(
+                        query=sub_result["query"],
+                        documents=results,
+                        llm_client=agent_deps.openai_client
+                    )
+                    graded_results.append({
+                        "query": sub_result["query"],
+                        "results": filtered
+                    })
+                all_results = graded_results
+            
+            # Step 5: Extract citations if enabled
+            citations_list = []
+            if use_citations:
+                for sub_result in all_results:
+                    citations = extract_citations(sub_result["results"])
+                    citations_list.extend(citations)
+            
+            # Step 6: Synthesize results if multiple sub-queries
+            if len(sub_queries) > 1:
+                synthesized = await synthesize_results(
+                    query=query,
+                    sub_query_results=all_results,
+                    llm_client=agent_deps.openai_client
+                )
+                
+                response_parts = [synthesized]
+                if citations_list:
+                    response_parts.append("\n\n" + format_citations(citations_list))
+                
+                return "\n".join(response_parts)
+            else:
+                # Single query, format normally
+                results = all_results[0]["results"] if all_results else []
+                if not results:
+                    return "No relevant information found."
+                
+                response_parts = [f"Found {len(results)} relevant documents:\n"]
+                for i, result in enumerate(results, 1):
+                    response_parts.append(
+                        f"\n--- Document {i}: {result.get('document_title', 'Unknown')} "
+                        f"(relevance: {result.get('similarity', 0):.2f}) ---"
+                    )
+                    response_parts.append(result.get("content", ""))
+                
+                if citations_list:
+                    response_parts.append("\n\n" + format_citations(citations_list))
+                
+                return "\n".join(response_parts)
+        
+        finally:
+            await agent_deps.cleanup()
+    
+    except Exception as e:
+        return f"Error in enhanced search: {str(e)}"
 

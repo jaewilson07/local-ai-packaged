@@ -2,24 +2,28 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import List
-from datetime import datetime
 import logging
+from pydantic_ai import RunContext
 
+from server.core.api_utils import with_dependencies
 from server.projects.crawl4ai_rag.models import (
     CrawlSinglePageRequest,
     CrawlDeepRequest,
     CrawlResponse
 )
 from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.crawler import crawl_single_page, crawl_deep
-from server.projects.crawl4ai_rag.ingestion.adapter import CrawledContentIngester
+from server.projects.crawl4ai_rag.tools import (
+    crawl_and_ingest_single_page,
+    crawl_and_ingest_deep
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.post("/single", response_model=CrawlResponse)
-async def crawl_single(request: CrawlSinglePageRequest):
+@with_dependencies(Crawl4AIDependencies)
+async def crawl_single(request: CrawlSinglePageRequest, deps: Crawl4AIDependencies):
     """
     Crawl a single web page and automatically ingest it into the MongoDB RAG knowledge base.
     
@@ -90,81 +94,33 @@ async def crawl_single(request: CrawlSinglePageRequest):
     - Embedding generation adds 1-3 seconds depending on content size
     - Total processing time scales with page content length
     """
-    deps = Crawl4AIDependencies()
-    await deps.initialize()
-    
     try:
-        # Phase 1: Crawl the page
-        logger.info(f"🚀 Starting crawl phase for single page: {request.url}")
-        crawl_start_time = datetime.now()
-        
-        result = await crawl_single_page(deps.crawler, str(request.url))
-        
-        crawl_duration = (datetime.now() - crawl_start_time).total_seconds()
-        logger.info(f"✅ Crawl phase complete in {crawl_duration:.2f}s")
-        
-        if not result:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to crawl URL: {request.url}"
-            )
-        
-        # Phase 2: Start storage/ingestion phase
-        logger.info(f"💾 Starting storage phase: ingesting page into MongoDB/Graphiti")
-        storage_start_time = datetime.now()
-        
-        # Ingest into MongoDB
-        ingester = CrawledContentIngester(
-            mongo_client=deps.mongo_client,
+        # Use tools.py function with RunContext
+        ctx = RunContext(deps=deps)
+        result = await crawl_and_ingest_single_page(
+            ctx,
+            url=str(request.url),
             chunk_size=request.chunk_size,
             chunk_overlap=request.chunk_overlap
         )
         
-        # Initialize Graphiti if enabled
-        await ingester.initialize()
-        
-        ingestion_result = await ingester.ingest_crawled_page(
-            url=result['url'],
-            markdown=result['markdown'],
-            html=result.get('html'),  # Pass HTML content
-            chunk_size=request.chunk_size,
-            chunk_overlap=request.chunk_overlap,
-            crawl_metadata=result.get('metadata')
-        )
-        
-        storage_duration = (datetime.now() - storage_start_time).total_seconds()
-        logger.info(f"✅ Storage phase complete in {storage_duration:.2f}s")
-        
-        if ingestion_result.errors:
-            return CrawlResponse(
-                success=False,
-                url=str(request.url),
-                pages_crawled=1,
-                chunks_created=ingestion_result.chunks_created,
-                document_ids=[ingestion_result.document_id] if ingestion_result.document_id else [],
-                errors=ingestion_result.errors
-            )
-        
         return CrawlResponse(
-            success=True,
-            url=str(request.url),
-            pages_crawled=1,
-            chunks_created=ingestion_result.chunks_created,
-            document_ids=[ingestion_result.document_id],
-            errors=[]
+            success=result['success'],
+            url=result['url'],
+            pages_crawled=result['pages_crawled'],
+            chunks_created=result['chunks_created'],
+            document_ids=[result['document_id']] if result.get('document_id') else [],
+            errors=result.get('errors', [])
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception(f"Error in crawl_single: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/deep", response_model=CrawlResponse)
-async def crawl_deep_endpoint(request: CrawlDeepRequest):
+@with_dependencies(Crawl4AIDependencies)
+async def crawl_deep_endpoint(request: CrawlDeepRequest, deps: Crawl4AIDependencies):
     """
     Deep crawl a website recursively and ingest all discovered pages into MongoDB.
     
@@ -275,82 +231,30 @@ async def crawl_deep_endpoint(request: CrawlDeepRequest):
     - Monitor `errors` array for pages that failed to crawl
     - Check `pages_crawled` vs expected count to verify filtering works
     """
-    deps = Crawl4AIDependencies()
-    await deps.initialize()
-    
     try:
-        # Phase 1: Perform deep crawl
-        logger.info(f"🚀 Starting crawl phase for {request.url} (max_depth={request.max_depth})")
-        crawl_start_time = datetime.now()
-        
-        crawled_pages = await crawl_deep(
-            crawler=deps.crawler,
+        # Use tools.py function with RunContext
+        ctx = RunContext(deps=deps)
+        result = await crawl_and_ingest_deep(
+            ctx,
             start_url=str(request.url),
             max_depth=request.max_depth,
             allowed_domains=request.allowed_domains,
             allowed_subdomains=request.allowed_subdomains,
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
             max_concurrent=10  # Use config default
         )
         
-        crawl_duration = (datetime.now() - crawl_start_time).total_seconds()
-        logger.info(
-            f"✅ Crawl phase complete: {len(crawled_pages)} pages crawled in {crawl_duration:.2f}s"
-        )
-        
-        if not crawled_pages:
-            raise HTTPException(
-                status_code=500,
-                detail=f"No pages crawled from URL: {request.url}"
-            )
-        
-        # Phase 2: Start storage/ingestion phase
-        logger.info(f"💾 Starting storage phase: ingesting {len(crawled_pages)} pages into MongoDB/Graphiti")
-        storage_start_time = datetime.now()
-        
-        # Ingest all pages into MongoDB
-        ingester = CrawledContentIngester(
-            mongo_client=deps.mongo_client,
-            chunk_size=request.chunk_size,
-            chunk_overlap=request.chunk_overlap
-        )
-        
-        # Initialize Graphiti if enabled
-        await ingester.initialize()
-        
-        ingestion_results = await ingester.ingest_crawled_batch(
-            pages=crawled_pages,
-            chunk_size=request.chunk_size,
-            chunk_overlap=request.chunk_overlap
-        )
-        
-        storage_duration = (datetime.now() - storage_start_time).total_seconds()
-        logger.info(
-            f"✅ Storage phase complete: {len(ingestion_results)} pages ingested in {storage_duration:.2f}s"
-        )
-        
-        # Aggregate results
-        total_chunks = sum(r.chunks_created for r in ingestion_results)
-        document_ids = [r.document_id for r in ingestion_results if r.document_id]
-        all_errors = []
-        for r in ingestion_results:
-            all_errors.extend(r.errors)
-        
-        success = len(document_ids) > 0 and len(all_errors) == 0
-        
         return CrawlResponse(
-            success=success,
-            url=str(request.url),
-            pages_crawled=len(crawled_pages),
-            chunks_created=total_chunks,
-            document_ids=document_ids,
-            errors=all_errors
+            success=result['success'],
+            url=result['url'],
+            pages_crawled=result['pages_crawled'],
+            chunks_created=result['chunks_created'],
+            document_ids=result.get('document_ids', []),
+            errors=result.get('errors', [])
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception(f"Error in crawl_deep: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 

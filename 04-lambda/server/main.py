@@ -62,7 +62,7 @@ app.add_middleware(
 )
 
 # Import and include routers
-from server.api import health, mongo_rag, crawl4ai_rag, graphiti_rag, n8n_workflow, openwebui_export, openwebui_topics, searxng, calendar_sync, mcp_rest
+from server.api import health, mongo_rag, crawl4ai_rag, graphiti_rag, n8n_workflow, openwebui_export, openwebui_topics, searxng, calendar_sync, calendar, knowledge, persona, conversation, mcp_rest
 app.include_router(health.router, tags=["health"])
 app.include_router(mongo_rag.router, prefix="/api/v1/rag", tags=["rag"])
 app.include_router(crawl4ai_rag.router, prefix="/api/v1/crawl", tags=["crawl"])
@@ -72,6 +72,10 @@ app.include_router(openwebui_export.router, prefix="/api/v1/openwebui", tags=["o
 app.include_router(openwebui_topics.router, prefix="/api/v1/openwebui", tags=["openwebui"])
 app.include_router(searxng.router, tags=["searxng"])
 app.include_router(calendar_sync.router, prefix="/api/v1/calendar", tags=["calendar"])
+app.include_router(calendar.router, prefix="/api/v1/calendar/events", tags=["calendar"])
+app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
+app.include_router(persona.router, prefix="/api/v1/persona", tags=["persona"])
+app.include_router(conversation.router, prefix="/api/v1/conversation", tags=["conversation"])
 app.include_router(mcp_rest.router)  # REST API wrapper for MCP tools
 
 # Add a simple GET endpoint for MCP server info (for testing/debugging)

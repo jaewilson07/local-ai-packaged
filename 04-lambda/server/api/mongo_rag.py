@@ -13,6 +13,7 @@ from server.projects.mongo_rag.models import (
 )
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.tools import semantic_search, hybrid_search, text_search
+from server.core.api_utils import with_dependencies
 from server.projects.mongo_rag.tools_code import search_code_examples
 from server.projects.mongo_rag.sources import get_available_sources
 from server.projects.mongo_rag.ingestion.pipeline import DocumentIngestionPipeline, IngestionConfig
@@ -327,7 +328,11 @@ async def ingest(files: List[UploadFile] = File(...), clean_before: bool = False
 
 
 @router.post("/agent", response_model=AgentResponse)
-async def agent(request: AgentRequest):
+@with_dependencies(AgentDependencies)
+async def agent(
+    request: AgentRequest,
+    deps: AgentDependencies
+):
     """
     Query the conversational RAG agent with natural language.
     
@@ -407,21 +412,15 @@ async def agent(request: AgentRequest):
     - Search results are limited to top matches for efficiency
     """
     
-    deps = AgentDependencies()
-    await deps.initialize()
+    result = await rag_agent.run(
+        request.query,
+        deps=StateDeps(state=RAGState(), deps=deps)
+    )
     
-    try:
-        result = await rag_agent.run(
-            request.query,
-            deps=StateDeps(state=RAGState(), deps=deps)
-        )
-        
-        return AgentResponse(
-            query=request.query,
-            response=result.data
-        )
-    finally:
-        await deps.cleanup()
+    return AgentResponse(
+        query=request.query,
+        response=result.data
+    )
 
 
 class CodeExampleSearchRequest(BaseModel):
@@ -439,24 +438,20 @@ class CodeExampleSearchResponse(BaseModel):
 
 
 @router.post("/code-examples/search", response_model=CodeExampleSearchResponse)
-async def search_code_examples_endpoint(request: CodeExampleSearchRequest):
+@with_dependencies(AgentDependencies)
+async def search_code_examples_endpoint(
+    request: CodeExampleSearchRequest,
+    deps: AgentDependencies
+):
     """
     Search for code examples in the knowledge base.
     
     Returns code snippets with summaries, language, and context.
     Requires USE_AGENTIC_RAG=true to be enabled.
     """
-    try:
-        deps = AgentDependencies()
-        await deps.initialize()
-        
-        class DepsWrapper:
-            def __init__(self, deps):
-                self.deps = deps
-        
-        ctx = DepsWrapper(deps)
-        results = await search_code_examples(ctx, request.query, request.match_count)
-        await deps.cleanup()
+    from server.projects.shared.wrappers import DepsWrapper
+    ctx = DepsWrapper(deps)
+    results = await search_code_examples(ctx, request.query, request.match_count)
         
         formatted_results = [
             {
@@ -485,25 +480,142 @@ async def search_code_examples_endpoint(request: CodeExampleSearchRequest):
 
 
 @router.get("/sources")
-async def get_sources():
+@with_dependencies(AgentDependencies)
+async def get_sources(
+    deps: AgentDependencies
+):
     """
     Get all available sources (domains/paths) that have been crawled and stored.
     
     Returns summaries and statistics for each source.
     """
-    try:
-        deps = AgentDependencies()
-        await deps.initialize()
-        sources = await get_available_sources(deps.mongo_client)
-        await deps.cleanup()
-        
-        return {
-            "success": True,
-            "sources": sources,
-            "count": len(sources)
-        }
-        
-    except Exception as e:
-        logger.exception(f"Error retrieving sources: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    sources = await get_available_sources(deps.mongo_client)
+    
+    return {
+        "success": True,
+        "sources": sources,
+        "count": len(sources)
+    }
+
+
+# ============================================================================
+# Memory Tools Endpoints
+# ============================================================================
+
+@router.post("/memory/record")
+@with_dependencies(AgentDependencies)
+async def record_message_endpoint(
+    user_id: str,
+    persona_id: str,
+    content: str,
+    role: str = "user",
+    deps: AgentDependencies = None
+):
+    """Record a message in memory."""
+    from server.projects.mongo_rag.memory_tools import MemoryTools
+    
+    memory_tools = MemoryTools(deps=deps)
+    memory_tools.record_message(user_id, persona_id, content, role)
+    return {"success": True, "message": "Message recorded successfully"}
+
+
+@router.get("/memory/context")
+@with_dependencies(AgentDependencies)
+async def get_context_window_endpoint(
+    user_id: str,
+    persona_id: str,
+    limit: int = 20,
+    deps: AgentDependencies = None
+):
+    """Get recent messages for context window."""
+    from server.projects.mongo_rag.memory_tools import MemoryTools
+    
+    memory_tools = MemoryTools(deps=deps)
+    messages = memory_tools.get_context_window(user_id, persona_id, limit)
+    
+    return {
+        "success": True,
+        "messages": [
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None
+            }
+            for msg in messages
+        ],
+        "count": len(messages)
+    }
+
+
+@router.post("/memory/facts")
+@with_dependencies(AgentDependencies)
+async def store_fact_endpoint(
+    user_id: str,
+    persona_id: str,
+    fact: str,
+    tags: Optional[List[str]] = None,
+    deps: AgentDependencies = None
+):
+    """Store a fact in memory."""
+    from server.projects.mongo_rag.memory_tools import MemoryTools
+    
+    memory_tools = MemoryTools(deps=deps)
+    memory_tools.store_fact(user_id, persona_id, fact, tags)
+    return {"success": True, "message": "Fact stored successfully"}
+
+
+@router.get("/memory/facts/search")
+@with_dependencies(AgentDependencies)
+async def search_facts_endpoint(
+    user_id: str,
+    persona_id: str,
+    query: str,
+    limit: int = 10,
+    deps: AgentDependencies = None
+):
+    """Search for facts in memory."""
+    from server.projects.mongo_rag.memory_tools import MemoryTools
+    
+    memory_tools = MemoryTools(deps=deps)
+    facts = memory_tools.search_facts(user_id, persona_id, query, limit)
+    
+    return {
+        "success": True,
+        "facts": [
+            {
+                "fact": fact.fact,
+                "tags": fact.tags or [],
+                "created_at": fact.created_at.isoformat() if fact.created_at else None
+            }
+            for fact in facts
+        ],
+        "count": len(facts)
+    }
+
+
+@router.post("/memory/web-content")
+@with_dependencies(AgentDependencies)
+async def store_web_content_endpoint(
+    user_id: str,
+    persona_id: str,
+    content: str,
+    source_url: str,
+    source_title: str = "",
+    source_description: str = "",
+    tags: Optional[List[str]] = None,
+    deps: AgentDependencies = None
+):
+    """Store web content in memory."""
+    from server.projects.mongo_rag.memory_tools import MemoryTools
+    
+    memory_tools = MemoryTools(deps=deps)
+    chunks = memory_tools.store_web_content(
+        user_id, persona_id, content, source_url,
+        source_title, source_description, tags
+    )
+    return {
+        "success": True,
+        "message": f"Web content stored successfully",
+        "chunks": chunks
+    }
 

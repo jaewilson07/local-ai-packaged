@@ -3,17 +3,15 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 import logging
-from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-import openai
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode
+from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 from server.projects.crawl4ai_rag.config import config
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Crawl4AIDependencies:
+class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
     """Dependencies injected into the crawl4ai agent context."""
 
     # Core dependencies
@@ -40,43 +38,31 @@ class Crawl4AIDependencies:
             self.settings = config
             logger.info("settings_loaded", extra={"database": config.mongodb_database})
 
-        # Initialize MongoDB client
-        if not self.mongo_client:
-            try:
-                self.mongo_client = AsyncMongoClient(
-                    config.mongodb_uri, serverSelectionTimeoutMS=5000
-                )
-                self.db = self.mongo_client[config.mongodb_database]
+        # Initialize MongoDB using mixin
+        await self._initialize_mongodb(db_name=config.mongodb_database)
+        logger.info(
+            "mongodb_connected",
+            extra={
+                "database": config.mongodb_database,
+                "collections": {
+                    "documents": config.mongodb_collection_documents,
+                    "chunks": config.mongodb_collection_chunks,
+                },
+            }
+        )
 
-                # Verify connection with ping
-                await self.mongo_client.admin.command("ping")
-                logger.info(
-                    "mongodb_connected",
-                    extra={
-                        "database": config.mongodb_database,
-                        "collections": {
-                            "documents": config.mongodb_collection_documents,
-                            "chunks": config.mongodb_collection_chunks,
-                        },
-                    }
-                )
-            except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-                logger.exception("mongodb_connection_failed", extra={"error": str(e)})
-                raise
-
-        # Initialize OpenAI client for embeddings
-        if not self.openai_client:
-            self.openai_client = openai.AsyncOpenAI(
-                api_key=config.embedding_api_key,
-                base_url=config.embedding_base_url,
-            )
-            logger.info(
-                "openai_client_initialized",
-                extra={
-                    "model": config.embedding_model,
-                    "dimension": config.embedding_dimension,
-                }
-            )
+        # Initialize OpenAI client using mixin
+        await self._initialize_openai_client(
+            api_key=config.embedding_api_key,
+            base_url=config.embedding_base_url
+        )
+        logger.info(
+            "openai_client_initialized",
+            extra={
+                "model": config.embedding_model,
+                "dimension": config.embedding_dimension,
+            }
+        )
 
         # Initialize Crawl4AI crawler
         if not self.crawler:
@@ -103,11 +89,9 @@ class Crawl4AIDependencies:
             except Exception as e:
                 logger.warning(f"Error closing crawler: {e}")
         
-        if self.mongo_client:
-            await self.mongo_client.close()
-            self.mongo_client = None
-            self.db = None
-            logger.info("mongodb_connection_closed")
+        # Cleanup using mixins
+        await self._cleanup_mongodb()
+        await self._cleanup_openai_client()
 
     async def get_embedding(self, text: str) -> list[float]:
         """

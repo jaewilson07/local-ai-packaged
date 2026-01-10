@@ -4,9 +4,9 @@ from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from pydantic_ai.ag_ui import StateDeps
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIModel
 
+from server.projects.shared.llm import get_llm_model as _get_n8n_workflow_model
+from server.projects.shared.wrappers import DepsWrapper
 from server.projects.n8n_workflow.config import config
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
 from server.projects.n8n_workflow.prompts import N8N_WORKFLOW_SYSTEM_PROMPT
@@ -21,27 +21,6 @@ from server.projects.n8n_workflow.tools import (
     search_n8n_knowledge_base,
     search_node_examples
 )
-
-
-def _get_n8n_workflow_model(model_choice: Optional[str] = None) -> OpenAIModel:
-    """
-    Factory function to get the model for N8n workflow agent.
-    Supports any OpenAI-compatible API provider.
-
-    Args:
-        model_choice: Optional override for model choice
-
-    Returns:
-        Configured OpenAI-compatible model
-    """
-    llm_choice = model_choice or config.llm_model
-    base_url = config.llm_base_url
-    api_key = config.llm_api_key
-
-    # Create provider based on configuration
-    provider = OpenAIProvider(base_url=base_url, api_key=api_key)
-
-    return OpenAIModel(llm_choice, provider=provider)
 
 
 class N8nWorkflowState(BaseModel):
@@ -84,11 +63,6 @@ async def create_workflow_tool(
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
     
-    # Create a context wrapper for the workflow tools
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
-    
     deps_ctx = DepsWrapper(deps)
     try:
         return await create_workflow(deps_ctx, name, nodes, connections, active, settings)
@@ -124,10 +98,6 @@ async def update_workflow_tool(
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
     
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
-    
     deps_ctx = DepsWrapper(deps)
     try:
         return await update_workflow(deps_ctx, workflow_id, name, nodes, connections, active, settings)
@@ -152,10 +122,6 @@ async def delete_workflow_tool(
     """
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
-    
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
     
     deps_ctx = DepsWrapper(deps)
     try:
@@ -184,10 +150,6 @@ async def activate_workflow_tool(
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
     
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
-    
     deps_ctx = DepsWrapper(deps)
     try:
         return await activate_workflow(deps_ctx, workflow_id, active)
@@ -212,10 +174,6 @@ async def list_workflows_tool(
     """
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
-    
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
     
     deps_ctx = DepsWrapper(deps)
     try:
@@ -244,10 +202,6 @@ async def execute_workflow_tool(
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
     
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
-    
     deps_ctx = DepsWrapper(deps)
     try:
         return await execute_workflow(deps_ctx, workflow_id, input_data)
@@ -272,10 +226,6 @@ async def discover_n8n_nodes_tool(
     """
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
-    
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
     
     deps_ctx = DepsWrapper(deps)
     try:
@@ -308,10 +258,6 @@ async def search_n8n_knowledge_base_tool(
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
     
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
-    
     deps_ctx = DepsWrapper(deps)
     try:
         return await search_n8n_knowledge_base(deps_ctx, query, match_count, search_type)
@@ -340,10 +286,6 @@ async def search_node_examples_tool(
     """
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
-    
-    class DepsWrapper:
-        def __init__(self, deps):
-            self.deps = deps
     
     deps_ctx = DepsWrapper(deps)
     try:

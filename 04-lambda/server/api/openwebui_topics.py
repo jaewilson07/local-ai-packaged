@@ -2,19 +2,23 @@
 
 from fastapi import APIRouter, HTTPException
 import logging
+from pydantic_ai import RunContext
 
+from server.core.api_utils import with_dependencies
 from server.projects.openwebui_topics.models import (
     TopicClassificationRequest,
     TopicClassificationResponse
 )
-from server.projects.openwebui_topics.classifier import TopicClassifier
+from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
+from server.projects.openwebui_topics.tools import classify_topics
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.post("/classify", response_model=TopicClassificationResponse)
-async def classify_topics(request: TopicClassificationRequest):
+@with_dependencies(OpenWebUITopicsDeps)
+async def classify_topics_endpoint(request: TopicClassificationRequest, deps: OpenWebUITopicsDeps):
     """
     Classify topics for a conversation using LLM.
     
@@ -49,9 +53,9 @@ async def classify_topics(request: TopicClassificationRequest):
     }
     ```
     """
-    classifier = TopicClassifier()
     try:
-        result = await classifier.classify(request)
+        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+        result = await classify_topics(tool_ctx, request)
         return result
     except Exception as e:
         logger.exception(f"Failed to classify topics: {e}")

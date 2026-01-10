@@ -12,13 +12,14 @@ else:
     except ImportError:
         Graphiti = None  # type: ignore
 
+from server.projects.shared.dependencies import BaseDependencies
 from server.projects.graphiti_rag.config import config
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GraphitiRAGDeps:
+class GraphitiRAGDeps(BaseDependencies):
     """Dependencies for Graphiti RAG operations."""
     
     graphiti: Optional[Graphiti] = None

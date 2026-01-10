@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 from pydantic_ai import RunContext
 from httpx import HTTPStatusError
 
+from server.projects.shared.wrappers import DepsWrapper
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
 
 logger = logging.getLogger(__name__)
@@ -479,9 +480,6 @@ async def search_n8n_knowledge_base(
         await agent_deps.initialize()
         
         # Create a context wrapper for the search tools
-        class DepsWrapper:
-            def __init__(self, deps):
-                self.deps = deps
         
         deps_ctx = DepsWrapper(agent_deps)
         
@@ -568,9 +566,6 @@ async def search_node_examples(
         await agent_deps.initialize()
         
         # Create a context wrapper
-        class DepsWrapper:
-            def __init__(self, deps):
-                self.deps = deps
         
         deps_ctx = DepsWrapper(agent_deps)
         

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 import logging
 
+from server.core.api_utils import with_dependencies
 from server.projects.n8n_workflow.models import (
     CreateWorkflowRequest,
     UpdateWorkflowRequest,
@@ -30,24 +31,15 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-class DepsWrapper:
-    """Wrapper to convert N8nWorkflowDeps to RunContext-compatible format."""
-    def __init__(self, deps: N8nWorkflowDeps):
-        self.deps = deps
-
-
 @router.post("/create", response_model=WorkflowResponse)
-async def create_workflow_endpoint(request: CreateWorkflowRequest):
+@with_dependencies(N8nWorkflowDeps)
+async def create_workflow_endpoint(request: CreateWorkflowRequest, deps: N8nWorkflowDeps):
     """
     Create a new N8n workflow.
     
     Creates a workflow with the specified nodes, connections, and settings.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
-        ctx = DepsWrapper(deps)
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         
@@ -80,18 +72,14 @@ async def create_workflow_endpoint(request: CreateWorkflowRequest):
     except Exception as e:
         logger.exception("workflow_creation_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/update", response_model=WorkflowResponse)
-async def update_workflow_endpoint(request: UpdateWorkflowRequest):
+@with_dependencies(N8nWorkflowDeps)
+async def update_workflow_endpoint(request: UpdateWorkflowRequest, deps: N8nWorkflowDeps):
     """
     Update an existing N8n workflow.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -116,18 +104,14 @@ async def update_workflow_endpoint(request: UpdateWorkflowRequest):
     except Exception as e:
         logger.exception("workflow_update_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/delete", response_model=WorkflowResponse)
-async def delete_workflow_endpoint(request: DeleteWorkflowRequest):
+@with_dependencies(N8nWorkflowDeps)
+async def delete_workflow_endpoint(request: DeleteWorkflowRequest, deps: N8nWorkflowDeps):
     """
     Delete an N8n workflow.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -142,18 +126,14 @@ async def delete_workflow_endpoint(request: DeleteWorkflowRequest):
     except Exception as e:
         logger.exception("workflow_deletion_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/activate", response_model=WorkflowResponse)
-async def activate_workflow_endpoint(request: ActivateWorkflowRequest):
+@with_dependencies(N8nWorkflowDeps)
+async def activate_workflow_endpoint(request: ActivateWorkflowRequest, deps: N8nWorkflowDeps):
     """
     Activate or deactivate an N8n workflow.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -173,18 +153,14 @@ async def activate_workflow_endpoint(request: ActivateWorkflowRequest):
     except Exception as e:
         logger.exception("workflow_activation_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.get("/list", response_model=ListWorkflowsResponse)
-async def list_workflows_endpoint(active_only: bool = False):
+@with_dependencies(N8nWorkflowDeps)
+async def list_workflows_endpoint(active_only: bool = False, deps: N8nWorkflowDeps = None):
     """
     List all N8n workflows.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -212,18 +188,14 @@ async def list_workflows_endpoint(active_only: bool = False):
     except Exception as e:
         logger.exception("workflow_list_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/execute", response_model=ExecuteWorkflowResponse)
-async def execute_workflow_endpoint(request: ExecuteWorkflowRequest):
+@with_dependencies(N8nWorkflowDeps)
+async def execute_workflow_endpoint(request: ExecuteWorkflowRequest, deps: N8nWorkflowDeps):
     """
     Execute an N8n workflow.
     """
-    deps = N8nWorkflowDeps.from_settings()
-    await deps.initialize()
-    
     try:
         from pydantic_ai import RunContext
         run_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -250,6 +222,4 @@ async def execute_workflow_endpoint(request: ExecuteWorkflowRequest):
     except Exception as e:
         logger.exception("workflow_execution_error")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 

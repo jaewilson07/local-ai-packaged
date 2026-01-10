@@ -32,6 +32,7 @@ class SearchResponse(BaseModel):
     query: str
     results: List[Dict[str, Any]]  # Will contain SearchResult dicts
     count: int
+    citations: Optional[List[Dict[str, Any]]] = Field(None, description="Extracted citations")
 
 
 class IngestResponse(BaseModel):

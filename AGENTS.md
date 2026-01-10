@@ -95,12 +95,24 @@ Each stack uses its own Docker Compose project name for independent management, 
 
 For detailed component rules, see:
 
+### Stack-Level Documentation
 - **[00-infrastructure/AGENTS.md](00-infrastructure/AGENTS.md)** - Infrastructure services (Caddy, Cloudflare Tunnel, Infisical, Redis)
 - **[01-data/AGENTS.md](01-data/AGENTS.md)** - Data layer (Supabase, Qdrant, Neo4j, MongoDB, MinIO)
 - **[02-compute/AGENTS.md](02-compute/AGENTS.md)** - AI compute (Ollama, ComfyUI)
 - **[03-apps/AGENTS.md](03-apps/AGENTS.md)** - Application services (n8n, Flowise, Open WebUI, SearXNG, Langfuse, ClickHouse)
 - **[04-lambda/AGENTS.md](04-lambda/AGENTS.md)** - Lambda FastAPI server with MCP and REST APIs
 - **[setup/AGENTS.md](setup/AGENTS.md)** - Setup scripts and configuration utilities
+
+### Lambda Project-Level Documentation
+For Lambda server projects, see project-specific AGENTS.md files:
+
+- **[04-lambda/server/projects/mongo_rag/AGENTS.md](04-lambda/server/projects/mongo_rag/AGENTS.md)** - MongoDB RAG with enhanced search, memory tools, and knowledge graph
+- **[04-lambda/server/projects/persona/AGENTS.md](04-lambda/server/projects/persona/AGENTS.md)** - Persona state management (mood, relationship, context)
+- **[04-lambda/server/projects/conversation/AGENTS.md](04-lambda/server/projects/conversation/AGENTS.md)** - Multi-agent conversation orchestration
+- **[04-lambda/server/projects/calendar/AGENTS.md](04-lambda/server/projects/calendar/AGENTS.md)** - Google Calendar integration and sync
+- **[04-lambda/server/projects/graphiti_rag/AGENTS.md](04-lambda/server/projects/graphiti_rag/AGENTS.md)** - Graph-based RAG using Graphiti and Neo4j
+- **[04-lambda/server/projects/knowledge/AGENTS.md](04-lambda/server/projects/knowledge/AGENTS.md)** - Event extraction from web content
+- **[04-lambda/server/projects/n8n_workflow/AGENTS.md](04-lambda/server/projects/n8n_workflow/AGENTS.md)** - N8n workflow management with RAG
 
 ## Common Patterns
 
@@ -244,6 +256,7 @@ service-gpu:
 - **ComfyUI**: pytest-based unit and inference tests (see `02-compute/comfyui/data/ComfyUI/tests/`)
 - **Supabase**: pnpm/turbo test commands (see `supabase/package.json`)
 - **Python Scripts**: No formal test suite yet. Manual validation via script execution.
+- **Lambda Projects**: Manual API testing via REST endpoints and MCP tools. No formal test suite yet.
 
 ## Agent Gotchas
 
@@ -284,6 +297,15 @@ rg -n "def " start_services.py
 
 # Find stack-specific configs
 rg -n "profile" --type yaml
+
+# Find Lambda project agents
+rg -n "^[a-z_]+_agent = Agent" 04-lambda/server/projects/
+
+# Find Pydantic AI tool definitions
+rg -n "@.*\.tool" 04-lambda/server/projects/
+
+# Find project dependencies classes
+rg -n "class.*Deps" 04-lambda/server/projects/
 ```
 
 ## Error Handling Protocol

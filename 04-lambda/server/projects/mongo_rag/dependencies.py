@@ -7,6 +7,7 @@ from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import openai
 from server.projects.mongo_rag.config import config
+from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
 from server.projects.graphiti_rag.config import config as graphiti_config
 

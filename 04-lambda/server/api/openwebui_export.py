@@ -1,24 +1,32 @@
 """Open WebUI export REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 import logging
+from pydantic_ai import RunContext
 
+from server.core.api_utils import with_dependencies
 from server.projects.openwebui_export.models import (
     ConversationExportRequest,
     ConversationExportResponse,
     ConversationListRequest,
     ConversationListResponse
 )
-from server.projects.openwebui_export.exporter import ConversationExporter
-from server.projects.openwebui_export.client import OpenWebUIClient
+from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
+from server.projects.openwebui_export.tools import (
+    export_conversation,
+    get_conversations,
+    get_conversation,
+    export_conversations_batch
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.post("/export", response_model=ConversationExportResponse)
-async def export_conversation(request: ConversationExportRequest):
+@with_dependencies(OpenWebUIExportDeps)
+async def export_conversation_endpoint(request: ConversationExportRequest, deps: OpenWebUIExportDeps):
     """
     Export a conversation from Open WebUI to MongoDB RAG system.
     
@@ -57,55 +65,37 @@ async def export_conversation(request: ConversationExportRequest):
     }
     ```
     """
-    exporter = ConversationExporter()
     try:
-        result = await exporter.export_conversation(request)
-        await exporter.close()
+        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+        result = await export_conversation(tool_ctx, request)
         return ConversationExportResponse(**result)
     except Exception as e:
         logger.exception(f"Failed to export conversation: {e}")
-        await exporter.close()
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 @router.post("/export/batch", response_model=List[ConversationExportResponse])
-async def export_conversations_batch(requests: List[ConversationExportRequest]):
+@with_dependencies(OpenWebUIExportDeps)
+async def export_conversations_batch_endpoint(requests: List[ConversationExportRequest], deps: OpenWebUIExportDeps):
     """
     Export multiple conversations in batch.
     
     This endpoint exports multiple conversations at once, which is more efficient
     than calling the single export endpoint multiple times.
     """
-    exporter = ConversationExporter()
-    results = []
-    
     try:
-        await exporter.initialize()
-        
-        for request in requests:
-            try:
-                result = await exporter.export_conversation(request)
-                results.append(ConversationExportResponse(**result))
-            except Exception as e:
-                logger.error(f"Failed to export conversation {request.conversation_id}: {e}")
-                results.append(ConversationExportResponse(
-                    success=False,
-                    conversation_id=request.conversation_id,
-                    message=f"Export failed: {str(e)}",
-                    errors=[str(e)]
-                ))
-        
-        await exporter.close()
-        return results
-        
+        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+        results = await export_conversations_batch(tool_ctx, requests)
+        return [ConversationExportResponse(**result) for result in results]
     except Exception as e:
         logger.exception(f"Batch export failed: {e}")
-        await exporter.close()
         raise HTTPException(status_code=500, detail=f"Batch export failed: {str(e)}")
 
 
 @router.get("/conversations", response_model=ConversationListResponse)
-async def list_conversations(
+@with_dependencies(OpenWebUIExportDeps)
+async def list_conversations_endpoint(
+    deps: OpenWebUIExportDeps,
     user_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
@@ -116,35 +106,44 @@ async def list_conversations(
     This endpoint fetches conversations from Open WebUI API. Useful for
     discovering conversations that need to be exported.
     """
-    client = OpenWebUIClient()
     try:
-        conversations = await client.get_conversations(
-            user_id=user_id,
-            limit=limit,
-            offset=offset
-        )
+        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+        result = await get_conversations(tool_ctx, user_id, limit, offset)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
         return ConversationListResponse(
-            conversations=conversations,
-            total=len(conversations),
-            limit=limit,
-            offset=offset
+            conversations=result["conversations"],
+            total=result["total"],
+            limit=result["limit"],
+            offset=result["offset"]
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Failed to list conversations: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list conversations: {str(e)}")
 
 
 @router.get("/conversations/{conversation_id}")
-async def get_conversation(conversation_id: str):
+@with_dependencies(OpenWebUIExportDeps)
+async def get_conversation_endpoint(conversation_id: str, deps: OpenWebUIExportDeps):
     """
     Get a specific conversation from Open WebUI.
     
     This endpoint fetches a single conversation by ID from Open WebUI API.
     """
-    client = OpenWebUIClient()
     try:
-        conversation = await client.get_conversation(conversation_id)
-        return conversation
+        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+        result = await get_conversation(tool_ctx, conversation_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Failed to get conversation {conversation_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get conversation: {str(e)}")

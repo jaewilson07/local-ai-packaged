@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     google_drive_credentials_path: Optional[str] = Field(None, env="GOOGLE_DRIVE_CREDENTIALS_PATH")
     google_drive_token_path: Optional[str] = Field(None, env="GOOGLE_DRIVE_TOKEN_PATH")
     
+    # Google Calendar configuration
+    google_calendar_credentials: Optional[str] = Field(None, env="GOOGLE_CALENDAR_CREDENTIALS")
+    google_calendar_token: Optional[str] = Field(None, env="GOOGLE_CALENDAR_TOKEN")
+    google_calendar_credentials_path: Optional[str] = Field(None, env="GOOGLE_CALENDAR_CREDENTIALS_PATH")
+    google_calendar_token_path: Optional[str] = Field(None, env="GOOGLE_CALENDAR_TOKEN_PATH")
+    google_calendar_id: str = Field("primary", env="GOOGLE_CALENDAR_ID")
+    
     # N8n Workflow Management
     n8n_api_url: str = Field("http://n8n:5678/api/v1", env="N8N_API_URL")
     n8n_api_key: Optional[str] = Field(None, env="N8N_API_KEY")

@@ -206,12 +206,12 @@ async def search_graphiti(query: str, match_count: int = 10) -> dict:
     Returns:
         Dictionary containing graphiti search results.
     """
-    from server.api.graphiti_rag import search_graphiti
+    from server.api.graphiti_rag import search_graphiti_endpoint
     from server.projects.graphiti_rag.models import GraphitiSearchRequest
     
     try:
         request = GraphitiSearchRequest(query=query, match_count=match_count)
-        result = await search_graphiti(request)
+        result = await search_graphiti_endpoint(request)
         return result.dict()
     except ValidationError as e:
         logger.warning(f"mcp_validation_error: search_graphiti", extra={"errors": e.errors()})
@@ -239,12 +239,12 @@ async def parse_github_repository(repo_url: str) -> dict:
     Returns:
         Dictionary containing parse results.
     """
-    from server.api.graphiti_rag import parse_github_repository
+    from server.api.graphiti_rag import parse_github_repository_endpoint
     from server.projects.graphiti_rag.models import ParseRepositoryRequest
     
     try:
         request = ParseRepositoryRequest(repo_url=repo_url)
-        result = await parse_github_repository(request)
+        result = await parse_github_repository_endpoint(request)
         return result.dict()
     except ValidationError as e:
         logger.warning(f"mcp_validation_error: parse_github_repository", extra={"errors": e.errors()})
@@ -271,12 +271,12 @@ async def check_ai_script_hallucinations(script_path: str) -> dict:
     Returns:
         Dictionary containing validation results.
     """
-    from server.api.graphiti_rag import validate_ai_script
+    from server.api.graphiti_rag import validate_ai_script_endpoint
     from server.projects.graphiti_rag.models import ValidateScriptRequest
     
     try:
         request = ValidateScriptRequest(script_path=script_path)
-        result = await validate_ai_script(request)
+        result = await validate_ai_script_endpoint(request)
         return result.dict()
     except ValidationError as e:
         logger.warning(f"mcp_validation_error: check_ai_script_hallucinations", extra={"errors": e.errors()})
@@ -305,10 +305,12 @@ async def query_knowledge_graph(command: str) -> dict:
     Returns:
         Dictionary containing query results.
     """
-    from server.api.graphiti_rag import query_knowledge_graph
+    from server.api.graphiti_rag import query_knowledge_graph_endpoint
+    from server.projects.graphiti_rag.models import QueryKnowledgeGraphRequest
     
     try:
-        result = await query_knowledge_graph(command)
+        request = QueryKnowledgeGraphRequest(command=command)
+        result = await query_knowledge_graph_endpoint(request)
         return result.dict()
     except HTTPException as e:
         logger.warning(f"mcp_http_error: query_knowledge_graph", extra={"status_code": e.status_code, "detail": e.detail})
@@ -890,7 +892,7 @@ async def export_openwebui_conversation(
     Returns:
         Dictionary containing export results.
     """
-    from server.api.openwebui_export import export_conversation
+    from server.api.openwebui_export import export_conversation_endpoint
     from server.projects.openwebui_export.models import ConversationExportRequest, ConversationMessage
     
     try:
@@ -908,7 +910,7 @@ async def export_openwebui_conversation(
             topics=topics,
             metadata={}
         )
-        result = await export_conversation(request)
+        result = await export_conversation_endpoint(request)
         return result.dict()
     except Exception as e:
         logger.exception(f"mcp_tool_error: export_openwebui_conversation")
@@ -936,7 +938,7 @@ async def classify_conversation_topics(
     Returns:
         Dictionary containing classified topics.
     """
-    from server.api.openwebui_topics import classify_topics
+    from server.api.openwebui_topics import classify_topics_endpoint
     from server.projects.openwebui_topics.models import TopicClassificationRequest
     
     try:
@@ -946,7 +948,7 @@ async def classify_conversation_topics(
             messages=messages,
             existing_topics=existing_topics
         )
-        result = await classify_topics(request)
+        result = await classify_topics_endpoint(request)
         return result.dict()
     except Exception as e:
         logger.exception(f"mcp_tool_error: classify_conversation_topics")
@@ -995,4 +997,661 @@ async def search_conversations(
     except Exception as e:
         logger.exception(f"mcp_tool_error: search_conversations")
         raise RuntimeError(f"Failed to search conversations: {e}")
+
+
+# ============================================================================
+# Calendar Tools
+# ============================================================================
+
+@mcp.tool
+async def create_calendar_event(
+    user_id: str,
+    persona_id: str,
+    local_event_id: str,
+    summary: str,
+    start: str,
+    end: str,
+    description: Optional[str] = None,
+    location: Optional[str] = None,
+    timezone: str = "America/Los_Angeles",
+    calendar_id: str = "primary",
+    attendees: Optional[List[str]] = None
+) -> dict:
+    """
+    Create a new calendar event in Google Calendar.
+    
+    Creates a new event in Google Calendar and tracks the sync state to prevent duplicates.
+    The event is stored with a unique local_event_id that can be used for future updates.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        local_event_id: Unique local event identifier
+        summary: Event title/summary
+        start: Start datetime (ISO format)
+        end: End datetime (ISO format)
+        description: Event description. Optional.
+        location: Event location. Optional.
+        timezone: Timezone string. Default: "America/Los_Angeles"
+        calendar_id: Google Calendar ID. Default: "primary"
+        attendees: List of attendee emails. Optional.
+    
+    Returns:
+        Dictionary containing the created event details.
+    """
+    from server.api.calendar import create_calendar_event_endpoint
+    from server.projects.calendar.models import CreateCalendarEventRequest, CalendarEventData
+    
+    try:
+        event_data = CalendarEventData(
+            summary=summary,
+            start=start,
+            end=end,
+            description=description,
+            location=location,
+            timezone=timezone,
+            attendees=attendees
+        )
+        request = CreateCalendarEventRequest(
+            user_id=user_id,
+            persona_id=persona_id,
+            local_event_id=local_event_id,
+            event_data=event_data,
+            calendar_id=calendar_id
+        )
+        result = await create_calendar_event_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: create_calendar_event")
+        raise RuntimeError(f"Failed to create calendar event: {e}")
+
+
+@mcp.tool
+async def update_calendar_event(
+    user_id: str,
+    persona_id: str,
+    local_event_id: str,
+    summary: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    description: Optional[str] = None,
+    location: Optional[str] = None,
+    timezone: str = "America/Los_Angeles",
+    calendar_id: str = "primary",
+    attendees: Optional[List[str]] = None
+) -> dict:
+    """
+    Update an existing calendar event in Google Calendar.
+    
+    Updates an existing event in Google Calendar. The event is identified by the
+    local_event_id. Only provided fields will be updated.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        local_event_id: Local event identifier
+        summary: Event title/summary. Optional.
+        start: Start datetime (ISO format). Optional.
+        end: End datetime (ISO format). Optional.
+        description: Event description. Optional.
+        location: Event location. Optional.
+        timezone: Timezone string. Default: "America/Los_Angeles"
+        calendar_id: Google Calendar ID. Default: "primary"
+        attendees: List of attendee emails. Optional.
+    
+    Returns:
+        Dictionary containing the updated event details.
+    """
+    from server.api.calendar import update_calendar_event_endpoint
+    from server.projects.calendar.models import UpdateCalendarEventRequest, CalendarEventData
+    
+    try:
+        event_data = CalendarEventData(
+            summary=summary or "Untitled Event",
+            start=start or "",
+            end=end or "",
+            description=description,
+            location=location,
+            timezone=timezone,
+            attendees=attendees
+        )
+        request = UpdateCalendarEventRequest(
+            user_id=user_id,
+            persona_id=persona_id,
+            local_event_id=local_event_id,
+            event_data=event_data,
+            calendar_id=calendar_id
+        )
+        result = await update_calendar_event_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: update_calendar_event")
+        raise RuntimeError(f"Failed to update calendar event: {e}")
+
+
+@mcp.tool
+async def delete_calendar_event(
+    user_id: str,
+    event_id: str,
+    calendar_id: str = "primary"
+) -> dict:
+    """
+    Delete a calendar event from Google Calendar.
+    
+    Deletes an event from Google Calendar. The event is identified by the Google Calendar event ID.
+    
+    Args:
+        user_id: User ID
+        event_id: Google Calendar event ID
+        calendar_id: Google Calendar ID. Default: "primary"
+    
+    Returns:
+        Dictionary containing the deletion result.
+    """
+    from server.api.calendar import delete_calendar_event_endpoint
+    from server.projects.calendar.models import DeleteCalendarEventRequest
+    
+    try:
+        request = DeleteCalendarEventRequest(
+            user_id=user_id,
+            event_id=event_id,
+            calendar_id=calendar_id
+        )
+        result = await delete_calendar_event_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: delete_calendar_event")
+        raise RuntimeError(f"Failed to delete calendar event: {e}")
+
+
+@mcp.tool
+async def list_calendar_events(
+    user_id: str,
+    calendar_id: str = "primary",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    timezone: str = "America/Los_Angeles"
+) -> dict:
+    """
+    List calendar events from Google Calendar.
+    
+    Retrieves a list of events from Google Calendar within a specified time range.
+    If no time range is provided, it defaults to the next 30 days.
+    
+    Args:
+        user_id: User ID
+        calendar_id: Google Calendar ID. Default: "primary"
+        start_time: Start time (ISO format). Optional.
+        end_time: End time (ISO format). Optional.
+        timezone: Timezone string. Default: "America/Los_Angeles"
+    
+    Returns:
+        Dictionary containing the list of events and count.
+    """
+    from server.api.calendar import list_calendar_events_endpoint
+    
+    try:
+        result = await list_calendar_events_endpoint(
+            user_id=user_id,
+            calendar_id=calendar_id,
+            start_time=start_time,
+            end_time=end_time,
+            timezone=timezone
+        )
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: list_calendar_events")
+        raise RuntimeError(f"Failed to list calendar events: {e}")
+
+
+# ============================================================================
+# Event Extraction Tools
+# ============================================================================
+
+@mcp.tool
+async def extract_events_from_content(
+    content: str,
+    url: Optional[str] = None,
+    use_llm: bool = False
+) -> dict:
+    """
+    Extract event information from web content.
+    
+    Extracts event details (title, date, time, location, instructor) from web content
+    using regex patterns or LLM-based extraction.
+    
+    Args:
+        content: Web content (HTML, markdown, or plain text)
+        url: Source URL. Optional.
+        use_llm: Use LLM for extraction (more accurate but slower). Default: False
+    
+    Returns:
+        Dictionary containing extracted events.
+    """
+    from server.api.knowledge import extract_events_endpoint
+    from server.api.knowledge import ExtractEventsRequest
+    
+    try:
+        request = ExtractEventsRequest(
+            content=content,
+            url=url,
+            use_llm=use_llm
+        )
+        result = await extract_events_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: extract_events_from_content")
+        raise RuntimeError(f"Failed to extract events: {e}")
+
+
+@mcp.tool
+async def extract_events_from_crawled(
+    crawled_pages: List[Dict[str, Any]],
+    use_llm: bool = False
+) -> dict:
+    """
+    Extract events from multiple crawled pages.
+    
+    Processes multiple crawled pages and extracts event information from each one.
+    
+    Args:
+        crawled_pages: List of crawled page dictionaries with 'content' and 'url' keys
+        use_llm: Use LLM for extraction (more accurate but slower). Default: False
+    
+    Returns:
+        Dictionary containing extracted events.
+    """
+    from server.api.knowledge import extract_events_from_crawled_endpoint
+    from server.api.knowledge import ExtractEventsFromCrawledRequest
+    
+    try:
+        request = ExtractEventsFromCrawledRequest(
+            crawled_pages=crawled_pages,
+            use_llm=use_llm
+        )
+        result = await extract_events_from_crawled_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: extract_events_from_crawled")
+        raise RuntimeError(f"Failed to extract events from crawled pages: {e}")
+
+
+# ============================================================================
+# Memory Tools
+# ============================================================================
+
+@mcp.tool
+async def record_message(
+    user_id: str,
+    persona_id: str,
+    content: str,
+    role: str = "user"
+) -> dict:
+    """
+    Record a message in memory for context window management.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        content: Message content
+        role: Message role ("user" or "assistant"). Default: "user"
+    
+    Returns:
+        Dictionary with success status.
+    """
+    from server.api.mongo_rag import record_message_endpoint
+    
+    try:
+        result = await record_message_endpoint(user_id, persona_id, content, role)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: record_message")
+        raise RuntimeError(f"Failed to record message: {e}")
+
+
+@mcp.tool
+async def get_context_window(
+    user_id: str,
+    persona_id: str,
+    limit: int = 20
+) -> dict:
+    """
+    Get recent messages for context window.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        limit: Maximum number of messages to return. Default: 20
+    
+    Returns:
+        Dictionary containing messages and count.
+    """
+    from server.api.mongo_rag import get_context_window_endpoint
+    
+    try:
+        result = await get_context_window_endpoint(user_id, persona_id, limit)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: get_context_window")
+        raise RuntimeError(f"Failed to get context window: {e}")
+
+
+@mcp.tool
+async def store_fact(
+    user_id: str,
+    persona_id: str,
+    fact: str,
+    tags: Optional[List[str]] = None
+) -> dict:
+    """
+    Store a fact in memory.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        fact: Fact to store
+        tags: Optional tags for the fact
+    
+    Returns:
+        Dictionary with success status.
+    """
+    from server.api.mongo_rag import store_fact_endpoint
+    
+    try:
+        result = await store_fact_endpoint(user_id, persona_id, fact, tags)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: store_fact")
+        raise RuntimeError(f"Failed to store fact: {e}")
+
+
+@mcp.tool
+async def search_facts(
+    user_id: str,
+    persona_id: str,
+    query: str,
+    limit: int = 10
+) -> dict:
+    """
+    Search for facts in memory.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        query: Search query
+        limit: Maximum number of facts to return. Default: 10
+    
+    Returns:
+        Dictionary containing facts and count.
+    """
+    from server.api.mongo_rag import search_facts_endpoint
+    
+    try:
+        result = await search_facts_endpoint(user_id, persona_id, query, limit)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: search_facts")
+        raise RuntimeError(f"Failed to search facts: {e}")
+
+
+@mcp.tool
+async def store_web_content(
+    user_id: str,
+    persona_id: str,
+    content: str,
+    source_url: str,
+    source_title: str = "",
+    source_description: str = "",
+    tags: Optional[List[str]] = None
+) -> dict:
+    """
+    Store web content in memory.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        content: Web content to store
+        source_url: Source URL
+        source_title: Source title. Optional.
+        source_description: Source description. Optional.
+        tags: Optional tags
+    
+    Returns:
+        Dictionary with success status and chunks count.
+    """
+    from server.api.mongo_rag import store_web_content_endpoint
+    
+    try:
+        result = await store_web_content_endpoint(
+            user_id, persona_id, content, source_url,
+            source_title, source_description, tags
+        )
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: store_web_content")
+        raise RuntimeError(f"Failed to store web content: {e}")
+
+
+# ============================================================================
+# Enhanced RAG Tools
+# ============================================================================
+
+@mcp.tool
+async def enhanced_search(
+    query: str,
+    match_count: int = 5,
+    use_decomposition: bool = True,
+    use_grading: bool = True,
+    use_citations: bool = True,
+    use_rewrite: bool = False
+) -> dict:
+    """
+    Enhanced search with query decomposition, document grading, and citation extraction.
+    
+    Provides advanced RAG capabilities including:
+    - Query decomposition for complex multi-part questions
+    - Document grading to filter irrelevant results
+    - Citation extraction for source tracking
+    - Result synthesis from multiple sub-queries
+    
+    Args:
+        query: Search query text
+        match_count: Number of results per sub-query. Default: 5
+        use_decomposition: Whether to decompose complex queries. Default: True
+        use_grading: Whether to grade documents for relevance. Default: True
+        use_citations: Whether to extract citations. Default: True
+        use_rewrite: Whether to rewrite query first. Default: False
+    
+    Returns:
+        Dictionary containing search results with citations.
+    """
+    from server.api.mongo_rag import enhanced_search_endpoint
+    
+    try:
+        result = await enhanced_search_endpoint(
+            query=query,
+            match_count=match_count,
+            use_decomposition=use_decomposition,
+            use_grading=use_grading,
+            use_citations=use_citations,
+            use_rewrite=use_rewrite
+        )
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: enhanced_search")
+        raise RuntimeError(f"Failed to perform enhanced search: {e}")
+
+
+# ============================================================================
+# Persona Tools
+# ============================================================================
+
+@mcp.tool
+async def get_persona_voice_instructions(
+    user_id: str,
+    persona_id: str
+) -> dict:
+    """
+    Generate dynamic style instructions based on current persona state.
+    
+    Returns prompt injection with current emotional state, relationship context,
+    and conversation mode to guide persona responses.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+    
+    Returns:
+        Dictionary containing voice instructions.
+    """
+    from server.api.persona import get_voice_instructions_endpoint
+    from server.projects.persona.models import GetVoiceInstructionsRequest
+    
+    try:
+        request = GetVoiceInstructionsRequest(
+            user_id=user_id,
+            persona_id=persona_id
+        )
+        result = await get_voice_instructions_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: get_persona_voice_instructions")
+        raise RuntimeError(f"Failed to get persona voice instructions: {e}")
+
+
+@mcp.tool
+async def record_persona_interaction(
+    user_id: str,
+    persona_id: str,
+    user_message: str,
+    bot_response: str
+) -> dict:
+    """
+    Record an interaction to update persona state (mood, relationship, context).
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        user_message: User's message
+        bot_response: Bot's response
+    
+    Returns:
+        Dictionary containing updated state.
+    """
+    from server.api.persona import record_interaction_endpoint
+    from server.projects.persona.models import RecordInteractionRequest
+    
+    try:
+        request = RecordInteractionRequest(
+            user_id=user_id,
+            persona_id=persona_id,
+            user_message=user_message,
+            bot_response=bot_response
+        )
+        result = await record_interaction_endpoint(request)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: record_persona_interaction")
+        raise RuntimeError(f"Failed to record persona interaction: {e}")
+
+
+@mcp.tool
+async def get_persona_state(
+    user_id: str,
+    persona_id: str
+) -> dict:
+    """
+    Get current persona state including mood, relationship, and context.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+    
+    Returns:
+        Dictionary containing persona state.
+    """
+    from server.api.persona import get_persona_state_endpoint
+    
+    try:
+        result = await get_persona_state_endpoint(user_id, persona_id)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: get_persona_state")
+        raise RuntimeError(f"Failed to get persona state: {e}")
+
+
+@mcp.tool
+async def update_persona_mood(
+    user_id: str,
+    persona_id: str,
+    primary_emotion: str,
+    intensity: float
+) -> dict:
+    """
+    Update persona mood state.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        primary_emotion: Primary emotion (happy, sad, excited, neutral, etc.)
+        intensity: Emotional intensity (0.0 to 1.0)
+    
+    Returns:
+        Dictionary containing updated mood.
+    """
+    from server.api.persona import update_mood_endpoint
+    from server.projects.persona.models import UpdateMoodRequest
+    
+    try:
+        request = UpdateMoodRequest(
+            user_id=user_id,
+            persona_id=persona_id,
+            primary_emotion=primary_emotion,
+            intensity=intensity
+        )
+        result = await update_mood_endpoint(request)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: update_persona_mood")
+        raise RuntimeError(f"Failed to update persona mood: {e}")
+
+
+# ============================================================================
+# Conversation Orchestration Tools
+# ============================================================================
+
+@mcp.tool
+async def orchestrate_conversation(
+    user_id: str,
+    persona_id: str,
+    message: str
+) -> dict:
+    """
+    Orchestrate a conversation by coordinating multiple agents and tools.
+    
+    This tool coordinates memory, knowledge, persona, and calendar systems
+    to generate context-aware responses.
+    
+    Args:
+        user_id: User ID
+        persona_id: Persona ID
+        message: User message
+    
+    Returns:
+        Dictionary containing response and metadata.
+    """
+    from server.api.conversation import orchestrate_conversation_endpoint
+    from server.projects.conversation.models import ConversationRequest
+    
+    try:
+        request = ConversationRequest(
+            user_id=user_id,
+            persona_id=persona_id,
+            message=message
+        )
+        result = await orchestrate_conversation_endpoint(request)
+        return result.dict()
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: orchestrate_conversation")
+        raise RuntimeError(f"Failed to orchestrate conversation: {e}")
 

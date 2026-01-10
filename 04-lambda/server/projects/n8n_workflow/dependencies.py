@@ -4,13 +4,14 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 import logging
 import httpx
+from server.projects.shared.dependencies import BaseDependencies
 from server.projects.n8n_workflow.config import config
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class N8nWorkflowDeps:
+class N8nWorkflowDeps(BaseDependencies):
     """Dependencies injected into the N8n workflow agent context."""
     
     # HTTP client for N8n API calls
