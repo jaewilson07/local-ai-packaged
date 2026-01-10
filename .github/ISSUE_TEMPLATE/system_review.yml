@@ -1,0 +1,21 @@
+name: "System review"
+description: "Perform system-level review"
+title: "[System Review] <area>"
+labels: ["architecture", "review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use `docs/process/validation/system-review.md` to guide this review.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+  - type: textarea
+    id: recommendations
+    attributes:
+      label: Recommendations

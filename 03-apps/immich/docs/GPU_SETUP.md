@@ -31,8 +31,26 @@ Intel QuickSync (integrated graphics) can be used for hardware-accelerated trans
 - `/dev/dri` device available on host
 
 **Configuration:**
-- Map `/dev/dri` device to container
-- Note: Not currently configured in this setup, but can be added if needed
+- Service: `immich-microservices-quicksync`
+- Profile: `gpu-quicksync`
+- Maps `/dev/dri` device to container
+
+**Starting with QuickSync:**
+```bash
+# Using start_services.py (profile may need to be added to validation)
+python start_services.py --profile gpu-quicksync --stack apps
+
+# Or using Docker Compose directly
+docker compose -p localai-apps -f 03-apps/docker-compose.yml --profile gpu-quicksync up -d
+```
+
+**Verifying QuickSync Access:**
+```bash
+# Check if /dev/dri is accessible in container
+docker exec immich-microservices-quicksync ls -la /dev/dri
+```
+
+**Note:** QuickSync support is optional. NVIDIA GPU acceleration is the primary supported method and satisfies the PRD requirements.
 
 ### AMD GPU
 
@@ -48,7 +66,9 @@ AMD GPUs can be used with ROCm support.
 
 ## Current Setup
 
-The current configuration supports **NVIDIA GPU** acceleration:
+The current configuration supports multiple GPU acceleration options:
+
+### NVIDIA GPU (Primary)
 
 ```yaml
 immich-microservices-gpu:
@@ -60,6 +80,15 @@ immich-microservices-gpu:
           - driver: nvidia
             count: all
             capabilities: [gpu]
+```
+
+### Intel QuickSync (Optional)
+
+```yaml
+immich-microservices-quicksync:
+  profiles: ["gpu-quicksync"]
+  devices:
+    - "/dev/dri:/dev/dri"
 ```
 
 ## Starting with GPU

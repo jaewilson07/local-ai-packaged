@@ -2,6 +2,8 @@
 
 Immich is a self-hosted photo and video backup solution integrated into the local-ai-packaged infrastructure.
 
+> **Status:** Infrastructure PRD completed and validated (2025-01-27). See [`.cursor/PRDS/infrastructure_psec`](../../../.cursor/PRDS/infrastructure_psec) for requirements and validation details.
+
 ## Architecture
 
 Immich consists of the following services:

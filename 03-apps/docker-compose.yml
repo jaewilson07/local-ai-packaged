@@ -273,8 +273,9 @@ services:
       - default
 
   # Immich PostgreSQL Database
+  # Using official Immich PostgreSQL image with VectorChord pre-installed
   immich-postgres:
-    image: postgres:14
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
     container_name: immich-postgres
     restart: unless-stopped
     expose:
@@ -298,7 +299,7 @@ services:
 
   # Immich Typesense (Search Engine)
   immich-typesense:
-    image: typesense/typesense:latest
+    image: typesense/typesense:29.0
     container_name: immich-typesense
     restart: unless-stopped
     expose:
@@ -313,7 +314,7 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/8108' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -420,6 +421,43 @@ services:
       - default
     logging: *logging-json
 
+  # Immich Microservices (Background Jobs - QuickSync/Intel GPU)
+  immich-microservices-quicksync:
+    profiles: ["gpu-quicksync"]
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    container_name: immich-microservices-quicksync
+    restart: unless-stopped
+    command: ["start.sh", "microservices"]
+    depends_on:
+      immich-postgres:
+        condition: service_healthy
+      immich-typesense:
+        condition: service_healthy
+    devices:
+      - "/dev/dri:/dev/dri"
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${IMMICH_DB_USERNAME:-postgres}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME:-immich}
+      REDIS_HOSTNAME: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DBINDEX: 0
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+      TYPESENSE_ENABLED: "true"
+      TYPESENSE_HOST: immich-typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_PROTOCOL: http
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
+      IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ../03-apps/immich/data/library:/usr/src/app/upload
+    networks:
+      - default
+    logging: *logging-json
+
   # Immich Server (Main API)
   immich-server:
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
@@ -431,8 +469,8 @@ services:
         condition: service_healthy
       immich-typesense:
         condition: service_healthy
-    expose:
-      - 2283/tcp
+    ports:
+      - "127.0.0.1:2283:2283/tcp"
     environment:
       DB_HOSTNAME: immich-postgres
       DB_PORT: 5432
@@ -458,5 +496,61 @@ services:
       - default
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2283/api/server-info/ping"]
+      <<: *healthcheck-http
+    logging: *logging-json
+
+  # Discord Bot
+  discord-bot:
+    build:
+      context: ./discord-bot
+      dockerfile: Dockerfile
+    container_name: discord-bot
+    restart: unless-stopped
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_UPLOAD_CHANNEL_ID: ${DISCORD_UPLOAD_CHANNEL_ID}
+      IMMICH_SERVER_URL: ${IMMICH_SERVER_URL:-http://immich-server:2283}
+      IMMICH_API_KEY: ${IMMICH_API_KEY}
+      BOT_DB_PATH: /app/data/bot.sqlite
+      NOTIFICATION_POLL_INTERVAL: ${NOTIFICATION_POLL_INTERVAL:-120}
+      MCP_ENABLED: ${MCP_ENABLED:-true}
+      MCP_PORT: ${MCP_PORT:-8001}
+      MCP_HOST: ${MCP_HOST:-0.0.0.0}
+    volumes:
+      - ../03-apps/discord-bot/data:/app/data
+    ports:
+      - "127.0.0.1:8001:8001/tcp"  # MCP server port (internal only)
+    networks:
+      - default
+    depends_on:
+      immich-server:
+        condition: service_healthy
+    logging: *logging-json
+
+  # Frontend (Next.js Social Layer)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    expose:
+      - 3000/tcp
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@supabase-db:5432/postgres
+      NEXTAUTH_URL: ${FRONTEND_HOSTNAME:+https://}${FRONTEND_HOSTNAME:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      IMMICH_API_URL: http://immich-server:2283
+      IMMICH_API_KEY: ${IMMICH_API_KEY}
+      NODE_ENV: production
+    networks:
+      - default
+    depends_on:
+      immich-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       <<: *healthcheck-http
     logging: *logging-json

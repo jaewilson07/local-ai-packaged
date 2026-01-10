@@ -1,0 +1,27 @@
+name: "Execution report"
+description: "Record execution details and outcomes"
+title: "[Exec Report] <short summary>"
+labels: ["process", "report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this to capture execution details. See `docs/process/validation/execution-report.md`.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps executed
+  - type: textarea
+    id: results
+    attributes:
+      label: Results / metrics
+  - type: textarea
+    id: followups
+    attributes:
+      label: Follow-ups / next actions

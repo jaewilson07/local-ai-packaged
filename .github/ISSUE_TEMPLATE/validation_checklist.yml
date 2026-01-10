@@ -1,0 +1,27 @@
+name: "Validation checklist"
+description: "Run validation and code review checklists"
+title: "[Validation] <scope>"
+labels: ["quality", "validation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Mirrors `docs/process/validation/validate.md` and `docs/process/validation/code-review.md`.
+  - type: checkboxes
+    id: validation
+    attributes:
+      label: Validation
+      options:
+        - label: Unit tests updated/added
+        - label: Integration tests passing
+        - label: Type safety enforced (no Any without justification)
+        - label: Async I/O validated
+        - label: Error handling patterns followed
+  - type: checkboxes
+    id: review
+    attributes:
+      label: Code review
+      options:
+        - label: PR description links to PRD / issue
+        - label: Public API stable or change documented
+        - label: Docs updated

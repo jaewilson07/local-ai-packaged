@@ -11,6 +11,7 @@ from server.projects.mongo_rag.config import config
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.prompts import MAIN_SYSTEM_PROMPT
 from server.projects.mongo_rag.tools import semantic_search, hybrid_search, text_search
+from server.projects.mongo_rag.neo4j_client import Neo4jClient, Neo4jConfig
 
 
 def get_llm_model(model_choice: Optional[str] = None) -> OpenAIModel:
@@ -116,4 +117,92 @@ async def search_knowledge_base(
 
     except Exception as e:
         return f"Error searching knowledge base: {str(e)}"
+
+
+@rag_agent.tool
+async def find_related_entities(
+    ctx: RunContext[StateDeps[RAGState]],
+    name: str,
+    depth: int = 1
+) -> str:
+    """
+    Traverse the knowledge graph to find entities related to the given name.
+
+    Args:
+        ctx: Agent runtime context
+        name: Seed entity name
+        depth: Traversal depth (1-3 recommended)
+
+    Returns:
+        Human-readable list of related entities
+    """
+    try:
+        if not config.neo4j_uri or not config.neo4j_password:
+            return "Graph traversal unavailable: Neo4j is not configured."
+
+        client = Neo4jClient(
+            Neo4jConfig(
+                uri=config.neo4j_uri,
+                username=config.neo4j_username,
+                password=config.neo4j_password,
+            )
+        )
+        await client.connect()
+
+        related = await client.find_related_entities(name=name, depth=max(1, min(depth, 3)))
+        await client.close()
+
+        if not related:
+            return f"No related entities found for '{name}'."
+
+        lines = [f"Related entities for '{name}':"]
+        for e in related:
+            conf = f" (conf {e.confidence:.2f})" if e.confidence is not None else ""
+            lines.append(f"- {e.name} [{e.type}]{conf}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error traversing graph: {str(e)}"
+
+
+@rag_agent.tool
+async def get_entity_timeline(
+    ctx: RunContext[StateDeps[RAGState]],
+    name: str
+) -> str:
+    """
+    Return a simple temporal timeline of relationships for an entity.
+
+    Args:
+        ctx: Agent runtime context
+        name: Entity name
+
+    Returns:
+        Timeline entries as readable text
+    """
+    try:
+        if not config.neo4j_uri or not config.neo4j_password:
+            return "Graph timeline unavailable: Neo4j is not configured."
+
+        client = Neo4jClient(
+            Neo4jConfig(
+                uri=config.neo4j_uri,
+                username=config.neo4j_username,
+                password=config.neo4j_password,
+            )
+        )
+        await client.connect()
+        timeline = await client.get_entity_timeline(name)
+        await client.close()
+
+        if not timeline:
+            return f"No timeline entries found for '{name}'."
+
+        lines = [f"Timeline for '{name}':"]
+        for t in timeline:
+            lines.append(
+                f"- {t['relation']} -> {t['target']} (from {t['valid_from']} to {t['valid_to']})"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error retrieving timeline: {str(e)}"
 

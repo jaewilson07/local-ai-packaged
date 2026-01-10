@@ -1,0 +1,53 @@
+name: "Bug report"
+description: "Report a defect and track RCA using the repo playbooks"
+title: "[Bug] <short summary>"
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to file a bug. For investigation and fix, follow the GitHub bug fix and RCA playbooks.
+        Reference:
+        - Process: `docs/process/github-bug-fix/`
+        - Validation: `docs/process/validation/`
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear, concise description of the problem.
+      placeholder: Describe the bug and current behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Given ...
+        2. When ...
+        3. Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack traces / screenshots
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: OS, Python, MongoDB, etc.
+  - type: textarea
+    id: rca_link
+    attributes:
+      label: RCA doc (link)
+      description: Link to the RCA doc in the PR or `/docs/quality/` once created.

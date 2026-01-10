@@ -4,13 +4,14 @@ start_services.py
 
 This script manages services using the stack-based architecture:
 - 00-infrastructure: cloudflared, caddy, redis
-- 00-infrastructure/infisical: infisical-backend, infisical-db, infisical-redis
+- infisical-standalone: infisical-backend, infisical-db, infisical-redis (standalone directory)
 - 01-data: supabase, qdrant, neo4j, mongodb, minio
 - 02-compute: ollama, comfyui
 - 03-apps: n8n, flowise, open-webui, searxng, langfuse, clickhouse
 - 04-lambda: FastAPI server with MCP and REST APIs
 
 Each stack uses its own Docker Compose project name but shares the external network ("ai-network").
+Infisical runs from a standalone directory and will be automatically started if not running.
 """
 
 import os
@@ -23,13 +24,14 @@ import sys
 import json
 import base64
 import re
+import secrets
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 # Define stack-to-file mappings
 STACK_FILES = {
     "infrastructure": ["00-infrastructure/docker-compose.yml"],
-    "infisical": ["00-infrastructure/infisical/docker-compose.yml"],
+    # Note: infisical is handled separately via standalone directory
     "data": [
         "01-data/supabase/docker-compose.yml",
         "01-data/qdrant/docker-compose.yml",
@@ -45,12 +47,15 @@ STACK_FILES = {
 # Define stack directory mappings
 STACK_DIRS = {
     "infrastructure": "00-infrastructure",
-    "infisical": "00-infrastructure/infisical",
+    # Note: infisical is in standalone directory, not in this repo
     "data": "01-data",
     "compute": "02-compute",
     "apps": "03-apps",
     "lambda": "04-lambda"
 }
+
+# Infisical standalone directory path
+INFISICAL_STANDALONE_DIR = "/home/jaewilson07/GitHub/infisical-standalone"
 
 # Define stack-to-project name mappings
 STACK_PROJECTS = {
@@ -252,6 +257,9 @@ def get_compose_files(stack, environment="private"):
     target_stacks = []
     if stack == "all":
         target_stacks = ["infrastructure", "infisical", "data", "compute", "apps", "lambda"]
+    elif stack == "infisical":
+        # Infisical is handled separately, return empty list
+        return []
     elif stack in STACK_FILES:
         target_stacks = [stack]
     else:
@@ -259,6 +267,9 @@ def get_compose_files(stack, environment="private"):
         return []
     
     for s in target_stacks:
+        if s == "infisical":
+            # Skip infisical here, it's handled separately
+            continue
         files.extend(STACK_FILES[s])
         
         # Add overrides for each stack if they exist
@@ -324,6 +335,11 @@ def stop_services(stack="all", environment="private"):
 
 def stop_single_stack(stack, environment="private"):
     """Stop a single stack using its project name."""
+    # Handle infisical separately (standalone directory)
+    if stack == "infisical":
+        manage_infisical_stack(action="stop", environment=environment)
+        return
+    
     if stack not in STACK_FILES:
         print(f"Warning: Unknown stack '{stack}'")
         return
@@ -405,9 +421,70 @@ def manage_services(action="start", stack="all", profile=None, environment=None)
         return start_single_stack(stack, profile, environment)
 
 
+def manage_infisical_stack(action="start", environment="private"):
+    """Manage Infisical services from standalone directory."""
+    infisical_dir = INFISICAL_STANDALONE_DIR
+    compose_file = os.path.join(infisical_dir, "docker-compose.yml")
+    override_file = os.path.join(infisical_dir, f"docker-compose.override.{environment}.yml")
+    
+    if not os.path.exists(compose_file):
+        print(f"❌ Error: Docker Compose file not found at {compose_file}")
+        print(f"   Please ensure Infisical is set up in {infisical_dir}")
+        return False
+    
+    # Build docker compose command
+    # Use "infisical" to match start_infisical.py for consistency
+    cmd = ["docker", "compose", "-p", "infisical"]
+    cmd.extend(["-f", compose_file])
+    
+    if os.path.exists(override_file):
+        cmd.extend(["-f", override_file])
+    
+    # Try to use .env from local-ai-packaged project, or from infisical-standalone
+    current_dir = os.getcwd()
+    env_file_paths = [
+        os.path.join(current_dir, ".env"),  # Current directory (local-ai-packaged)
+        os.path.join(infisical_dir, ".env"),  # Standalone directory
+    ]
+    
+    env_file_path = None
+    for path in env_file_paths:
+        if os.path.exists(path):
+            env_file_path = os.path.abspath(path)
+            break
+    
+    if env_file_path:
+        cmd.extend(["--env-file", env_file_path])
+    else:
+        print("⚠️  Warning: No .env file found. Using environment variables from shell.")
+    
+    if action == "stop":
+        cmd.append("down")
+        print(f"Stopping Infisical services...")
+    else:
+        cmd.extend(["up", "-d"])
+        print(f"Starting Infisical services...")
+    
+    try:
+        # Run from the infisical directory
+        run_command(cmd, cwd=infisical_dir)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"\n❌ Error {action}ing Infisical services: {e}")
+        if e.stdout:
+            print("STDOUT:", e.stdout)
+        if e.stderr:
+            print("STDERR:", e.stderr)
+        return False
+
+
 def start_single_stack(stack, profile=None, environment=None):
     """Start a single stack using its project name."""
     print(f"Starting services for stack: {stack}...")
+
+    # Handle infisical separately (standalone directory)
+    if stack == "infisical":
+        return manage_infisical_stack(action="start", environment=environment)
 
     compose_files = get_compose_files(stack, environment)
     if not compose_files:
@@ -576,72 +653,69 @@ def generate_searxng_secret_key():
         print(f"SearXNG settings.yml not found. Creating from {settings_base_path}...")
         try:
             shutil.copyfile(settings_base_path, settings_path)
+            # Ensure the file is writable by the current user
+            os.chmod(settings_path, 0o644)
             print(f"Created {settings_path} from {settings_base_path}")
         except Exception as e:
             print(f"Error creating settings.yml: {e}")
             return
     else:
         print(f"SearXNG settings.yml already exists at {settings_path}")
+        # Ensure existing file is writable
+        try:
+            os.chmod(settings_path, 0o644)
+        except (OSError, PermissionError):
+            # If we can't change permissions, continue anyway - write will fail with clear error
+            pass
 
     print("Generating SearXNG secret key...")
 
-    # Detect the platform and run the appropriate command
-    system = platform.system()
-
     try:
-        if system == "Windows":
-            print("Detected Windows platform, using PowerShell to generate secret key...")
-            # PowerShell command to generate a random key and replace in the settings file
-            ps_command = [
-                "powershell",
-                "-Command",
-                "$randomBytes = New-Object byte[] 32; "
-                + "(New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($randomBytes); "
-                + '$secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ }); '
-                + f"(Get-Content {settings_path}) -replace 'ultrasecretkey', $secretKey | Set-Content {settings_path}",
-            ]
-            subprocess.run(ps_command, check=True)
+        # Use Python's secrets module to generate a cryptographically secure random key
+        # This avoids permission issues with sed's temporary files and works consistently
+        # across all platforms (Windows, macOS, Linux)
+        random_key = secrets.token_hex(32)
 
-        elif system == "Darwin":  # macOS
-            print("Detected macOS platform, using sed command with empty string parameter...")
-            # macOS sed command requires an empty string for the -i parameter
-            openssl_cmd = ["openssl", "rand", "-hex", "32"]
-            random_key = subprocess.check_output(openssl_cmd).decode("utf-8").strip()
-            sed_cmd = [
-                "sed",
-                "-i",
-                "",
-                f"s|ultrasecretkey|{random_key}|g",
-                settings_path,
-            ]
-            subprocess.run(sed_cmd, check=True)
+        # Read the settings file
+        with open(settings_path, "r") as f:
+            content = f.read()
 
-        else:  # Linux and other Unix-like systems
-            print("Detected Linux/Unix platform, using standard sed command...")
-            # Standard sed command for Linux
-            openssl_cmd = ["openssl", "rand", "-hex", "32"]
-            random_key = subprocess.check_output(openssl_cmd).decode("utf-8").strip()
-            sed_cmd = ["sed", "-i", f"s|ultrasecretkey|{random_key}|g", settings_path]
-            subprocess.run(sed_cmd, check=True)
+        # Check if the placeholder key still exists
+        if "ultrasecretkey" not in content:
+            print("Secret key already set, skipping...")
+            return
+
+        # Replace the placeholder with the generated key
+        content = re.sub(r"ultrasecretkey", random_key, content)
+
+        # Write the updated content back to the file
+        # Use atomic write: write to a temporary file in the same directory, then rename
+        # This ensures the file is either fully written or not changed at all
+        temp_path = settings_path + ".tmp"
+        try:
+            with open(temp_path, "w") as f:
+                f.write(content)
+            # Atomic rename (works on Unix-like systems and Windows)
+            os.replace(temp_path, settings_path)
+        except (OSError, PermissionError) as e:
+            # If atomic write fails, try direct write as fallback
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            # Direct write (may be less safe but works if directory permissions allow)
+            with open(settings_path, "w") as f:
+                f.write(content)
 
         print("SearXNG secret key generated successfully.")
 
+    except PermissionError as e:
+        print(f"Permission denied when writing to {settings_path}: {e}")
+        print("You may need to fix file permissions or run with appropriate privileges.")
+        print(f"Try: sudo chown -R $USER:$USER {os.path.dirname(settings_path)}")
     except Exception as e:
         print(f"Error generating SearXNG secret key: {e}")
-        print("You may need to manually generate the secret key using the commands:")
-        print(f'  - Linux: sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" {settings_path}')
-        print(
-            f"  - macOS: sed -i '' \"s|ultrasecretkey|$(openssl rand -hex 32)|g\" {settings_path}"
-        )
-        print("  - Windows (PowerShell):")
-        print("    $randomBytes = New-Object byte[] 32")
-        print(
-            "    (New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($randomBytes)"
-        )
-        print('    $secretKey = -join ($randomBytes | ForEach-Object { "{0:x2}" -f $_ })')
-        print(
-            f"    (Get-Content {settings_path}) -replace 'ultrasecretkey', $secretKey | Set-Content {settings_path}"
-        )
+        print("You may need to manually generate the secret key.")
+        print(f"Run: python3 -c \"import secrets; print(secrets.token_hex(32))\"")
+        print(f"Then edit {settings_path} and replace 'ultrasecretkey' with the generated key.")
 
 
 # Patterns for variables that should be synced from Infisical (secrets)
@@ -1076,8 +1150,8 @@ Examples:
     parser.add_argument(
         "--profile",
         choices=["cpu", "gpu-nvidia", "gpu-amd", "none", "nvidia"],  # Allow "nvidia" as alias
-        default="cpu",
-        help="Profile to use for Docker Compose. Use 'gpu-nvidia' for NVIDIA GPUs, 'cpu' for CPU-only (default: cpu)",
+        default="gpu-nvidia",
+        help="Profile to use for Docker Compose. Use 'gpu-nvidia' for NVIDIA GPUs, 'cpu' for CPU-only (default: gpu-nvidia)",
     )
     parser.add_argument(
         "--environment",
@@ -1126,22 +1200,38 @@ Examples:
     # Pull latest Docker images before starting services
     pull_docker_images(args.profile, args.environment, args.stack)
 
-    # Check if Infisical is running (skip check if starting infisical or infrastructure stack)
+    # Check if Infisical is running and start it if needed
     # Infrastructure can start without Infisical, but other stacks require it
     if args.stack not in ["infisical", "infrastructure"]:
         print("\n=== Checking Infisical services ===")
         if not check_infisical_running():
-            print("\n❌ Cannot proceed: Infisical services must be running before starting other stacks.")
-            print("   Infisical is required for secret management and service configuration.")
-            sys.exit(1)
-        print("✓ Infisical services are running")
+            print("\n⚠️  Infisical services are not running. Starting them now...")
+            if not manage_infisical_stack(action="start", environment=args.environment):
+                print("\n❌ Failed to start Infisical services. Cannot proceed.")
+                sys.exit(1)
+            # Wait a bit for services to start
+            import time
+            time.sleep(5)
+            if not check_infisical_running():
+                print("\n❌ Infisical services did not start successfully. Cannot proceed.")
+                sys.exit(1)
+            print("✓ Infisical services started and running")
+        else:
+            print("✓ Infisical services are running")
     elif args.stack == "all":
-        # When starting all stacks, check Infisical but don't fail if it's not running
-        # (it will be started as part of the all stacks)
+        # When starting all stacks, check Infisical and start if not running
         print("\n=== Checking Infisical services ===")
         if not check_infisical_running():
             print("⚠ Warning: Infisical services are not running.")
-            print("   They will be started as part of the 'all' stacks.")
+            print("   Starting Infisical services now...")
+            if not manage_infisical_stack(action="start", environment=args.environment):
+                print("⚠ Warning: Failed to start Infisical services. Continuing anyway...")
+            else:
+                # Wait a bit for services to start
+                import time
+                time.sleep(5)
+                if check_infisical_running():
+                    print("✓ Infisical services started successfully")
         else:
             print("✓ Infisical services are running")
 

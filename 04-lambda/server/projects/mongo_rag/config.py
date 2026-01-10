@@ -30,12 +30,25 @@ class RAGConfig:
     # Search
     default_match_count = 10
     max_match_count = 50
+    default_text_weight = 0.3
     
     # Advanced RAG Strategies
     use_contextual_embeddings = global_settings.use_contextual_embeddings
     use_agentic_rag = global_settings.use_agentic_rag
     use_reranking = global_settings.use_reranking
     use_knowledge_graph = global_settings.use_knowledge_graph
+    
+    # Entity extraction
+    enable_entity_extraction = global_settings.enable_entity_extraction
+    entity_extractor_type = global_settings.entity_extractor_type
+    entity_llm_threshold = global_settings.entity_llm_threshold
+    ner_model = global_settings.ner_model
+    
+    # Neo4j (for graph operations)
+    neo4j_uri = global_settings.neo4j_uri
+    neo4j_username = global_settings.neo4j_user
+    neo4j_password = global_settings.neo4j_password
+    neo4j_database = global_settings.neo4j_database
 
 
 config = RAGConfig()

@@ -291,6 +291,20 @@
         }
     }
     
+    # Frontend route for Cloudflare Tunnel
+    @frontend host frontend.datacrew.space
+    handle @frontend {
+        import security_headers_base
+        import csp_standard
+        request_body {
+            max_size 50MB
+        }
+        reverse_proxy frontend:3000 {
+            import standard_proxy
+            import extended_timeouts
+        }
+    }
+    
     # Postman Documentation route for Cloudflare Tunnel
     @postman host postman.datacrew.space
     handle @postman {
@@ -435,6 +449,19 @@
     reverse_proxy immich-server:2283 {
         import standard_proxy
         import extended_timeouts  # Video transcoding takes time
+    }
+}
+
+# Frontend
+{$FRONTEND_HOSTNAME} {
+    import security_headers_base
+    import csp_standard
+    request_body {
+        max_size 50MB
+    }
+    reverse_proxy frontend:3000 {
+        import standard_proxy
+        import extended_timeouts
     }
 }
 

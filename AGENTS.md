@@ -100,7 +100,7 @@ For detailed component rules, see:
 - **[02-compute/AGENTS.md](02-compute/AGENTS.md)** - AI compute (Ollama, ComfyUI)
 - **[03-apps/AGENTS.md](03-apps/AGENTS.md)** - Application services (n8n, Flowise, Open WebUI, SearXNG, Langfuse, ClickHouse)
 - **[04-lambda/AGENTS.md](04-lambda/AGENTS.md)** - Lambda FastAPI server with MCP and REST APIs
-- **[utils/AGENTS.md](utils/AGENTS.md)** - Utility scripts and setup tools
+- **[setup/AGENTS.md](setup/AGENTS.md)** - Setup scripts and configuration utilities
 
 ## Common Patterns
 

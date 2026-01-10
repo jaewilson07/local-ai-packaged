@@ -43,6 +43,26 @@ class Settings(BaseSettings):
     use_reranking: bool = Field(False, env="USE_RERANKING")
     use_knowledge_graph: bool = Field(False, env="USE_KNOWLEDGE_GRAPH")
     
+    # Entity extraction configuration
+    enable_entity_extraction: bool = Field(False, env="ENABLE_ENTITY_EXTRACTION")
+    entity_extractor_type: str = Field("hybrid", env="ENTITY_EXTRACTOR_TYPE")
+    entity_llm_threshold: float = Field(0.7, env="ENTITY_LLM_THRESHOLD")
+    ner_model: str = Field("Jean-Baptiste/roberta-large-ner-english", env="NER_MODEL")
+    
+    # Jira configuration
+    jira_server: Optional[str] = Field(None, env="JIRA_SERVER")
+    jira_email: Optional[str] = Field(None, env="JIRA_EMAIL")
+    jira_api_token: Optional[str] = Field(None, env="JIRA_API_TOKEN")
+    
+    # Confluence configuration
+    confluence_url: Optional[str] = Field(None, env="CONFLUENCE_URL")
+    confluence_email: Optional[str] = Field(None, env="CONFLUENCE_EMAIL")
+    confluence_api_token: Optional[str] = Field(None, env="CONFLUENCE_API_TOKEN")
+    
+    # Google Drive configuration
+    google_drive_credentials_path: Optional[str] = Field(None, env="GOOGLE_DRIVE_CREDENTIALS_PATH")
+    google_drive_token_path: Optional[str] = Field(None, env="GOOGLE_DRIVE_TOKEN_PATH")
+    
     # N8n Workflow Management
     n8n_api_url: str = Field("http://n8n:5678/api/v1", env="N8N_API_URL")
     n8n_api_key: Optional[str] = Field(None, env="N8N_API_KEY")

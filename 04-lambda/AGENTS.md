@@ -1,4 +1,6 @@
-# Lambda Stack - Agent Rules
+# Lambda Stack - AGENTS.md
+
+> **Override**: This file extends [../AGENTS.md](../AGENTS.md). Lambda stack rules take precedence.
 
 ## Overview
 

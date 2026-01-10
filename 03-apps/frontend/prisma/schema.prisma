@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  immichAssetId String   @id @map("immich_asset_id")
+  caption       String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  comments      Comment[]
+  reactions     Reaction[]
+
+  @@map("posts")
+}
+
+model Comment {
+  id            String   @id @default(uuid())
+  immichAssetId String   @map("immich_asset_id")
+  userId        String   @map("user_id")
+  text          String
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  post          Post     @relation(fields: [immichAssetId], references: [immichAssetId], onDelete: Cascade)
+
+  @@index([immichAssetId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Reaction {
+  immichAssetId String   @map("immich_asset_id")
+  userId        String   @map("user_id")
+  type          ReactionType
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  post          Post     @relation(fields: [immichAssetId], references: [immichAssetId], onDelete: Cascade)
+
+  @@id([immichAssetId, userId])
+  @@index([immichAssetId])
+  @@index([userId])
+  @@map("reactions")
+}
+
+enum ReactionType {
+  heart
+  fire
+}

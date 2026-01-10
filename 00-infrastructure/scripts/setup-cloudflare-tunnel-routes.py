@@ -24,19 +24,51 @@ from typing import Dict, Optional
 
 # Load .env from project root
 script_dir = Path(__file__).parent
-project_root = script_dir.parent.parent.parent
+# Go up 2 levels: scripts -> infrastructure -> local-ai-packaged (project root)
+project_root = script_dir.parent.parent
 env_path = project_root / ".env"
-load_dotenv(env_path)
+
+# Debug: Print paths for troubleshooting
+if os.getenv("DEBUG_CLOUDFLARE_SCRIPT"):
+    print(f"[DEBUG] Script dir: {script_dir}")
+    print(f"[DEBUG] Project root: {project_root}")
+    print(f"[DEBUG] Env path: {env_path}")
+    print(f"[DEBUG] Env exists: {env_path.exists()}")
+
+# Load .env file (override=True to ensure .env values take precedence)
+load_result = load_dotenv(env_path, override=True)
+
+if os.getenv("DEBUG_CLOUDFLARE_SCRIPT"):
+    print(f"[DEBUG] load_dotenv returned: {load_result}")
+    print(f"[DEBUG] CLOUDFLARE_API_TOKEN loaded: {'Yes' if os.getenv('CLOUDFLARE_API_TOKEN') else 'No'}")
+    print(f"[DEBUG] CLOUDFLARE_EMAIL loaded: {'Yes' if os.getenv('CLOUDFLARE_EMAIL') else 'No'}")
+
+
+# Cache for Infisical secrets to avoid multiple CLI calls
+_infisical_secrets_cache: Optional[Dict[str, str]] = None
+_infisical_secrets_attempted = False
 
 
 def get_infisical_secrets() -> Dict[str, str]:
     """
     Get secrets from Infisical using CLI.
+    Caches results to avoid multiple CLI calls.
     
     Returns:
         Dictionary of secret key-value pairs, empty dict if Infisical unavailable
     """
+    global _infisical_secrets_cache, _infisical_secrets_attempted
+    
+    # Return cached result if available
+    if _infisical_secrets_cache is not None:
+        return _infisical_secrets_cache
+    
+    # If we've already attempted and failed, return empty dict immediately
+    if _infisical_secrets_attempted:
+        return {}
+    
     secrets_dict = {}
+    _infisical_secrets_attempted = True
     
     try:
         # Check if Infisical CLI is available and authenticated
@@ -65,10 +97,18 @@ def get_infisical_secrets() -> Dict[str, str]:
                     elif value.startswith("'") and value.endswith("'"):
                         value = value[1:-1]
                     secrets_dict[key] = value
+    except subprocess.TimeoutExpired:
+        # CLI call timed out - Infisical may be unreachable
+        pass
+    except FileNotFoundError:
+        # Infisical CLI not installed
+        pass
     except Exception:
         # Infisical not available or not authenticated - that's okay
         pass
     
+    # Cache the result (even if empty)
+    _infisical_secrets_cache = secrets_dict
     return secrets_dict
 
 
@@ -120,6 +160,7 @@ SERVICES = {
     "lambda": {"subdomain": "api", "port": 8000},  # MongoDB RAG API
     "mongodb": {"subdomain": "mongodb", "port": 8081},  # MongoDB Express
     "qdrant": {"subdomain": "qdrant", "port": 6333},  # Qdrant Web UI
+    "immich": {"subdomain": "immich", "port": 2283},  # Immich photo/video backup
 }
 
 CADDY_URL = "http://caddy:80"
@@ -131,6 +172,10 @@ def get_auth_headers():
     api_token = get_env_var("CLOUDFLARE_API_TOKEN", "")
     email = get_env_var("CLOUDFLARE_EMAIL", "")
     api_key = get_env_var("CLOUDFLARE_API_KEY", "")
+    
+    # Also check for CLOUDFLARE_GLOBAL_API_KEY as fallback (common alternative name)
+    if not api_key:
+        api_key = get_env_var("CLOUDFLARE_GLOBAL_API_KEY", "")
     
     if api_token and api_token.strip():
         return {
@@ -144,7 +189,24 @@ def get_auth_headers():
             "Content-Type": "application/json",
         }
     else:
-        raise ValueError("Either API token or email+API key must be provided (check Infisical or .env)")
+        # Debug: Check what we actually got
+        debug_info = []
+        if api_token:
+            debug_info.append(f"API_TOKEN found (length: {len(api_token)})")
+        else:
+            debug_info.append("API_TOKEN not found")
+        if email:
+            debug_info.append(f"EMAIL found: {email}")
+        else:
+            debug_info.append("EMAIL not found")
+        if api_key:
+            debug_info.append(f"API_KEY found (length: {len(api_key)})")
+        else:
+            debug_info.append("API_KEY not found")
+        
+        error_msg = "Either API token or email+API key must be provided (check Infisical or .env)"
+        error_msg += f"\n   Debug: {', '.join(debug_info)}"
+        raise ValueError(error_msg)
 
 
 def get_account_id(headers):
