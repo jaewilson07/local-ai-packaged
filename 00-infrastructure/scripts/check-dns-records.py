@@ -5,12 +5,14 @@ Check DNS records for all datacrew.space subdomains
 
 import os
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Load .env file
 try:
     from dotenv import load_dotenv
+
     script_dir = Path(__file__).resolve().parent
     project_root = script_dir.parent.parent
     env_file = project_root / ".env"
@@ -34,25 +36,27 @@ SUBDOMAINS = [
     "comfyui",
     "infisical",
     "ollama",
-    "api"
+    "api",
 ]
+
 
 def get_auth_headers():
     """Get authentication headers for Cloudflare API."""
     if CLOUDFLARE_API_TOKEN and CLOUDFLARE_API_TOKEN.strip():
         return {
             "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN.strip()}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
     elif CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
     else:
         print("❌ Cloudflare credentials not found!")
         sys.exit(1)
+
 
 def get_zone_id(headers):
     """Get zone ID for the domain."""
@@ -67,11 +71,12 @@ def get_zone_id(headers):
         print(f"❌ Error getting zone ID: {e}")
     return None
 
+
 def check_dns_record(headers, zone_id, subdomain):
     """Check DNS record for a subdomain."""
     hostname = f"{subdomain}.{DOMAIN}"
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={hostname}"
-    
+
     try:
         response = requests.get(url, headers=headers, timeout=30)
         if response.status_code == 200:
@@ -83,47 +88,50 @@ def check_dns_record(headers, zone_id, subdomain):
                         record_type = record.get("type")
                         content = record.get("content")
                         proxied = record.get("proxied", False)
-                        
+
                         print(f"  {hostname}:")
                         print(f"    Type: {record_type}")
                         print(f"    Content: {content}")
-                        print(f"    Proxied (🧡 orange cloud): {'✅ YES' if proxied else '❌ NO (DNS only)'}")
-                        
+                        print(
+                            f"    Proxied (🧡 orange cloud): {'✅ YES' if proxied else '❌ NO (DNS only)'}"
+                        )
+
                         if not proxied:
-                            print(f"    ⚠️  WARNING: Record should be proxied for Cloudflare Tunnel!")
-                        
+                            print("    ⚠️  WARNING: Record should be proxied for Cloudflare Tunnel!")
+
                         return True
                 else:
                     print(f"  ❌ {hostname}: No DNS record found!")
                     return False
     except Exception as e:
         print(f"  ❌ Error checking {hostname}: {e}")
-    
+
     return False
+
 
 def main():
     print("=" * 60)
     print("DNS Records Check for datacrew.space")
     print("=" * 60)
-    
+
     headers = get_auth_headers()
     print("✅ Cloudflare API credentials found")
-    
+
     zone_id = get_zone_id(headers)
     if not zone_id:
         print("❌ Could not find zone ID")
         sys.exit(1)
-    
+
     print(f"✅ Found zone ID: {zone_id}\n")
-    
+
     print("=" * 60)
     print("Checking DNS Records")
     print("=" * 60)
-    
+
     for subdomain in SUBDOMAINS:
         check_dns_record(headers, zone_id, subdomain)
         print()
 
+
 if __name__ == "__main__":
     main()
-

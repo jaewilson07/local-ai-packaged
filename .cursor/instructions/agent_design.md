@@ -60,7 +60,7 @@ class RouletteDeps:
     api_key: str
     winning_number: int
     log_prompts: bool = False
-    
+
     @classmethod
     def from_settings(
         cls,
@@ -144,10 +144,10 @@ async def dynamic_system_prompt(ctx: RunContext[RouletteDeps]) -> str:
 async def roulette_wheel(ctx: RunContext[RouletteDeps], square: int) -> str:
     """
     Check if the square is a winner.
-    
+
     Args:
         square: The number the customer bet on
-    
+
     Returns:
         'winner' if the square matches the winning number, 'loser' otherwise
     """
@@ -158,11 +158,11 @@ async def roulette_wheel(ctx: RunContext[RouletteDeps], square: int) -> str:
 async def get_joke_material(ctx: RunContext[RouletteDeps], subject: str) -> str:
     """
     Get joke material from an external API.
-    
+
     Args:
         subject: The subject for the joke
-    
-    Returns: 
+
+    Returns:
         a joke
     """
     response = await ctx.deps.http_client.get(
@@ -185,7 +185,7 @@ async def validate_output(
 ) -> RouletteResponse:
     """
     Validate and potentially modify the agent's output.
-    
+
     Raises:
         ModelRetry: If validation fails and agent should retry
     """
@@ -244,7 +244,7 @@ class CapabilityDeps:
     http_client: httpx.AsyncClient
     api_key: str
     log_prompts: bool = False
-    
+
     @classmethod
     def from_settings(cls, ...) -> "CapabilityDeps":
         # Implementation
@@ -304,6 +304,25 @@ async def example_tool(ctx: RunContext[CapabilityDeps], query: str) -> str:
 - First parameter: `ctx: RunContext[DepsType]`
 - Docstring used as tool description
 - Access dependencies via `ctx.deps`
+
+**Testing Tools:**
+
+When testing tools directly (outside of `agent.run()`), use the `create_run_context()` helper:
+
+```python
+from server.projects.shared.context_helpers import create_run_context
+
+# In tests or samples
+deps = CapabilityDeps.from_settings()
+await deps.initialize()
+try:
+    ctx = create_run_context(deps)
+    result = await example_tool(ctx, query="test")
+finally:
+    await deps.cleanup()
+```
+
+**Never manually construct RunContext** - always use the helper for consistency and type safety.
 
 ### Output Validators
 
@@ -413,20 +432,20 @@ Application code orchestrates multiple agents in sequence.
 ```mermaid
 graph TB
   startNode[Start] --> askUser1[Ask User Input]
-  
+
   subgraph agent1Subgraph [Agent 1]
     agent1 --> askUser1
     askUser1 --> agent1
   end
-  
+
   agent1 --> askUser2[Ask User Input 2]
   agent1 --> endNode[End]
-  
+
   subgraph agent2Subgraph [Agent 2]
     agent2 --> askUser2
     askUser2 --> agent2
   end
-  
+
   agent2 --> endNode
 ```
 
@@ -441,13 +460,13 @@ async def workflow():
     # Create usage tracker for entire workflow
     usage = RunUsage()
     usage_limits = UsageLimits(request_limit=15, total_tokens_limit=1000)
-    
+
     # Track usage across all agents
     result1 = await agent1.run(prompt1, usage=usage, usage_limits=usage_limits)
     if isinstance(result1.output, Result1):
         result2 = await agent2.run(prompt2, usage=usage, usage_limits=usage_limits)
         # Continue workflow...
-    
+
     # Final usage includes all agents
     print(usage)  # Total usage across agent1 and agent2
 ```

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -17,24 +17,24 @@ class GoogleDriveFile:
     created_time: datetime
     modified_time: datetime
     web_view_link: str
-    parents: Optional[list[str]] = None
-    size: Optional[int] = None
+    parents: list[str] | None = None
+    size: int | None = None
     _raw: Any = field(default=None, repr=False)
-    
+
     @property
     def raw(self) -> Any:
         """Get the raw API response dict for accessing extended attributes."""
         return self._raw
-    
+
     @classmethod
     def from_dict(cls, obj: dict[str, Any], **kwargs) -> GoogleDriveFile:
         """
         Create GoogleDriveFile from API response dictionary.
-        
+
         Args:
             obj: Dictionary containing the API response data
             **kwargs: Additional context
-        
+
         Returns:
             GoogleDriveFile instance
         """
@@ -42,16 +42,16 @@ class GoogleDriveFile:
         # Handle ISO format with or without timezone
         created_str = obj["createdTime"]
         modified_str = obj["modifiedTime"]
-        
+
         # Replace Z with +00:00 for ISO parsing
         if created_str.endswith("Z"):
             created_str = created_str.replace("Z", "+00:00")
         if modified_str.endswith("Z"):
             modified_str = modified_str.replace("Z", "+00:00")
-        
+
         created_time = datetime.fromisoformat(created_str)
         modified_time = datetime.fromisoformat(modified_str)
-        
+
         return cls(
             id=obj["id"],
             name=obj["name"],
@@ -63,7 +63,7 @@ class GoogleDriveFile:
             size=obj.get("size"),
             _raw=obj,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert file to dictionary (excludes raw)."""
         return {
@@ -83,32 +83,32 @@ class SearchResult:
     """Result of a Google Drive search query."""
 
     query: str
-    folder_id: Optional[str] = None
-    folder_name: Optional[str] = None
+    folder_id: str | None = None
+    folder_name: str | None = None
     total_results: int = 0
     files: list[GoogleDriveFile] = field(default_factory=list)
     _raw: Any = field(default=None, repr=False)
-    
+
     @property
     def raw(self) -> Any:
         """Get the raw API response for accessing extended attributes."""
         return self._raw
-    
+
     @classmethod
     def from_dict(cls, obj: dict[str, Any], **kwargs) -> SearchResult:
         """
         Create SearchResult from dictionary.
-        
+
         Args:
             obj: Dictionary containing search result data
             **kwargs: Additional context
-        
+
         Returns:
             SearchResult instance
         """
         # Recursively deserialize files
         files = [GoogleDriveFile.from_dict(f) for f in obj.get("files", [])]
-        
+
         return cls(
             query=obj["query"],
             folder_id=obj.get("folder_id"),
@@ -117,7 +117,7 @@ class SearchResult:
             files=files,
             _raw=obj,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert search result to dictionary (excludes raw)."""
         return {
@@ -137,24 +137,24 @@ class GoogleDocumentTab:
     title: str
     index: int
     markdown_content: str
-    parent_tab_id: Optional[str] = None
-    tab_url: Optional[str] = None
+    parent_tab_id: str | None = None
+    tab_url: str | None = None
     _raw: Any = field(default=None, repr=False)
-    
+
     @property
     def raw(self) -> Any:
         """Get the raw data for accessing extended attributes."""
         return self._raw
-    
+
     @classmethod
     def from_dict(cls, obj: dict[str, Any], **kwargs) -> GoogleDocumentTab:
         """
         Create GoogleDocumentTab from dictionary.
-        
+
         Args:
             obj: Dictionary containing tab data
             **kwargs: Additional context
-        
+
         Returns:
             GoogleDocumentTab instance
         """
@@ -167,7 +167,7 @@ class GoogleDocumentTab:
             tab_url=obj.get("tab_url"),
             _raw=obj,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert tab to dictionary (excludes raw)."""
         return {
@@ -180,4 +180,4 @@ class GoogleDocumentTab:
         }
 
 
-__all__ = ["GoogleDriveFile", "SearchResult", "GoogleDocumentTab"]
+__all__ = ["GoogleDocumentTab", "GoogleDriveFile", "SearchResult"]

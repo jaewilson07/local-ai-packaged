@@ -130,4 +130,3 @@ else
     echo "3. Verify database: docker exec supabase-db psql -U postgres -c '\\l'"
     exit 1
 fi
-

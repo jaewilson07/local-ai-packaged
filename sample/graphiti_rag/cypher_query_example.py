@@ -16,7 +16,6 @@ Prerequisites:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add server to path so we can import from the project
@@ -24,24 +23,24 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-from pydantic_ai import RunContext
+import logging
+
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
 from server.projects.graphiti_rag.tools import query_knowledge_graph
-import logging
+from server.projects.shared.context_helpers import create_run_context
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 async def main():
     """Query the Neo4j knowledge graph using various commands."""
-    print("="*80)
+    print("=" * 80)
     print("Graphiti RAG - Cypher Query Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example demonstrates querying the Neo4j knowledge graph.")
     print("Supported commands:")
@@ -49,25 +48,25 @@ async def main():
     print("  - 'explore <repo>': Get statistics for a repository")
     print("  - 'query <cypher>': Execute a custom Cypher query")
     print()
-    
+
     # Initialize dependencies
     deps = GraphitiRAGDeps.from_settings()
     await deps.initialize()
-    
+
     try:
-        # Create run context
-        ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        
+        # Create run context for tools
+        ctx = create_run_context(deps)
+
         # 1. List repositories
-        print("="*80)
+        print("=" * 80)
         print("1. LISTING REPOSITORIES")
-        print("="*80)
+        print("=" * 80)
         print("Command: repos")
         print()
-        
+
         logger.info("Querying repositories...")
         repos_result = await query_knowledge_graph(ctx=ctx, command="repos")
-        
+
         if repos_result.get("success"):
             repos = repos_result.get("repositories", [])
             print(f"✅ Found {len(repos)} repository(ies):")
@@ -76,22 +75,19 @@ async def main():
         else:
             print(f"⚠️  Query failed: {repos_result.get('error', 'Unknown error')}")
         print()
-        
+
         # 2. Explore a repository (if available)
         if repos_result.get("success") and repos_result.get("repositories"):
             repo_name = repos_result["repositories"][0]
-            print("="*80)
+            print("=" * 80)
             print(f"2. EXPLORING REPOSITORY: {repo_name}")
-            print("="*80)
+            print("=" * 80)
             print(f"Command: explore {repo_name}")
             print()
-            
+
             logger.info(f"Exploring repository: {repo_name}")
-            explore_result = await query_knowledge_graph(
-                ctx=ctx,
-                command=f"explore {repo_name}"
-            )
-            
+            explore_result = await query_knowledge_graph(ctx=ctx, command=f"explore {repo_name}")
+
             if explore_result.get("success"):
                 stats = explore_result.get("statistics", {})
                 print("✅ Repository statistics:")
@@ -102,26 +98,23 @@ async def main():
             else:
                 print(f"⚠️  Query failed: {explore_result.get('error', 'Unknown error')}")
             print()
-        
+
         # 3. Custom Cypher query
-        print("="*80)
+        print("=" * 80)
         print("3. CUSTOM CYPHER QUERY")
-        print("="*80)
+        print("=" * 80)
         print("Query: Find all classes with their methods")
         print()
-        
+
         cypher_query = """
         MATCH (c:Class)-[:HAS_METHOD]->(m:Method)
         RETURN c.name AS class_name, collect(m.name) AS methods
         LIMIT 10
         """
-        
+
         logger.info("Executing custom Cypher query...")
-        query_result = await query_knowledge_graph(
-            ctx=ctx,
-            command=f"query {cypher_query}"
-        )
-        
+        query_result = await query_knowledge_graph(ctx=ctx, command=f"query {cypher_query}")
+
         if query_result.get("success"):
             results = query_result.get("results", [])
             print(f"✅ Query returned {len(results)} result(s):")
@@ -131,18 +124,20 @@ async def main():
                     print(f"    {key}: {value}")
         else:
             print(f"⚠️  Query failed: {query_result.get('error', 'Unknown error')}")
-        
-        print("\n" + "="*80)
+
+        print("\n" + "=" * 80)
         print("✅ Cypher query examples completed!")
-        print("="*80)
+        print("=" * 80)
         print()
         print("You can execute any Cypher query to explore the knowledge graph.")
         print("Common queries:")
         print("  - Find all classes: MATCH (c:Class) RETURN c.name")
-        print("  - Find methods of a class: MATCH (c:Class)-[:HAS_METHOD]->(m:Method) WHERE c.name = 'ClassName' RETURN m.name")
+        print(
+            "  - Find methods of a class: MATCH (c:Class)-[:HAS_METHOD]->(m:Method) WHERE c.name = 'ClassName' RETURN m.name"
+        )
         print("  - Find imports: MATCH (f:File)-[:IMPORTS]->(i) RETURN f.name, i.name")
-        print("="*80)
-        
+        print("=" * 80)
+
     except Exception as e:
         logger.exception(f"❌ Error during Cypher query: {e}")
         print(f"\n❌ Fatal error: {e}")

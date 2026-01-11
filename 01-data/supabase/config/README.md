@@ -9,4 +9,3 @@ This directory contains Supabase-specific configuration files.
 ## Usage
 
 This file is automatically referenced by `start_services.py` when using the public environment.
-

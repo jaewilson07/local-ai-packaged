@@ -1,2 +1,1 @@
 """Graphiti search module."""
-

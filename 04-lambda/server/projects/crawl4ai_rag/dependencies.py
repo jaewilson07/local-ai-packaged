@@ -1,13 +1,15 @@
 """Dependencies for Crawl4AI RAG Agent."""
 
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
 import logging
-from pymongo import AsyncMongoClient
+from dataclasses import dataclass, field
+from typing import Any
+
 import openai
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode
-from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+from crawl4ai import AsyncWebCrawler, BrowserConfig
+from pymongo import AsyncMongoClient
+
 from server.projects.crawl4ai_rag.config import config
+from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +19,15 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
     """Dependencies injected into the crawl4ai agent context."""
 
     # Core dependencies
-    mongo_client: Optional[AsyncMongoClient] = None
-    db: Optional[Any] = None
-    openai_client: Optional[openai.AsyncOpenAI] = None
-    crawler: Optional[AsyncWebCrawler] = None
-    settings: Optional[Any] = None
+    mongo_client: AsyncMongoClient | None = None
+    db: Any | None = None
+    openai_client: openai.AsyncOpenAI | None = None
+    crawler: AsyncWebCrawler | None = None
+    settings: Any | None = None
 
     # Session context
-    session_id: Optional[str] = None
-    user_preferences: Dict[str, Any] = field(default_factory=dict)
+    session_id: str | None = None
+    user_preferences: dict[str, Any] = field(default_factory=dict)
 
     async def initialize(self) -> None:
         """
@@ -42,8 +44,7 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
 
         # Initialize MongoDB using mixin
         await self.initialize_mongodb(
-            mongodb_uri=config.mongodb_uri,
-            mongodb_database=config.mongodb_database
+            mongodb_uri=config.mongodb_uri, mongodb_database=config.mongodb_database
         )
         logger.info(
             "mongodb_connected",
@@ -53,7 +54,7 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
                     "documents": config.mongodb_collection_documents,
                     "chunks": config.mongodb_collection_chunks,
                 },
-            }
+            },
         )
 
         # Initialize OpenAI client using mixin
@@ -61,14 +62,14 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
             api_key=config.embedding_api_key,
             base_url=config.embedding_base_url,
             embedding_api_key=config.embedding_api_key,
-            embedding_base_url=config.embedding_base_url
+            embedding_base_url=config.embedding_base_url,
         )
         logger.info(
             "openai_client_initialized",
             extra={
                 "model": config.embedding_model,
                 "dimension": config.embedding_dimension,
-            }
+            },
         )
 
         # Initialize Crawl4AI crawler
@@ -77,7 +78,7 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
                 browser_config = BrowserConfig(
                     headless=config.browser_headless,
                     verbose=False,
-                    text_mode=True  # Disable images for faster crawling
+                    text_mode=True,  # Disable images for faster crawling
                 )
                 self.crawler = AsyncWebCrawler(config=browser_config)
                 await self.crawler.__aenter__()
@@ -95,10 +96,23 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
                 logger.info("crawl4ai_crawler_closed")
             except Exception as e:
                 logger.warning(f"Error closing crawler: {e}")
-        
+
         # Cleanup using mixins
         await self.cleanup_mongodb()
         await self.cleanup_openai_clients()
+
+    @classmethod
+    def from_settings(cls, **kwargs) -> "Crawl4AIDependencies":
+        """
+        Create dependencies from application settings.
+
+        Args:
+            **kwargs: Optional overrides for specific dependencies
+
+        Returns:
+            Initialized dependencies instance (not yet initialized, call initialize() separately)
+        """
+        return cls(**kwargs)
 
     async def get_embedding(self, text: str) -> list[float]:
         """
@@ -131,4 +145,3 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
             value: Preference value
         """
         self.user_preferences[key] = value
-

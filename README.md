@@ -288,8 +288,19 @@ This project includes [Infisical](https://infisical.com/) for managing secrets a
 
 ### Quick Start with Infisical
 
-1. **Install Infisical CLI** (required for secret export):
+1. **Install CLI tools** (Infisical, Google Cloud, Cloudflared, and pre-commit):
 
+   **Automated installation (Recommended):**
+   ```bash
+   python setup/install_clis.py
+   ```
+   This will install:
+   - Infisical CLI (for secret management)
+   - Google Cloud CLI (gcloud)
+   - Cloudflared CLI (for Cloudflare Tunnel)
+   - pre-commit (for code quality hooks)
+
+   **Manual installation:**
    - See installation guide: https://infisical.com/docs/cli/overview
    - Verify: `infisical --version`
 
@@ -821,6 +832,31 @@ your local n8n instance.
 - [Breakdown Documents into Study Notes with MistralAI and Qdrant](https://n8n.io/workflows/2339-breakdown-documents-into-study-notes-using-templating-mistralai-and-qdrant/)
 - [Financial Documents Assistant using Qdrant and](https://n8n.io/workflows/2335-build-a-financial-documents-assistant-using-qdrant-and-mistralai/) [ Mistral.ai](http://mistral.ai/)
 - [Recipe Recommendations with Qdrant and Mistral](https://n8n.io/workflows/2333-recipe-recommendations-with-qdrant-and-mistral/)
+
+## Development
+
+For information about development workflow, code quality tools, pre-commit hooks, and CI/CD, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+Quick start for developers:
+
+```bash
+# Install CLI tools including pre-commit (recommended)
+python setup/install_clis.py
+
+# Or install pre-commit manually
+pip install pre-commit
+pre-commit install
+
+# Run code quality checks
+pre-commit run --all-files
+
+# Format code
+black --line-length=100 .
+ruff format .
+
+# Run tests
+cd 04-lambda && uv run pytest tests/ -v
+```
 
 ## Tips & tricks
 

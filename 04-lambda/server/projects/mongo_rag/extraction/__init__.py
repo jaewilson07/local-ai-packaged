@@ -1,2 +1,1 @@
 """Code example extraction module."""
-

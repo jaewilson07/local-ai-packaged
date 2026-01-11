@@ -71,7 +71,7 @@ class ProjectDeps:
     http_client: httpx.AsyncClient
     db_client: AsyncMongoClient
     api_key: str
-    
+
     @classmethod
     def from_settings(cls, ...) -> "ProjectDeps":
         """Create dependencies from application settings."""
@@ -111,6 +111,12 @@ async def tool_name(ctx: RunContext[ProjectDeps], arg: str) -> str:
     """Tool description."""
     # Use ctx.deps to access dependencies
     pass
+
+**Tool Implementation:**
+- Tools MUST use `RunContext[DepsType]` as first parameter
+- Access dependencies via `ctx.deps` (never initialize dependencies inside tools)
+- Samples and tests MUST use `create_run_context()` helper for RunContext creation
+- See `server/projects/shared/context_helpers.py` for helper implementation
 
 # 7. Output Validation (optional)
 @project_agent.output_validator
@@ -175,7 +181,7 @@ async def endpoint(
     """Endpoint description."""
     deps = ProjectDeps.from_settings()
     await deps.initialize()  # If needed
-    
+
     try:
         # Business logic (user context available)
         result = await process(deps, request, user)
@@ -221,13 +227,13 @@ def setup_routes(app: FastAPI):
                 }
             ]
         }
-    
+
     @app.post("/mcp/tools/call")
     async def call_tool(request: Request):
         body = await request.json()
         tool = body["name"]
         args = body.get("arguments", {})
-        
+
         # Call REST endpoint internally (no code duplication)
         if tool == "tool_name":
             from server.api.project import endpoint
@@ -248,7 +254,7 @@ class Settings(BaseSettings):
     mongodb_uri: str
     llm_model: str = "llama3.2"
     log_level: str = "info"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = False
@@ -265,7 +271,7 @@ class ProjectConfig:
     # Derive from global
     mongodb_uri = global_settings.mongodb_uri
     llm_model = global_settings.llm_model
-    
+
     # Project-specific
     collection_name = "project_data"
     max_retries = 3
@@ -279,7 +285,7 @@ config = ProjectConfig()
 class ProjectDeps:
     """Runtime dependencies."""
     config: ProjectConfig = field(default_factory=lambda: config)
-    
+
     @classmethod
     def from_settings(cls, override_config: Optional[ProjectConfig] = None):
         return cls(config=override_config or config)
@@ -350,6 +356,49 @@ async def test_endpoint():
         )
         assert response.status_code == 200
 ```
+
+### RunContext Patterns for Testing
+
+**Helper Function**: `server/projects/shared/context_helpers.create_run_context()`
+
+**Testing Tools Directly:**
+```python
+from server.projects.shared.context_helpers import create_run_context
+from server.projects.mongo_rag.dependencies import AgentDependencies
+from server.projects.mongo_rag.tools import semantic_search
+
+@pytest.mark.asyncio
+async def test_semantic_search():
+    deps = AgentDependencies()
+    await deps.initialize()
+    try:
+        ctx = create_run_context(deps)
+        results = await semantic_search(ctx, query="test")
+        assert len(results) >= 0
+    finally:
+        await deps.cleanup()
+```
+
+**Testing Agents:**
+```python
+from server.projects.mongo_rag.agent import rag_agent
+
+@pytest.mark.asyncio
+async def test_rag_agent():
+    deps = AgentDependencies()
+    await deps.initialize()
+    try:
+        result = await rag_agent.run("What is RAG?", deps=deps)
+        assert result.data is not None
+    finally:
+        await deps.cleanup()
+```
+
+**Key Points:**
+- Tools expect `RunContext[DepsType]` - use `create_run_context()` to create properly typed contexts
+- Never manually construct `RunContext()` - always use the helper
+- Dependencies are accessed via `ctx.deps` in tools
+- Always cleanup dependencies in `finally` blocks
 
 ## Architecture
 
@@ -432,8 +481,10 @@ async def endpoint(request: RequestModel):
 
 **Auth & Identity:**
 - `GET /api/me` - Get current user profile
-- `GET /test/my-data` - Test Supabase data isolation (HTML)
-- `GET /test/my-images` - Test MinIO data isolation (HTML)
+- `GET /api/me/data` - Get data summary across all services
+- `GET /api/me/data/rag` - Get RAG data summary (MongoDB + Supabase)
+- `GET /api/me/data/immich` - Get Immich data summary (placeholder)
+- `GET /api/me/data/loras` - Get LoRA models summary
 
 **Data Viewing:**
 - `GET /api/v1/data/storage` - View MinIO/blob storage files
@@ -482,18 +533,18 @@ async def endpoint(request: RequestModel):
    - `config.py` - Project configuration
    - `dependencies.py` - External connections
    - `tools.py` - Core functionality
-   
+
 2. **Create API router**: `server/api/your_project.py`
    - Define endpoints
    - Use Pydantic models from `server/models/`
    - **Add authentication**: Use `Depends(get_current_user)` for protected endpoints
-   
+
 3. **Register in main**: `server/main.py`
    ```python
    from server.api import your_project
    app.include_router(your_project.router, prefix="/api/v1/your_project", tags=["your-project"])
    ```
-   
+
 4. **Add MCP tools**: `server/mcp/server.py` (if using FastMCP)
    - Tools are automatically registered from project agent definitions
    - Or manually add to FastMCP server in `server/mcp/fastmcp_server.py`
@@ -757,8 +808,10 @@ async def endpoint(user: User = Depends(get_current_user)):
 
 **Endpoints:**
 - `GET /api/me` - Get current user profile
-- `GET /test/my-data` - Test Supabase data isolation (HTML)
-- `GET /test/my-images` - Test MinIO data isolation (HTML)
+- `GET /api/me/data` - Get data summary across all services
+- `GET /api/me/data/rag` - Get RAG data summary (MongoDB + Supabase)
+- `GET /api/me/data/immich` - Get Immich data summary (placeholder)
+- `GET /api/me/data/loras` - Get LoRA models summary
 
 **Services:**
 - `JWTService`: Validates Cloudflare Access JWTs, checks audience and issuer
@@ -903,7 +956,7 @@ The lambda container uses a Docker volume to persist Python packages:
 
 - **Volume**: `lambda-packages:/opt/venv`
 - **Entrypoint**: `docker-entrypoint.sh` checks if venv exists, creates and installs on first run
-- **Benefits**: 
+- **Benefits**:
   - No package reinstallation on container restarts
   - Faster startup times
   - Packages survive image rebuilds
@@ -934,4 +987,3 @@ docker compose -p localai-lambda down -v
 # Rebuild and start (packages will be reinstalled)
 docker compose -p localai-lambda up -d --build
 ```
-

@@ -18,6 +18,8 @@
   - Commits with secrets or credentials
 - **No blind retries**: If a fix fails, stop, analyze error logs, propose a new strategy.
 - **Environment awareness**: Distinguish between `.env`, `.env.global`, and Infisical-managed secrets.
+- **Authentication**: External Lambda API requests require Cloudflare Access JWT. Internal network requests bypass authentication (network isolation).
+- **Data Isolation**: Always enforce user-scoped filtering unless user is admin. Never expose other users' data.
 
 ### Token Economy & Output
 - Use `sed` or patch-style replacements for small edits (prefer `search_replace` tool).
@@ -78,6 +80,18 @@ Services are organized into numbered stacks with explicit dependencies:
 
 Each stack uses its own Docker Compose project name for independent management, but all stacks share the `ai-network` for inter-service communication.
 
+### Authentication System
+
+The Lambda server implements a centralized authentication system using Cloudflare Access:
+
+- **Method**: Header-based JWT validation (`Cf-Access-Jwt-Assertion`)
+- **IdP**: Google OAuth (via Cloudflare Access)
+- **JIT Provisioning**: Automatically creates users in Supabase, Neo4j, and MinIO on first access
+- **Data Isolation**: Enforces user-scoped data access across all storage layers
+- **Admin Override**: Users with `role: "admin"` can view all data
+- **Location**: `04-lambda/server/projects/auth/`
+- **Documentation**: See [Auth Project README](04-lambda/server/projects/auth/README.md) and [04-lambda/AGENTS.md](04-lambda/AGENTS.md)
+
 ### Network Architecture
 - **External Network**: All services use `ai-network` (created by infrastructure stack)
 - **Service Discovery**: Use container names as hostnames (e.g., `ollama:11434`, `supabase-db:5432`)
@@ -117,6 +131,7 @@ For Lambda server projects, see project-specific AGENTS.md files:
 - **[04-lambda/server/projects/openwebui_topics/AGENTS.md](04-lambda/server/projects/openwebui_topics/AGENTS.md)** - Classify conversation topics using LLM for organization and filtering
 - **[04-lambda/server/projects/persona/AGENTS.md](04-lambda/server/projects/persona/AGENTS.md)** - Persona state management (mood, relationship, context)
 - **[04-lambda/server/projects/discord_characters/AGENTS.md](04-lambda/server/projects/discord_characters/AGENTS.md)** - Discord character management and interaction
+- **[04-lambda/server/projects/auth/README.md](04-lambda/server/projects/auth/README.md)** - Authentication system (Cloudflare Access, JIT provisioning, data isolation)
 
 ## Common Patterns
 
@@ -255,6 +270,118 @@ service-gpu:
 - **Secrets**: Never hardcode. Use env vars or Infisical.
 - **Service URLs**: Use container names for internal communication, hostnames for external.
 
+### Authentication Patterns
+
+**FastAPI Dependency Pattern** (Recommended):
+```python
+from server.projects.auth.dependencies import get_current_user
+from server.projects.auth.models import User
+
+@router.get("/protected")
+async def protected_endpoint(user: User = Depends(get_current_user)):
+    # user is automatically validated and provisioned
+    return {"message": f"Hello {user.email}!"}
+```
+
+**Data Isolation Pattern**:
+- Regular users: Filter queries by `user.email` or `user.uid`
+- Admin users: Bypass filtering (check with `AuthService.is_admin()`)
+- Storage layers:
+  - **Supabase**: Filter by `owner_email` field
+  - **Neo4j**: Use user anchoring: `MATCH (u:User {email: $email})`
+  - **MinIO**: Filter by `user-{uuid}/` prefix
+  - **MongoDB**: Filter by `user_id` or `user_email` fields
+
+**JIT Provisioning**:
+- Automatically handled by `get_current_user` dependency
+- Creates user in Supabase, Neo4j, and MinIO on first access
+- Failures are logged but don't block authentication
+
+See [Auth Project README](04-lambda/server/projects/auth/README.md) for complete patterns.
+
+**Sample Script Authentication Pattern**:
+
+All sample scripts that make HTTP API calls should use the shared authentication helpers from `sample/shared/auth_helpers.py`:
+
+```python
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+
+# Get API base URL (defaults to internal network for local development)
+api_base_url = get_api_base_url()
+
+# Get authentication headers (empty for internal, JWT for external)
+headers = get_auth_headers()
+
+# Get user email for identification
+cloudflare_email = get_cloudflare_email()
+```
+
+**Key Points**:
+- **Internal Network** (`http://lambda-server:8000`): No authentication required (network isolation provides security)
+- **External Network** (`https://api.datacrew.space`): Requires Cloudflare Access JWT token in `Cf-Access-Jwt-Assertion` header
+- **CLOUDFLARE_EMAIL**: Automatically loaded from `.env` file in project root for user identification
+- **Default Behavior**: Scripts default to internal network URLs when running locally, allowing seamless local development without JWT tokens
+
+**Example Usage**:
+```python
+import requests
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+
+api_base_url = get_api_base_url()
+headers = get_auth_headers()
+
+response = requests.get(
+    f"{api_base_url}/api/v1/comfyui/loras",
+    headers=headers
+)
+```
+
+**Reference**: See [sample/shared/auth_helpers.py](sample/shared/auth_helpers.py) for complete implementation.
+
+### Pydantic AI RunContext Patterns
+
+**Standardized RunContext Creation:**
+
+All samples and tests should use the `create_run_context()` helper for consistent, type-safe RunContext creation:
+
+```python
+from server.projects.shared.context_helpers import create_run_context
+
+# Initialize dependencies
+deps = AgentDependencies()
+await deps.initialize()
+
+try:
+    # Create run context using helper
+    ctx = create_run_context(deps)
+    
+    # Call tools directly
+    results = await semantic_search(ctx, query="test")
+finally:
+    await deps.cleanup()
+```
+
+**When to Use Each Pattern:**
+
+1. **`agent.run(deps=deps)`** - Use when:
+   - Testing full agent workflow
+   - You want agent tool selection and orchestration
+   - Testing end-to-end agent behavior
+
+2. **`create_run_context()` + direct tool calls** - Use when:
+   - Testing individual tools in isolation
+   - Writing sample scripts that demonstrate tool usage
+   - You need fine-grained control over tool inputs
+   - Testing tool logic without agent overhead
+
+**Testing Patterns:**
+
+- **Unit Testing Tools**: Use `create_run_context()` with mocked dependencies
+- **Integration Testing Agents**: Use `agent.run(deps=deps)` with real dependencies
+- **Sample Scripts**: Use `create_run_context()` for direct tool demonstration
+
+**Reference**: See [.cursor/instructions/agent-tools.instructions.md](.cursor/instructions/agent-tools.instructions.md) for detailed testing patterns and examples.
+
 ## Testing Strategy
 
 - **ComfyUI**: pytest-based unit and inference tests (see `02-compute/comfyui/data/ComfyUI/tests/`)
@@ -276,6 +403,8 @@ service-gpu:
 - **DHI Registry**: Requires Docker Hub authentication for `dhi.io` images
 - **Lambda Package Persistence**: Python packages stored in Docker volume (`lambda-packages`) to avoid reinstalling on every restart
 - **Network Auto-Creation**: `start_services.py` automatically creates `ai-network` if it doesn't exist
+- **Cloudflare Access Authentication**: Lambda server validates JWTs from `Cf-Access-Jwt-Assertion` header. Internal network requests bypass authentication.
+- **JIT User Provisioning**: Users automatically created in Supabase, Neo4j, and MinIO on first authenticated request.
 
 ### Common Mistakes to Avoid
 1. **Port Conflicts**: Don't hardcode ports. Use environment variables or expose-only.
@@ -310,6 +439,13 @@ rg -n "@.*\.tool" 04-lambda/server/projects/
 
 # Find project dependencies classes
 rg -n "class.*Deps" 04-lambda/server/projects/
+
+# Find authentication endpoints
+rg -n "get_current_user" 04-lambda/server/api/
+rg -n "Depends\(get_current_user\)" 04-lambda/server/
+
+# Find data viewing endpoints
+rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" 04-lambda/server/api/
 ```
 
 ## Error Handling Protocol
@@ -320,9 +456,10 @@ rg -n "class.*Deps" 04-lambda/server/projects/
 4. **GPU Issues**: Validate with `nvidia-smi` and `docker info | grep nvidia`
 5. **Compose Conflicts**: Each stack uses its own project name (e.g., `-p localai-infra`, `-p localai-data`)
 6. **Cross-Stack Dependencies**: `depends_on` only works within the same compose project. For cross-stack dependencies, rely on health checks and application-level retry logic.
+7. **Authentication Errors**: If JWT validation fails, check `CLOUDFLARE_AUD_TAG` matches Cloudflare Access app configuration. Use `get-lambda-api-aud-tag.py` script to retrieve AUD tag.
+8. **Data Isolation Issues**: Verify user email matches in all queries. Check admin status if expecting to see all data. Ensure queries use user anchoring for Neo4j.
 
 ---
 
 **Last Updated**: Generated from codebase analysis
 **Drift Check**: If codebase patterns change, update this document and flag discrepancies.
-

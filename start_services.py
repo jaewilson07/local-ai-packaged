@@ -14,19 +14,17 @@ Each stack uses its own Docker Compose project name but shares the external netw
 Infisical runs from a standalone directory and will be automatically started if not running.
 """
 
-import os
-import subprocess
-import shutil
-import time
 import argparse
-import platform
-import sys
 import json
-import base64
+import os
+import platform
 import re
 import secrets
+import shutil
+import subprocess
+import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 # Define stack-to-file mappings
 STACK_FILES = {
@@ -37,11 +35,11 @@ STACK_FILES = {
         "01-data/qdrant/docker-compose.yml",
         "01-data/neo4j/docker-compose.yml",
         "01-data/mongodb/docker-compose.yml",
-        "01-data/minio/docker-compose.yml"
+        "01-data/minio/docker-compose.yml",
     ],
     "compute": ["02-compute/docker-compose.yml"],
     "apps": ["03-apps/docker-compose.yml"],
-    "lambda": ["04-lambda/docker-compose.yml"]
+    "lambda": ["04-lambda/docker-compose.yml"],
 }
 
 # Define stack directory mappings
@@ -51,7 +49,7 @@ STACK_DIRS = {
     "data": "01-data",
     "compute": "02-compute",
     "apps": "03-apps",
-    "lambda": "04-lambda"
+    "lambda": "04-lambda",
 }
 
 # Infisical standalone directory path
@@ -64,7 +62,7 @@ STACK_PROJECTS = {
     "data": "localai-data",
     "compute": "localai-compute",
     "apps": "localai-apps",
-    "lambda": "localai-lambda"
+    "lambda": "localai-lambda",
 }
 
 
@@ -90,19 +88,16 @@ def run_command(cmd, cwd=None, check=True):
 def ensure_network_exists(network_name="ai-network"):
     """Ensure the external Docker network exists, creating it if necessary."""
     print(f"Checking for network '{network_name}'...")
-    
+
     # Check if network exists
     result = subprocess.run(
-        ["docker", "network", "inspect", network_name],
-        capture_output=True,
-        text=True,
-        check=False
+        ["docker", "network", "inspect", network_name], capture_output=True, text=True, check=False
     )
-    
+
     if result.returncode == 0:
         print(f"✓ Network '{network_name}' already exists")
         return True
-    
+
     # Network doesn't exist, create it
     print(f"Network '{network_name}' not found. Creating it...")
     try:
@@ -118,7 +113,7 @@ def load_env_file(env_path=".env"):
     """Load environment variables from .env file."""
     env_vars = {}
     if os.path.exists(env_path):
-        with open(env_path, "r", encoding="utf-8") as f:
+        with open(env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -141,12 +136,12 @@ def is_dhi_authenticated():
         return False
 
     try:
-        with open(docker_config_path, "r", encoding="utf-8") as f:
+        with open(docker_config_path, encoding="utf-8") as f:
             config = json.load(f)
             auths = config.get("auths", {})
             # Check if dhi.io is in the auths
             return "dhi.io" in auths or "https://dhi.io" in auths
-    except (json.JSONDecodeError, KeyError, IOError):
+    except (OSError, json.JSONDecodeError, KeyError):
         return False
 
 
@@ -227,19 +222,19 @@ def authenticate_dhi_registry(skip_auth=False):
 def clone_supabase_repo():
     """Initialize and update the Supabase submodule."""
     target_dir = os.path.join("01-data", "supabase", "upstream")
-    
+
     print(f"Initializing and updating Supabase submodule at {target_dir}...")
-    
+
     # Initialize submodules if needed
     run_command(["git", "submodule", "update", "--init", "--recursive", target_dir], check=False)
-    
+
     # Update the submodule to latest
     run_command(["git", "submodule", "update", "--remote", target_dir], check=False)
-    
+
     # Configure sparse checkout if not already configured
     sparse_checkout_file = os.path.join(target_dir, ".git", "info", "sparse-checkout")
     if not os.path.exists(sparse_checkout_file):
-        print(f"Configuring sparse checkout for Supabase submodule...")
+        print("Configuring sparse checkout for Supabase submodule...")
         cwd = os.getcwd()
         os.chdir(target_dir)
         try:
@@ -252,7 +247,7 @@ def clone_supabase_repo():
 def get_compose_files(stack, environment="private"):
     """Get list of compose files for a specific stack."""
     files = []
-    
+
     # Determine which stacks to include
     target_stacks = []
     if stack == "all":
@@ -265,20 +260,20 @@ def get_compose_files(stack, environment="private"):
     else:
         print(f"Warning: Unknown stack '{stack}'")
         return []
-    
+
     for s in target_stacks:
         if s == "infisical":
             # Skip infisical here, it's handled separately
             continue
         files.extend(STACK_FILES[s])
-        
+
         # Add overrides for each stack if they exist
         stack_dir = STACK_DIRS.get(s)
         if stack_dir:
             override_file = os.path.join(stack_dir, f"docker-compose.override.{environment}.yml")
             if os.path.exists(override_file):
                 files.append(override_file)
-    
+
     # Filter out non-existent files
     return [f for f in files if os.path.exists(f)]
 
@@ -294,41 +289,80 @@ def get_stack_project_name(stack):
 def stop_services(stack="all", environment="private"):
     """Stop services for the specified stack."""
     print(f"Stopping services for stack: {stack}...")
-    
+
     if stack == "all":
         # Stop each stack individually with its own project name
-        for stack_name in STACK_PROJECTS.keys():
+        for stack_name in STACK_PROJECTS:
             print(f"Stopping {stack_name} stack...")
             stop_single_stack(stack_name, environment)
     else:
         stop_single_stack(stack, environment)
-    
+
     # Only perform aggressive container cleanup if stopping ALL services
     if stack == "all":
         print("Performing aggressive cleanup of known containers...")
         container_names = [
-            "redis", "caddy", "cloudflared",
-            "n8n", "flowise", "open-webui", "searxng",
-            "qdrant", "neo4j", "mongodb", "minio",
-            "langfuse-worker", "langfuse-web", "clickhouse",
-            "ollama", "comfyui", "ollama-pull-llama", "comfyui-provision",
-            "lambda-server", "infisical-backend", "infisical-db", "infisical-redis",
+            "redis",
+            "caddy",
+            "cloudflared",
+            "n8n",
+            "flowise",
+            "open-webui",
+            "searxng",
+            "qdrant",
+            "neo4j",
+            "mongodb",
+            "minio",
+            "langfuse-worker",
+            "langfuse-web",
+            "clickhouse",
+            "ollama",
+            "comfyui",
+            "ollama-pull-llama",
+            "comfyui-provision",
+            "lambda-server",
+            "infisical-backend",
+            "infisical-db",
+            "infisical-redis",
         ]
-        
+
         for container_name in container_names:
             try:
                 # Check if container exists and is running
-                check_cmd = ["docker", "ps", "-a", "--filter", f"name=^{container_name}$", "--format", "{{.Names}}"]
+                check_cmd = [
+                    "docker",
+                    "ps",
+                    "-a",
+                    "--filter",
+                    f"name=^{container_name}$",
+                    "--format",
+                    "{{.Names}}",
+                ]
                 result = subprocess.run(check_cmd, capture_output=True, text=True, check=False)
                 if container_name in result.stdout:
                     print(f"Stopping and removing container: {container_name}")
                     try:
-                        subprocess.run(["docker", "stop", container_name], capture_output=True, check=False, timeout=10)
-                        subprocess.run(["docker", "rm", container_name], capture_output=True, check=False, timeout=10)
+                        subprocess.run(
+                            ["docker", "stop", container_name],
+                            capture_output=True,
+                            check=False,
+                            timeout=10,
+                        )
+                        subprocess.run(
+                            ["docker", "rm", container_name],
+                            capture_output=True,
+                            check=False,
+                            timeout=10,
+                        )
                     except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
                         # Try force remove if normal remove fails
-                        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, check=False, timeout=10)
-            except Exception as e:
+                        subprocess.run(
+                            ["docker", "rm", "-f", container_name],
+                            capture_output=True,
+                            check=False,
+                            timeout=10,
+                        )
+            except Exception:
                 # Continue even if individual container removal fails
                 pass
 
@@ -339,22 +373,22 @@ def stop_single_stack(stack, environment="private"):
     if stack == "infisical":
         manage_infisical_stack(action="stop", environment=environment)
         return
-    
+
     if stack not in STACK_FILES:
         print(f"Warning: Unknown stack '{stack}'")
         return
-    
+
     compose_files = get_compose_files(stack, environment)
     if not compose_files:
         print(f"No compose files found for stack '{stack}'")
         return
-    
+
     project_name = get_stack_project_name(stack)
     cmd = ["docker", "compose", "-p", project_name]
     for file in compose_files:
         cmd.extend(["-f", file])
     cmd.append("down")
-    
+
     try:
         run_command(cmd)
     except subprocess.CalledProcessError:
@@ -367,7 +401,7 @@ def pull_docker_images(profile=None, environment=None, stack="all"):
 
     if stack == "all":
         # Pull images for each stack individually
-        for stack_name in STACK_PROJECTS.keys():
+        for stack_name in STACK_PROJECTS:
             print(f"Pulling images for {stack_name} stack...")
             pull_stack_images(stack_name, profile, environment)
     else:
@@ -382,14 +416,14 @@ def pull_stack_images(stack, profile=None, environment=None):
     if not compose_files:
         print(f"No compose files found for stack '{stack}'")
         return
-    
+
     project_name = get_stack_project_name(stack)
     cmd = ["docker", "compose", "-p", project_name]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
     for file in compose_files:
         cmd.extend(["-f", file])
-    
+
     cmd.extend(["pull"])
     try:
         run_command(cmd)
@@ -399,7 +433,7 @@ def pull_stack_images(stack, profile=None, environment=None):
 
 def manage_services(action="start", stack="all", profile=None, environment=None):
     """Start or stop services using stack-based architecture."""
-    
+
     if action == "stop":
         stop_services(stack, environment)
         return True
@@ -412,7 +446,7 @@ def manage_services(action="start", stack="all", profile=None, environment=None)
     if stack == "all":
         # Start each stack individually with its own project name
         success = True
-        for stack_name in STACK_PROJECTS.keys():
+        for stack_name in STACK_PROJECTS:
             print(f"\n=== Starting {stack_name} stack ===")
             if not start_single_stack(stack_name, profile, environment):
                 success = False
@@ -426,45 +460,45 @@ def manage_infisical_stack(action="start", environment="private"):
     infisical_dir = INFISICAL_STANDALONE_DIR
     compose_file = os.path.join(infisical_dir, "docker-compose.yml")
     override_file = os.path.join(infisical_dir, f"docker-compose.override.{environment}.yml")
-    
+
     if not os.path.exists(compose_file):
         print(f"❌ Error: Docker Compose file not found at {compose_file}")
         print(f"   Please ensure Infisical is set up in {infisical_dir}")
         return False
-    
+
     # Build docker compose command
     # Use "infisical" to match start_infisical.py for consistency
     cmd = ["docker", "compose", "-p", "infisical"]
     cmd.extend(["-f", compose_file])
-    
+
     if os.path.exists(override_file):
         cmd.extend(["-f", override_file])
-    
+
     # Try to use .env from local-ai-packaged project, or from infisical-standalone
     current_dir = os.getcwd()
     env_file_paths = [
         os.path.join(current_dir, ".env"),  # Current directory (local-ai-packaged)
         os.path.join(infisical_dir, ".env"),  # Standalone directory
     ]
-    
+
     env_file_path = None
     for path in env_file_paths:
         if os.path.exists(path):
             env_file_path = os.path.abspath(path)
             break
-    
+
     if env_file_path:
         cmd.extend(["--env-file", env_file_path])
     else:
         print("⚠️  Warning: No .env file found. Using environment variables from shell.")
-    
+
     if action == "stop":
         cmd.append("down")
-        print(f"Stopping Infisical services...")
+        print("Stopping Infisical services...")
     else:
         cmd.extend(["up", "-d"])
-        print(f"Starting Infisical services...")
-    
+        print("Starting Infisical services...")
+
     try:
         # Run from the infisical directory
         run_command(cmd, cwd=infisical_dir)
@@ -516,7 +550,7 @@ def start_single_stack(stack, profile=None, environment=None):
             print("STDOUT:", e.stdout)
         if e.stderr:
             print("STDERR:", e.stderr)
-        
+
         # Provide helpful error messages for common issues
         error_output = (e.stderr or "") + (e.stdout or "")
         if "nvidia" in error_output.lower() or "gpu" in error_output.lower():
@@ -525,30 +559,32 @@ def start_single_stack(stack, profile=None, environment=None):
             print("   2. Check Docker NVIDIA runtime: docker info | grep -i nvidia")
             print("   3. Install nvidia-container-toolkit if missing")
             print("   4. Try CPU mode: python start_services.py --profile cpu")
-        
+
         if "profile" in error_output.lower() or "unknown profile" in error_output.lower():
             print("\n💡 Profile error detected. Valid profiles are:")
             print("   - cpu (default)")
             print("   - gpu-nvidia (for NVIDIA GPUs)")
             print("   - gpu-amd (for AMD GPUs)")
             print("   - none (no compute services)")
-        
+
         return False
+
 
 def check_nvidia_gpu_availability():
     """Check if NVIDIA GPU is available and Docker can access it."""
     print("Checking NVIDIA GPU availability...")
-    
+
     # Check if nvidia-smi is available on the host
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
-            gpus = result.stdout.strip().split('\n')
+            gpus = result.stdout.strip().split("\n")
             print(f"✓ Found {len(gpus)} NVIDIA GPU(s) on host:")
             for i, gpu in enumerate(gpus):
                 print(f"  GPU {i}: {gpu}")
@@ -570,14 +606,15 @@ def check_nvidia_gpu_availability():
 def check_docker_nvidia_runtime():
     """Check if Docker has NVIDIA runtime configured."""
     print("Checking Docker NVIDIA runtime configuration...")
-    
+
     try:
         # Check if nvidia-container-runtime is available
         result = subprocess.run(
             ["docker", "info", "--format", "{{.Runtimes}}"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            check=False,
         )
         if result.returncode == 0:
             runtimes = result.stdout.strip()
@@ -601,27 +638,29 @@ def validate_gpu_profile(profile):
     """Validate GPU profile and check system requirements."""
     if profile in ["gpu-nvidia", "gpu-amd"]:
         print(f"\n=== Validating {profile} profile ===")
-        
+
         if profile == "gpu-nvidia":
             gpu_available = check_nvidia_gpu_availability()
             runtime_available = check_docker_nvidia_runtime()
-            
+
             if not gpu_available:
                 print("\n❌ ERROR: NVIDIA GPU not detected on host system")
                 print("   Please ensure:")
                 print("   1. NVIDIA drivers are installed (check with: nvidia-smi)")
                 print("   2. GPU is properly connected and powered")
                 return False
-            
+
             if not runtime_available:
                 print("\n❌ ERROR: Docker NVIDIA runtime not configured")
                 print("   Please install and configure nvidia-container-toolkit:")
-                print("   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html")
+                print(
+                    "   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+                )
                 return False
-            
+
             print("✓ NVIDIA GPU setup validated\n")
             return True
-        
+
         elif profile == "gpu-amd":
             # Check for AMD GPU devices
             if os.path.exists("/dev/kfd") and os.path.exists("/dev/dri"):
@@ -631,7 +670,7 @@ def validate_gpu_profile(profile):
                 print("⚠️  AMD GPU devices not found (/dev/kfd or /dev/dri)")
                 print("   Continuing anyway, but GPU acceleration may not work")
                 return True  # Don't fail, just warn
-    
+
     return True
 
 
@@ -677,7 +716,7 @@ def generate_searxng_secret_key():
         random_key = secrets.token_hex(32)
 
         # Read the settings file
-        with open(settings_path, "r") as f:
+        with open(settings_path) as f:
             content = f.read()
 
         # Check if the placeholder key still exists
@@ -697,7 +736,7 @@ def generate_searxng_secret_key():
                 f.write(content)
             # Atomic rename (works on Unix-like systems and Windows)
             os.replace(temp_path, settings_path)
-        except (OSError, PermissionError) as e:
+        except (OSError, PermissionError):
             # If atomic write fails, try direct write as fallback
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -714,7 +753,7 @@ def generate_searxng_secret_key():
     except Exception as e:
         print(f"Error generating SearXNG secret key: {e}")
         print("You may need to manually generate the secret key.")
-        print(f"Run: python3 -c \"import secrets; print(secrets.token_hex(32))\"")
+        print('Run: python3 -c "import secrets; print(secrets.token_hex(32))"')
         print(f"Then edit {settings_path} and replace 'ultrasecretkey' with the generated key.")
 
 
@@ -755,13 +794,9 @@ def is_secret_key(key: str) -> bool:
     for pattern in NON_SECRET_PATTERNS:
         if re.match(pattern, key, re.IGNORECASE):
             return False
-    
+
     # Check inclusion patterns
-    for pattern in SECRET_PATTERNS:
-        if re.match(pattern, key, re.IGNORECASE):
-            return True
-    
-    return False
+    return any(re.match(pattern, key, re.IGNORECASE) for pattern in SECRET_PATTERNS)
 
 
 def check_infisical_cli() -> bool:
@@ -792,9 +827,7 @@ def check_infisical_auth() -> bool:
         # If authenticated, this should either succeed or show a project error
         # If not authenticated, it will show auth error
         output = (result.stdout or result.stderr or "").lower()
-        if "authenticate" in output or "login" in output:
-            return False
-        return True
+        return not ("authenticate" in output or "login" in output)
     except Exception:
         return False
 
@@ -802,14 +835,14 @@ def check_infisical_auth() -> bool:
 def check_infisical_running() -> bool:
     """
     Check if Infisical containers are running.
-    
+
     Returns:
         True if all required Infisical containers are running, False otherwise
     """
     required_containers = ["infisical-backend", "infisical-db", "infisical-redis"]
     running_containers = []
     missing_containers = []
-    
+
     for container_name in required_containers:
         try:
             result = subprocess.run(
@@ -819,7 +852,7 @@ def check_infisical_running() -> bool:
                 timeout=5,
                 check=False,
             )
-            
+
             if result.returncode == 0:
                 status = result.stdout.strip()
                 if status == "running":
@@ -829,11 +862,11 @@ def check_infisical_running() -> bool:
             else:
                 missing_containers.append(f"{container_name} (not found)")
         except Exception as e:
-            missing_containers.append(f"{container_name} (error: {str(e)})")
-    
+            missing_containers.append(f"{container_name} (error: {e!s})")
+
     if len(running_containers) == len(required_containers):
         return True
-    
+
     # Print detailed error message
     print("\n❌ Error: Infisical services are not running!")
     print(f"   Required containers: {', '.join(required_containers)}")
@@ -845,19 +878,19 @@ def check_infisical_running() -> bool:
     print("     python start_services.py --stack infisical")
     print("   Or use the dedicated script:")
     print("     python start_infisical.py")
-    
+
     return False
 
 
-def get_infisical_secrets() -> Dict[str, str]:
+def get_infisical_secrets() -> dict[str, str]:
     """
     Get all secrets from Infisical.
-    
+
     Returns:
         Dictionary of secret key-value pairs
     """
     secrets_dict = {}
-    
+
     try:
         # Export secrets from Infisical
         result = subprocess.run(
@@ -867,29 +900,29 @@ def get_infisical_secrets() -> Dict[str, str]:
             timeout=30,
             check=False,
         )
-        
+
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
-                
-                if '=' in line:
-                    key, value = line.split('=', 1)
+
+                if "=" in line:
+                    key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip()
                     # Remove quotes if present
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    elif value.startswith("'") and value.endswith("'"):
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
                         value = value[1:-1]
                     secrets_dict[key] = value
-        
+
     except Exception as e:
         print(f"Warning: Could not fetch secrets from Infisical: {e}")
         return {}
-    
+
     return secrets_dict
 
 
@@ -897,11 +930,11 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
     """
     Sync secrets from Infisical directly to .env file.
     Preserves non-secret configuration like hostnames, ports, and URLs.
-    
+
     Args:
         env_path: Path to .env file (default: ".env")
         quiet: If True, suppress output messages
-    
+
     Returns:
         True if sync was successful or skipped, False on error
     """
@@ -910,89 +943,89 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
         if not quiet:
             print("Infisical CLI not found - skipping secret sync")
         return True  # Not an error, just skip
-    
+
     # Check if authenticated
     if not check_infisical_auth():
         if not quiet:
             print("Infisical CLI not authenticated - skipping secret sync")
             print("  To authenticate: infisical login")
         return True  # Not an error, just skip
-    
+
     # Get secrets from Infisical
     infisical_secrets = get_infisical_secrets()
     if not infisical_secrets:
         if not quiet:
             print("No secrets found in Infisical - skipping sync")
         return True  # Not an error, just skip
-    
+
     # Filter secrets (only sync secret keys, not config)
     secrets_to_sync = {}
     for key, value in infisical_secrets.items():
         if is_secret_key(key):
             secrets_to_sync[key] = value
-    
+
     if not secrets_to_sync:
         if not quiet:
             print("No secrets to sync from Infisical")
         return True
-    
+
     # Read existing .env file
     env_file_path = Path(env_path)
     if not env_file_path.exists():
         if not quiet:
             print(f"Warning: .env file not found at {env_path} - cannot sync")
         return False
-    
+
     # Parse .env file
     env_vars = {}
     env_lines = []
-    
-    with open(env_file_path, "r", encoding="utf-8") as f:
+
+    with open(env_file_path, encoding="utf-8") as f:
         for line in f:
             env_lines.append(line)
             stripped = line.strip()
-            
+
             # Skip empty lines and comments
             if not stripped or stripped.startswith("#"):
                 continue
-            
+
             # Parse KEY=VALUE
             if "=" not in stripped:
                 continue
-            
+
             key, value = stripped.split("=", 1)
             key = key.strip()
             value = value.strip()
-            
+
             # Remove quotes if present
-            if value.startswith('"') and value.endswith('"'):
+            if (value.startswith('"') and value.endswith('"')) or (
+                value.startswith("'") and value.endswith("'")
+            ):
                 value = value[1:-1]
-            elif value.startswith("'") and value.endswith("'"):
-                value = value[1:-1]
-            
+
             if key:
                 env_vars[key] = value
-    
+
     # Update .env file with Infisical secrets
     updated_count = 0
     added_count = 0
     processed_keys = set()
     new_lines = []
-    
+
     for line in env_lines:
         stripped = line.strip()
-        
+
         # Preserve comments and empty lines
         if not stripped or stripped.startswith("#"):
             new_lines.append(line)
             continue
-        
+
         # Process KEY=VALUE lines
         if "=" in stripped:
             key, value = stripped.split("=", 1)
             key = key.strip()
             processed_keys.add(key)
-            
+
             # Update if this is a secret from Infisical
             if key in secrets_to_sync:
                 new_lines.append(f"{key}={secrets_to_sync[key]}\n")
@@ -1004,7 +1037,7 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
                 new_lines.append(line)
         else:
             new_lines.append(line)
-    
+
     # Add new secrets at the end
     for key, value in secrets_to_sync.items():
         if key not in processed_keys:
@@ -1012,17 +1045,17 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
             added_count += 1
             if not quiet:
                 print(f"  Added {key} from Infisical")
-    
+
     # Write updated .env file
     try:
         with open(env_file_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
-        
+
         if not quiet and (updated_count > 0 or added_count > 0):
             print(f"✓ Synced {updated_count + added_count} secret(s) from Infisical to .env")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"Error: Failed to write .env file: {e}")
         return False
@@ -1037,7 +1070,7 @@ def check_and_fix_docker_compose_for_searxng():
 
     try:
         # Read the docker-compose.yml file
-        with open(docker_compose_path, "r") as file:
+        with open(docker_compose_path) as file:
             content = file.read()
 
         # Default to first run
@@ -1133,7 +1166,7 @@ Examples:
   python start_services.py --action stop                     # Stop all services
   python start_services.py --stack apps                      # Start only apps stack
   python start_services.py --action stop --stack compute     # Stop compute stack
-        """
+        """,
     )
     parser.add_argument(
         "--action",
@@ -1173,11 +1206,7 @@ Examples:
 
     # Stop logic is simpler - just stop services
     if args.action == "stop":
-        manage_services(
-            action="stop",
-            stack=args.stack,
-            environment=args.environment
-        )
+        manage_services(action="stop", stack=args.stack, environment=args.environment)
         return
 
     # Start logic (includes pre-flight checks)
@@ -1210,7 +1239,6 @@ Examples:
                 print("\n❌ Failed to start Infisical services. Cannot proceed.")
                 sys.exit(1)
             # Wait a bit for services to start
-            import time
             time.sleep(5)
             if not check_infisical_running():
                 print("\n❌ Infisical services did not start successfully. Cannot proceed.")
@@ -1228,7 +1256,6 @@ Examples:
                 print("⚠ Warning: Failed to start Infisical services. Continuing anyway...")
             else:
                 # Wait a bit for services to start
-                import time
                 time.sleep(5)
                 if check_infisical_running():
                     print("✓ Infisical services started successfully")
@@ -1241,10 +1268,7 @@ Examples:
 
     # Start services using modular compose files
     success = manage_services(
-        action="start",
-        stack=args.stack,
-        profile=args.profile,
-        environment=args.environment
+        action="start", stack=args.stack, profile=args.profile, environment=args.environment
     )
 
     if not success:

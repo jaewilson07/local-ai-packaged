@@ -610,11 +610,14 @@ Services are organized into numbered stacks with explicit dependencies:
 ### lambda-server
 **Container**: `lambda-server`  
 **Port**: 8000  
-**Description**: FastAPI server providing REST APIs and MCP endpoints
+**Description**: FastAPI server providing REST APIs, MCP endpoints, authentication system, and data viewing APIs
 
 **Features**:
 - 40+ MCP tools
 - REST API endpoints
+- Cloudflare Access JWT validation
+- Just-In-Time (JIT) user provisioning
+- Data isolation across all storage layers
 - MongoDB RAG integration
 - Graphiti RAG integration
 - Knowledge graph operations
@@ -623,7 +626,7 @@ Services are organized into numbered stacks with explicit dependencies:
 - Discord character management
 - Multi-project architecture
 
-**Dependencies**: MongoDB, Neo4j (optional), Ollama
+**Dependencies**: MongoDB, Neo4j (optional), Supabase (PostgreSQL), MinIO, Ollama
 
 **Configuration**:
 - `MONGODB_URI` - MongoDB connection string
@@ -637,32 +640,59 @@ Services are organized into numbered stacks with explicit dependencies:
 - `USE_GRAPHITI` - Enable Graphiti (default: false)
 - `USE_KNOWLEDGE_GRAPH` - Enable knowledge graph (default: false)
 - `USE_AGENTIC_RAG` - Enable agentic RAG (default: false)
+- `CLOUDFLARE_AUTH_DOMAIN` - Cloudflare Access domain (e.g., `https://team.cloudflareaccess.com`)
+- `CLOUDFLARE_AUD_TAG` - Application audience tag (64-char hex)
+- `SUPABASE_DB_URL` - PostgreSQL connection string (e.g., `postgresql://postgres:password@supabase-db:5432/postgres`)
+- `SUPABASE_SERVICE_KEY` - Supabase service role key (optional)
+- `MINIO_ENDPOINT` - MinIO endpoint (e.g., `http://supabase-minio:9020`)
+- `MINIO_ACCESS_KEY` - MinIO access key
+- `MINIO_SECRET_KEY` - MinIO secret key
 
-**Access**: `http://lambda-server:8000` (internal) or via Caddy
+**Access**: `http://lambda-server:8000` (internal) or via Caddy at `api.datacrew.space`
 
 **API Endpoints**:
+
+**Public Endpoints** (no authentication):
 - `GET /health` - Health check
+- `GET /docs` - API documentation
+- `GET /openapi.json` - OpenAPI schema
+
+**Authenticated Endpoints** (require Cloudflare Access JWT):
+- `GET /api/me` - Get current user profile
+- `GET /api/v1/data/storage` - View MinIO/blob storage files (with optional `prefix` parameter)
+- `GET /api/v1/data/supabase` - View Supabase table data (with `table`, `page`, `per_page` parameters)
+- `GET /api/v1/data/neo4j` - View Neo4j graph data (with optional `node_type` parameter)
+- `GET /api/v1/data/mongodb` - View MongoDB collection data (with `collection`, `page`, `per_page` parameters)
+- `GET /test/my-data` - Test endpoint for Supabase data isolation
+- `GET /test/my-images` - Test endpoint for MinIO data isolation
+
+**RAG Endpoints** (authenticated):
 - `POST /api/v1/rag/search` - Search knowledge base
 - `POST /api/v1/rag/ingest` - Ingest documents
 - `POST /api/v1/rag/agent` - Agent query
+
+**Discord Character Endpoints** (authenticated):
 - `POST /api/v1/discord-characters/add` - Add character to channel
 - `POST /api/v1/discord-characters/remove` - Remove character from channel
 - `POST /api/v1/discord-characters/list` - List active characters
 - `POST /api/v1/discord-characters/clear-history` - Clear conversation history
 - `POST /api/v1/discord-characters/engage` - Engage character in conversation
+
+**MCP Endpoints** (internal network only, no authentication):
 - `POST /mcp/tools/list` - List MCP tools
 - `POST /mcp/tools/call` - Call MCP tool
-- See [Lambda README](../04-lambda/README.md) for complete API reference
 
-**Integration Points**: Open WebUI (MCP), n8n (MCP tools), MongoDB, Neo4j, Ollama, SearXNG
+See [Lambda README](../04-lambda/README.md) and [Auth Project README](../04-lambda/server/projects/auth/README.md) for complete API reference
+
+**Integration Points**: Open WebUI (MCP), n8n (MCP tools), MongoDB, Neo4j, Supabase, MinIO, Ollama, SearXNG
 
 ## Service Dependencies Summary
 
 ### Critical Dependencies
 
 **Lambda Server**:
-- Requires: MongoDB, Neo4j (optional), Ollama
-- Provides: MCP tools, REST APIs
+- Requires: MongoDB, Neo4j (optional), Supabase (PostgreSQL), MinIO, Ollama
+- Provides: MCP tools, REST APIs, authentication system, data viewing APIs
 
 **Open WebUI**:
 - Requires: PostgreSQL (Supabase), Ollama, Lambda Server

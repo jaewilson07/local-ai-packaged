@@ -13,4 +13,3 @@ x-logging-json-verbose: &logging-json-verbose
   options:
     max-size: "10m"
     max-file: "3"
-

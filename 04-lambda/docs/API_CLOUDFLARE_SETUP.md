@@ -146,16 +146,16 @@ All endpoints are now available at `https://api.datacrew.space`:
 ### MongoDB RAG Operations
 - `POST /api/v1/rag/search` - Search the knowledge base
   - Request: `{"query": "string", "match_count": 5, "search_type": "hybrid|semantic|text"}`
-  
+
 - `POST /api/v1/rag/ingest` - Ingest documents
   - Multipart form with files
-  
+
 - `POST /api/v1/rag/agent` - Conversational agent
   - Request: `{"query": "string"}`
-  
+
 - `POST /api/v1/rag/code-examples/search` - Search for code examples
   - Request: `{"query": "string", "match_count": 5}`
-  
+
 - `GET /api/v1/rag/sources` - Get available data sources
   - Returns: List of crawled domains/paths with statistics
 
@@ -163,15 +163,15 @@ All endpoints are now available at `https://api.datacrew.space`:
 - `POST /api/v1/graphiti/search` - Search Graphiti knowledge graph
   - Request: `{"query": "string", "match_count": 5}`
   - Requires: `USE_GRAPHITI=true`
-  
+
 - `POST /api/v1/graphiti/knowledge-graph/repositories` - Parse GitHub repository
   - Request: `{"repo_url": "string", "branch": "string"}`
   - Requires: `USE_KNOWLEDGE_GRAPH=true`
-  
+
 - `POST /api/v1/graphiti/knowledge-graph/validate` - Validate AI script for hallucinations
   - Request: `{"script": "string", "repo_url": "string"}`
   - Requires: `USE_KNOWLEDGE_GRAPH=true`
-  
+
 - `POST /api/v1/graphiti/knowledge-graph/query` - Query Neo4j knowledge graph
   - Request: `{"command": "string"}`
   - Requires: `USE_KNOWLEDGE_GRAPH=true`
@@ -212,7 +212,7 @@ MongoDB (01-data stack) + Neo4j (01-data stack, optional) + Ollama (02-compute s
 
 ### Access Control (Recommended)
 
-**Current Status**: The Cloudflare Tunnel for `api.datacrew.space` is already configured and routing traffic. 
+**Current Status**: The Cloudflare Tunnel for `api.datacrew.space` is already configured and routing traffic.
 
 **Access Authentication**: Check if a wildcard access policy (`*.datacrew.space`) exists. If so, `api.datacrew.space` may already be covered. Verify by checking the tunnel route's Access setting in the Cloudflare dashboard.
 
@@ -298,4 +298,3 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 - [Lambda AGENTS.md](../04-lambda/AGENTS.md)
 - [Cloudflare Setup Guide](./docs/cloudflare/setup/cloudflare_design_choices.md)
 - [Caddy Configuration](./caddy/QUICK_REFERENCE.md)
-

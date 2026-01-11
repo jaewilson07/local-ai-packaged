@@ -66,6 +66,12 @@ python sample/deep_research/run_research.py "What is quantum computing?" --verbo
 Tests the agent via the Lambda server REST API.
 
 ```bash
+# For local development (uses internal network, no auth required)
+python sample/deep_research/test_via_api.py
+
+# For external API access (requires JWT token)
+export API_BASE_URL=https://api.datacrew.space
+export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
 python sample/deep_research/test_via_api.py
 ```
 
@@ -73,6 +79,7 @@ python sample/deep_research/test_via_api.py
 - Tests server connectivity
 - Tests MCP tools via REST API
 - Can be extended to test full agent workflow
+- Automatically uses internal network URLs when running locally (no auth required)
 
 ### 5. `test_linear_researcher.py`
 **Status**: ⚠️ Requires server or clean environment
@@ -108,7 +115,12 @@ LLM_API_KEY=test-key
 EMBEDDING_BASE_URL=http://localhost:11434/v1
 EMBEDDING_API_KEY=test-key
 SEARXNG_URL=http://localhost:8081
+CLOUDFLARE_EMAIL=your-email@example.com  # For user identification
+API_BASE_URL=http://lambda-server:8000     # Defaults to internal network
+CF_ACCESS_JWT=your-jwt-token              # Only required for external URLs
 ```
+
+**Note**: Scripts that make HTTP API calls automatically use internal network URLs (`http://lambda-server:8000`) when running locally, which bypasses Cloudflare Access authentication. For external URLs, set `API_BASE_URL` and `CF_ACCESS_JWT`.
 
 ## Testing Status
 
@@ -140,7 +152,7 @@ SEARXNG_URL=http://localhost:8081
    ```bash
    # Start server first
    python start_services.py --stack lambda
-   
+
    # Then run research
    python sample/deep_research/run_research.py "Who is the CEO of Anthropic?"
    ```

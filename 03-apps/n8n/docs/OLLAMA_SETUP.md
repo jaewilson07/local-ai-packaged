@@ -116,8 +116,3 @@ docker exec ollama ollama list
 - [n8n Ollama Credentials](https://docs.n8n.io/integrations/builtin/credentials/ollama/)
 - [n8n Ollama Chat Model Node](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.lmchatollama/)
 - [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
-
-
-
-
-

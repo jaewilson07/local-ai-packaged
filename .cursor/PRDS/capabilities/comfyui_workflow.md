@@ -218,7 +218,7 @@ The system will:
 
 **Issue**: Container restarting with `ModuleNotFoundError`
 
-**Solution**: 
+**Solution**:
 1. Check if build tools are installed: `docker exec lambda-server which gcc`
 2. Rebuild container: `docker compose build --no-cache lambda-server`
 3. Remove old volume: `docker volume rm 04-lambda_lambda-packages`
@@ -234,7 +234,7 @@ The system will:
 
 **Issue**: "redirected too many times" when accessing endpoints
 
-**Solution**: 
+**Solution**:
 - Use correct hostname: `https://api.datacrew.space` (not `datacrew.space`)
 - Ensure Cloudflare Access is configured for `api.datacrew.space`
 - Access through Cloudflare Access (which injects JWT header automatically)

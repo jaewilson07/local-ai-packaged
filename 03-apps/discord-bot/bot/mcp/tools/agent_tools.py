@@ -1,18 +1,19 @@
 """Agent management MCP tools."""
 
 import logging
-from typing import List, Dict, Any, Optional
-from bot.mcp.server import mcp
+from typing import Any
+
 from bot.agents import get_agent_manager
+from bot.mcp.server import mcp
 
 logger = logging.getLogger(__name__)
 
 
 @mcp.tool
-async def list_agents() -> List[Dict[str, Any]]:
+async def list_agents() -> list[dict[str, Any]]:
     """
     List all registered agents in the multi-agent system.
-    
+
     Returns:
         List of agent information dictionaries.
     """
@@ -22,13 +23,13 @@ async def list_agents() -> List[Dict[str, Any]]:
 
 
 @mcp.tool
-async def get_agent_info(agent_id: str) -> Dict[str, Any]:
+async def get_agent_info(agent_id: str) -> dict[str, Any]:
     """
     Get detailed information about a specific agent.
-    
+
     Args:
         agent_id: The agent identifier.
-    
+
     Returns:
         Dictionary containing agent information.
     """
@@ -40,13 +41,13 @@ async def get_agent_info(agent_id: str) -> Dict[str, Any]:
 
 
 @mcp.tool
-async def start_agent(agent_id: str) -> Dict[str, Any]:
+async def start_agent(agent_id: str) -> dict[str, Any]:
     """
     Start an agent.
-    
+
     Args:
         agent_id: The agent identifier to start.
-    
+
     Returns:
         Dictionary with success status.
     """
@@ -62,13 +63,13 @@ async def start_agent(agent_id: str) -> Dict[str, Any]:
 
 
 @mcp.tool
-async def stop_agent(agent_id: str) -> Dict[str, Any]:
+async def stop_agent(agent_id: str) -> dict[str, Any]:
     """
     Stop an agent.
-    
+
     Args:
         agent_id: The agent identifier to stop.
-    
+
     Returns:
         Dictionary with success status.
     """
@@ -84,14 +85,14 @@ async def stop_agent(agent_id: str) -> Dict[str, Any]:
 
 
 @mcp.tool
-async def route_task_to_agent(agent_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+async def route_task_to_agent(agent_id: str, task: dict[str, Any]) -> dict[str, Any]:
     """
     Route a task to a specific agent.
-    
+
     Args:
         agent_id: The agent identifier to route the task to.
         task: Task dictionary with task-specific data.
-    
+
     Returns:
         Dictionary with task routing result.
     """
@@ -100,10 +101,10 @@ async def route_task_to_agent(agent_id: str, task: Dict[str, Any]) -> Dict[str, 
 
 
 @mcp.tool
-async def get_agent_status() -> Dict[str, Dict[str, Any]]:
+async def get_agent_status() -> dict[str, dict[str, Any]]:
     """
     Get status of all agents.
-    
+
     Returns:
         Dictionary mapping agent IDs to their status dictionaries.
     """

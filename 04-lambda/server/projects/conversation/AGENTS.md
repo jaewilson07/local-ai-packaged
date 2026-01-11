@@ -38,29 +38,29 @@ graph TB
         REST[ REST API<br/>/api/v1/conversation/orchestrate ]
         MCP[ MCP Tools<br/>orchestrate_conversation ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ conversation_agent<br/>Pydantic AI Agent ]
         TOOL[ orchestrate_conversation_tool<br/>Main Orchestration Tool ]
     end
-    
+
     subgraph "Orchestration Service"
         ORCH[ ConversationOrchestrator<br/>Planning & Response Generation ]
         PLAN[ plan_response<br/>LLM-Based Planning ]
         GENERATE[ generate_response<br/>Response Generation ]
     end
-    
+
     subgraph "Integrated Systems"
         PERSONA[ Persona System<br/>Voice Instructions ]
         MEMORY[ MongoDB RAG<br/>Memory & Knowledge ]
         CALENDAR[ Calendar System<br/>Event Management ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ PersonaDeps<br/>MongoDB, OpenAI Client ]
         OLLAMA[ Ollama<br/>LLM ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOL
@@ -76,7 +76,7 @@ graph TB
     PERSONA --> DEPS
     MEMORY --> DEPS
     CALENDAR --> DEPS
-    
+
     style AGENT fill:#e1f5ff
     style ORCH fill:#fff4e1
     style PERSONA fill:#e1ffe1
@@ -98,29 +98,29 @@ sequenceDiagram
     participant Tools as Available Tools
     participant Generate as generate_response
     participant Record as record_interaction
-    
+
     Client->>Agent: POST /orchestrate (user_id, persona_id, message)
     Agent->>Tool: orchestrate_conversation_tool()
     Tool->>Persona: get_voice_instructions(user_id, persona_id)
     Persona-->>Tool: Voice instructions (personality, style)
-    
+
     Tool->>Orchestrator: Create orchestrator with LLM client
     Tool->>Plan: plan_response(message, voice_instructions, tools)
     Plan->>Plan: Call LLM to determine action, tools, strategy
     Plan-->>Tool: Plan {action, tools, strategy}
-    
+
     alt Tools needed
         Tool->>Tools: Execute tools (search, memory, calendar)
         Tools-->>Tool: Tool results
     end
-    
+
     Tool->>Generate: generate_response(message, voice_instructions, tool_results, plan)
     Generate->>Generate: Call LLM with context
     Generate-->>Tool: Final response
-    
+
     Tool->>Record: record_interaction(user_id, persona_id, message, response)
     Record-->>Tool: Success
-    
+
     Tool-->>Agent: Response string
     Agent-->>Client: ConversationResponse
 ```
@@ -220,18 +220,18 @@ async def orchestrate_conversation_tool(
     try:
         # Get voice instructions
         voice_instructions = await get_voice_instructions(persona_deps, user_id, persona_id)
-        
+
         # Create orchestrator
         orchestrator = ConversationOrchestrator(llm_client=persona_deps.openai_client)
-        
+
         # Plan and execute
         plan = await orchestrator.plan_response(message, voice_instructions, available_tools)
         # ... execute tools ...
         response = await orchestrator.generate_response(message, voice_instructions, tool_results, plan)
-        
+
         # Record interaction
         await record_interaction(persona_deps, user_id, persona_id, message, response)
-        
+
         return response
     finally:
         await persona_deps.cleanup()

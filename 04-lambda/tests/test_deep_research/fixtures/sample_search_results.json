@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "title": "Deep Research Methodology - Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Deep_research",
+      "content": "Deep research is a comprehensive methodology for investigating complex topics...",
+      "engine": "google",
+      "score": 0.95
+    },
+    {
+      "title": "Understanding Deep Research Techniques",
+      "url": "https://example.com/deep-research-techniques",
+      "content": "Deep research involves systematic investigation and analysis...",
+      "engine": "bing",
+      "score": 0.88
+    },
+    {
+      "title": "Deep Research: A Comprehensive Guide",
+      "url": "https://example.com/guide",
+      "content": "This guide covers all aspects of deep research methodology...",
+      "engine": "duckduckgo",
+      "score": 0.82
+    }
+  ],
+  "number_of_results": 3
+}

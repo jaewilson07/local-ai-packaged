@@ -85,10 +85,23 @@
 - **Ports**: 9020 (API), 9021 (Console)
 - **Credentials**: `SUPABASE_MINIO_ROOT_USER`, `SUPABASE_MINIO_ROOT_PASSWORD`
 
+**User Provisioning**:
+- **JIT Provisioning**: Lambda server automatically creates user profiles in `profiles` table
+- **Table Schema**: `id` (UUID), `email` (unique), `role` (default: "user"), `tier` (default: "free"), `created_at`
+- **Location**: `04-lambda/server/projects/auth/services/supabase_service.py`
+- **Pattern**: `get_or_provision_user(email)` creates user if doesn't exist
+
+**Data Isolation**:
+- **Application-Level**: Queries filtered by `owner_email = user.email`
+- **Admin Override**: Users with `role: "admin"` bypass filtering
+- **RLS**: Can be enabled at database level (requires custom policies)
+- **Pattern**: Always include `WHERE owner_email = $1` in user-scoped queries (unless admin)
+
 **Common Gotchas**:
 - **Password Characters**: Avoid `@` symbol in `POSTGRES_PASSWORD` (causes connection issues)
 - **Pooler**: Requires `POOLER_DB_POOL_SIZE=5` in `.env` (if setup before June 2024)
 - **Upstream Updates**: Run `git pull` in `supabase/` directory to update
+- **User Provisioning**: Ensure `profiles` table exists or will be auto-created by Lambda server
 
 ### Search Hints
 ```bash
@@ -137,6 +150,18 @@ cat supabase/docker/volumes/api/kong.yml
 - **Use Case**: Knowledge graphs (GraphRAG, LightRAG, Graphiti)
 - **Internal URL**: `bolt://neo4j:7687`
 
+**User Provisioning**:
+- **JIT Provisioning**: Lambda server automatically creates `:User` nodes
+- **Node Pattern**: `(:User {email: "user@example.com"})`
+- **Location**: `04-lambda/server/projects/auth/services/neo4j_service.py`
+- **Pattern**: `provision_user(email)` creates user node if doesn't exist
+
+**Data Isolation**:
+- **User Anchoring**: All queries should anchor to user node: `MATCH (u:User {email: $email})`
+- **Admin Override**: Users with `role: "admin"` skip user anchoring
+- **Pattern**: Use `get_user_anchored_query()` helper from `Neo4jService`
+- **Documentation**: See [Neo4j Data Isolation Guide](neo4j/docs/data-isolation.md)
+
 ### Configuration
 - **Auth**: Set via `NEO4J_AUTH` environment variable
 - **Storage**: Named volumes for all persistent data (follows same pattern as Qdrant and MongoDB)
@@ -155,6 +180,13 @@ cat supabase/docker/volumes/api/kong.yml
 - **Authentication**: `MONGODB_INITDB_ROOT_USERNAME`, `MONGODB_INITDB_ROOT_PASSWORD`
 - **Use Case**: Document storage, Vector Search, Local Atlas Development
 - **Internal URL**: `mongodb://mongodb:27017`
+
+**Data Isolation**:
+- **Field-Based Filtering**: Filter by `user_id` or `user_email` fields in documents
+- **Admin Override**: Users with `role: "admin"` bypass filtering
+- **Pattern**: Query filter: `{"$or": [{"user_id": user_id}, {"user_email": email}]}`
+- **Metadata Fields**: Also check `metadata.user_id` and `metadata.user_email`
+- **No Explicit Provisioning**: Users are identified via field matching (no explicit user collection)
 
 ### Configuration
 - **Replica Set**: Required and handled by `MONGODB_REPLICA_SET_NAME=rs0`
@@ -182,6 +214,26 @@ cat supabase/docker/volumes/api/kong.yml
 - **Network**: `ai-network` only
 
 **Note**: Separate from `supabase-minio` (different service, different credentials, different ports)
+
+### Supabase MinIO (User Storage)
+
+**Architecture**:
+- **Service**: `supabase-minio` (part of Supabase stack)
+- **Ports**: 9020 (API), 9021 (Console)
+- **Bucket**: `user-data` (shared bucket with prefix-based organization)
+- **Credentials**: `SUPABASE_MINIO_ROOT_USER`, `SUPABASE_MINIO_ROOT_PASSWORD`
+
+**User Provisioning**:
+- **JIT Provisioning**: Lambda server automatically creates user folders
+- **Folder Pattern**: `user-{uuid}/` (e.g., `user-123e4567-e89b-12d3-a456-426614174000/`)
+- **Location**: `04-lambda/server/projects/auth/services/minio_service.py`
+- **Pattern**: `provision_user(user_id, email)` creates folder structure if doesn't exist
+
+**Data Isolation**:
+- **Prefix-Based**: User files stored under `user-{uuid}/` prefix
+- **Admin Override**: Users with `role: "admin"` can access all folders
+- **Pattern**: List objects with prefix: `s3_client.list_objects_v2(Bucket="user-data", Prefix=f"user-{uuid}/")`
+- **Bucket**: Shared `user-data` bucket (not per-user buckets)
 
 ## Architecture Patterns
 
@@ -237,6 +289,10 @@ docker exec minio mc ready local
 - Use persistent volumes for data
 - Generate secure passwords (use `setup/generate-env-passwords.py`)
 - Separate Supabase MinIO from Langfuse MinIO
+- Enforce data isolation in all queries (filter by user email/UUID)
+- Use user anchoring pattern for Neo4j queries
+- Check admin status before bypassing data isolation
+- Reference [Auth Project README](../04-lambda/server/projects/auth/README.md) for user management patterns
 
 ### ❌ DON'T
 - do not put any files in the root folder.  files should be created within their respective service stack
@@ -246,6 +302,9 @@ docker exec minio mc ready local
 - Mix data volumes between services
 - Expose database ports directly (use Kong/Caddy)
 - Commit `.env` files with secrets
+- Expose other users' data (always filter by user email/UUID)
+- Skip user anchoring in Neo4j queries (unless admin)
+- Create per-user buckets in MinIO (use prefix-based organization)
 
 ## Domain Dictionary
 
@@ -260,7 +319,9 @@ docker exec minio mc ready local
 
 ---
 
-**See Also**: 
+**See Also**:
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [supabase/README.md](../supabase/README.md) for Supabase-specific docs
+- [Auth Project README](../04-lambda/server/projects/auth/README.md) - User provisioning and data isolation patterns
+- [Neo4j Data Isolation Guide](neo4j/docs/data-isolation.md) - Neo4j user anchoring patterns
 

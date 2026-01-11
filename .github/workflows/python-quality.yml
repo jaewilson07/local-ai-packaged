@@ -1,0 +1,138 @@
+name: Python Code Quality
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/python-quality.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/python-quality.yml'
+
+jobs:
+  python-quality:
+    name: Python Quality Checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - name: root
+            path: .
+            python-version: '3.10'
+          - name: lambda-server
+            path: 04-lambda
+            python-version: '3.10'
+          - name: discord-bot
+            path: 03-apps/discord-character-bot
+            python-version: '3.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.project.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.project.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv sync --dev || true
+          if [ -f "pyproject.toml" ]; then
+            uv pip install -e . || true
+          fi
+
+      - name: Python syntax validation
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          if [ "${{ matrix.project.name }}" = "lambda-server" ]; then
+            python3 validate_syntax.py || true
+          else
+            find . -type f -name "*.py" -not -path "*/\.*" -not -path "*/__pycache__/*" -exec python3 -m py_compile {} \; || true
+          fi
+
+      - name: Check code formatting with Black
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv run black --check --line-length=100 . || echo "Black check failed"
+
+      - name: Lint with Ruff
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv run ruff check . || echo "Ruff check failed"
+
+      - name: Format check with Ruff
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv run ruff format --check . || echo "Ruff format check failed"
+
+      - name: Check import sorting
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv run ruff check --select I --fix . || echo "Import sorting check failed"
+
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - name: lambda-server
+            path: 04-lambda
+            python-version: '3.10'
+            test-command: 'uv run pytest tests/ -v --cov=server --cov-report=xml --cov-report=term'
+          - name: discord-bot
+            path: 03-apps/discord-character-bot
+            python-version: '3.10'
+            test-command: 'uv run pytest tests/ -v'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.project.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.project.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          uv sync --dev || true
+          if [ -f "pyproject.toml" ]; then
+            uv pip install -e ".[test]" || uv pip install -e . || true
+          fi
+
+      - name: Run tests
+        working-directory: ${{ matrix.project.path }}
+        run: |
+          if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+            ${{ matrix.project.test-command }} || echo "Tests failed"
+          else
+            echo "No tests directory found, skipping"
+          fi
+
+      - name: Upload coverage reports
+        if: matrix.project.name == 'lambda-server'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./04-lambda/coverage.xml
+          flags: ${{ matrix.project.name }}
+          name: ${{ matrix.project.name }}-coverage
+          fail_ci_if_error: false

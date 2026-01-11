@@ -89,6 +89,16 @@ Security Risk: Internal APIs may be exposed without consistent identity validati
 - ✅ AGENTS.md updated with auth project details
 - ✅ API endpoint documentation included
 
+**Phase 11: Data Viewing APIs**
+- ✅ Data viewing router implemented (`api/data_view.py`)
+- ✅ `GET /api/v1/data/storage` - View MinIO/blob storage files with prefix filtering
+- ✅ `GET /api/v1/data/supabase` - View Supabase table data with pagination
+- ✅ `GET /api/v1/data/neo4j` - View Neo4j nodes and relationships with type filtering
+- ✅ `GET /api/v1/data/mongodb` - View MongoDB collection data with pagination
+- ✅ All endpoints enforce data isolation (user-scoped filtering)
+- ✅ Admin override implemented for all endpoints
+- ✅ Response models defined for all endpoints
+
 ### Project Structure
 
 ```
@@ -108,7 +118,8 @@ Security Risk: Internal APIs may be exposed without consistent identity validati
 └── SECURITY.md            # Security considerations
 
 04-lambda/server/api/
-└── auth.py                # API endpoints (/api/me, /test/my-data, /test/my-images)
+├── auth.py                # API endpoints (/api/me, /test/my-data, /test/my-images)
+└── data_view.py           # Data viewing APIs (/api/v1/data/*)
 ```
 
 ### Environment Variables Required
@@ -140,6 +151,12 @@ MINIO_SECRET_KEY=secret1234
    - `GET /api/me` - Verify user profile retrieval
    - `GET /test/my-data` - Verify Supabase data isolation
    - `GET /test/my-images` - Verify MinIO data isolation
+
+3. **Data Viewing Endpoints:**
+   - `GET /api/v1/data/storage?prefix=user-{uuid}/` - View MinIO files
+   - `GET /api/v1/data/supabase?table=items&page=1&per_page=100` - View Supabase data
+   - `GET /api/v1/data/neo4j?node_type=User` - View Neo4j graph data
+   - `GET /api/v1/data/mongodb?collection=documents&page=1&per_page=100` - View MongoDB data
 
 3. **Create Sample Data:**
    - Insert test items in Supabase `items` table
@@ -322,6 +339,60 @@ The following functioning endpoints have been delivered and are ready for testin
   - Generates presigned URLs (1-hour expiry) for secure access
   - Filters to image file types only (.jpg, .jpeg, .png, .gif, .webp, .svg)
 
+4. **`GET /api/v1/data/storage` (MinIO/Blob Storage)** ✅ **IMPLEMENTED**
+* **Location:** `04-lambda/server/api/data_view.py`
+* **Input:** Optional `prefix` query parameter (e.g., `prefix=loras/`)
+* **Output:** JSON list of files with metadata (key, filename, size, last_modified, etag)
+* **Verification:**
+  - ✅ Regular users see only files from their `user-{uuid}/` folder
+  - ✅ Admin users see all files from all user folders
+  - ✅ Prefix filtering works for both regular and admin users
+* **Features:**
+  - Lists objects from MinIO `user-data` bucket
+  - Supports prefix filtering for subdirectories
+  - Returns file metadata in structured format
+
+5. **`GET /api/v1/data/supabase` (Supabase Table Data)** ✅ **IMPLEMENTED**
+* **Location:** `04-lambda/server/api/data_view.py`
+* **Input:** `table` (default: "items"), `page` (default: 1), `per_page` (default: 100, max: 1000)
+* **Output:** JSON paginated list of items with metadata
+* **Verification:**
+  - ✅ Regular users see only rows where `owner_email = user.email`
+  - ✅ Admin users see all rows from the table
+  - ✅ Pagination works correctly for both user types
+* **Features:**
+  - Supports any table name (creates `items` table if missing)
+  - Pagination with configurable page size
+  - Returns total count for pagination UI
+
+6. **`GET /api/v1/data/neo4j` (Neo4j Graph Data)** ✅ **IMPLEMENTED**
+* **Location:** `04-lambda/server/api/data_view.py`
+* **Input:** Optional `node_type` query parameter (e.g., `node_type=Document`)
+* **Output:** JSON with nodes and relationships
+* **Verification:**
+  - ✅ Regular users see only nodes connected to their User node (within 2 hops)
+  - ✅ Admin users see all nodes in the graph
+  - ✅ Node type filtering works for both user types
+* **Features:**
+  - User anchoring pattern for regular users
+  - Returns nodes with labels and properties
+  - Returns relationships with types and properties
+  - Limits results to 1000 nodes/relationships
+
+7. **`GET /api/v1/data/mongodb` (MongoDB Collection Data)** ✅ **IMPLEMENTED**
+* **Location:** `04-lambda/server/api/data_view.py`
+* **Input:** `collection` (default: "documents"), `page` (default: 1), `per_page` (default: 100, max: 1000)
+* **Output:** JSON paginated list of documents
+* **Verification:**
+  - ✅ Regular users see only documents with matching `user_id` or `user_email` fields
+  - ✅ Admin users see all documents in the collection
+  - ✅ Pagination works correctly for both user types
+* **Features:**
+  - Supports any collection name
+  - Filters by `user_id`, `user_email`, `metadata.user_id`, or `metadata.user_email`
+  - Pagination with configurable page size
+  - Returns total count for pagination UI
+
 
 
 ## 7. Security Constraints ✅ IMPLEMENTED
@@ -352,22 +423,25 @@ All core requirements from this PRD have been successfully implemented. The syst
 - ✅ Automatic JIT user provisioning across all data stores
 - ✅ Strict data isolation with admin override capability
 - ✅ Three test endpoints for verification
+- ✅ Four production data viewing APIs for all storage layers
 - ✅ Comprehensive documentation and security considerations
 
 ### Files Created/Modified
 
 **New Files:**
 - `04-lambda/server/projects/auth/` - Complete auth project structure
-- `04-lambda/server/api/auth.py` - API endpoints
+- `04-lambda/server/api/auth.py` - Authentication API endpoints
+- `04-lambda/server/api/data_view.py` - Data viewing API endpoints
 - `04-lambda/server/projects/auth/README.md` - Project documentation
 - `04-lambda/server/projects/auth/SECURITY.md` - Security documentation
+- `00-infrastructure/scripts/get-lambda-api-aud-tag.py` - AUD tag retrieval script
 
 **Modified Files:**
 - `04-lambda/server/config.py` - Added auth configuration
-- `04-lambda/server/main.py` - Registered auth router
+- `04-lambda/server/main.py` - Registered auth and data_view routers
 - `04-lambda/pyproject.toml` - Added dependencies (PyJWT, cryptography, asyncpg, boto3)
 - `04-lambda/docker-compose.yml` - Added environment variables
-- `04-lambda/AGENTS.md` - Updated with auth project details
+- `04-lambda/AGENTS.md` - Updated with auth project and data viewing APIs
 
 ### Testing Checklist
 
@@ -382,6 +456,11 @@ Before deploying to production, verify:
 - [ ] Admin override works correctly
 - [ ] JWT validation rejects invalid tokens
 - [ ] JIT provisioning creates users on first visit
+- [ ] Data viewing APIs return correct user-scoped data
+- [ ] Data viewing APIs support admin override
+- [ ] Pagination works correctly for Supabase and MongoDB endpoints
+- [ ] Prefix filtering works for storage endpoint
+- [ ] Node type filtering works for Neo4j endpoint
 
 ### Configuration Required
 
@@ -405,10 +484,13 @@ Before deploying to production, verify:
 
 - Row Level Security (RLS) policies at Supabase database level
 - Immich API integration for richer image metadata
-- MongoDB user provisioning and isolation
+- MongoDB user provisioning and isolation (currently handled via field filtering)
 - Service-level permissions (services_enabled field)
 - User tier enforcement (free vs pro features)
 - Audit logging for admin actions
+- Advanced filtering and search for data viewing APIs
+- Export functionality for data viewing APIs
+- Real-time updates for data viewing APIs
 
 ---
 

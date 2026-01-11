@@ -43,10 +43,10 @@ Supabase is configured as a self-hosted instance with the following components:
    ```bash
    # Generate JWT Secret (32+ characters, base64)
    openssl rand -base64 32
-   
+
    # Generate Postgres password (strong password)
    openssl rand -base64 24
-   
+
    # Generate Anon Key and Service Role Key
    # These are JWT tokens - use Supabase CLI or generate manually
    ```
@@ -146,13 +146,13 @@ Supabase Storage is configured with **S3-compatible backend** using MinIO.
    # Install MinIO client
    brew install minio/stable/mc  # macOS
    # or download from https://min.io/download
-   
+
    # Configure alias
    mc alias set supabase-minio http://localhost:9020 supa-storage secret1234
-   
+
    # List buckets
    mc ls supabase-minio
-   
+
    # Create bucket
    mc mb supabase-minio/my-bucket
    ```
@@ -221,7 +221,7 @@ postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
        ├──→ Realtime (WebSockets)
        ├──→ Storage (S3 API)
        └──→ Edge Functions
-       
+
 ┌─────────────┐
 │ PostgreSQL  │ ← Database (Port 5432)
 └─────────────┘
@@ -321,5 +321,3 @@ python start_services.py
 - **S3 Override**: `supabase/docker/docker-compose.s3.yml`
 - **Environment Template**: `supabase/docker/.env.example`
 - **Environment File**: Uses root `.env` file (not `supabase/docker/.env`)
-
-

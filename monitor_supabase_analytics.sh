@@ -36,7 +36,7 @@ while true; do
     echo "=========================================="
     echo "Last update: $(date '+%Y-%m-%d %H:%M:%S')"
     echo ""
-    
+
     # Container status
     if docker ps --format "{{.Names}}" | grep -q "^supabase-analytics$"; then
         STATUS=$(docker inspect supabase-analytics --format='{{.State.Status}}')
@@ -44,7 +44,7 @@ while true; do
         UPTIME=$(docker inspect supabase-analytics --format='{{.State.StartedAt}}' | xargs -I {} date -d {} +%s 2>/dev/null || echo "0")
         NOW=$(date +%s)
         RUNTIME=$((NOW - UPTIME))
-        
+
         echo "Container Status:"
         echo "  Status: $STATUS"
         if [ "$HEALTH" = "healthy" ]; then
@@ -56,7 +56,7 @@ while true; do
         fi
         echo "  Uptime: $((RUNTIME / 60)) minutes"
         echo ""
-        
+
         # Health endpoint
         ENDPOINT_STATUS=$(check_endpoint)
         echo "Health Endpoint:"
@@ -68,7 +68,7 @@ while true; do
             echo -e "  Status: ${RED}ERROR${NC}"
         fi
         echo ""
-        
+
         # Database check
         echo "Database:"
         if docker exec supabase-db psql -U postgres -c "\l" 2>/dev/null | grep -q "_supabase"; then
@@ -76,7 +76,7 @@ while true; do
         else
             echo -e "  _supabase database: ${RED}missing${NC}"
         fi
-        
+
         TABLE_COUNT=$(docker exec supabase-db psql -U supabase_admin -d _supabase -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '_analytics';" 2>/dev/null | tr -d ' ')
         if [ ! -z "$TABLE_COUNT" ] && [ "$TABLE_COUNT" != "0" ]; then
             echo -e "  Tables in _analytics: ${GREEN}$TABLE_COUNT${NC}"
@@ -84,25 +84,24 @@ while true; do
             echo -e "  Tables in _analytics: ${YELLOW}0${NC}"
         fi
         echo ""
-        
+
         # Recent logs
         echo "Recent Logs (last 10 lines):"
         docker logs supabase-analytics --tail 10 2>&1 | tail -10 | sed 's/^/  /'
         echo ""
-        
+
         # Error count
         ERROR_COUNT=$(docker logs supabase-analytics --tail 50 2>&1 | grep -i "error\|fatal" | wc -l)
         if [ "$ERROR_COUNT" -gt 0 ]; then
             echo -e "${YELLOW}⚠ Recent errors: $ERROR_COUNT${NC}"
             docker logs supabase-analytics --tail 50 2>&1 | grep -i "error\|fatal" | tail -3 | sed 's/^/  /'
         fi
-        
+
     else
         echo -e "${RED}Container not running!${NC}"
     fi
-    
+
     echo ""
     echo "Press Ctrl+C to stop..."
     sleep 5
 done
-

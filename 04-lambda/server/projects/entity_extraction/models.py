@@ -7,9 +7,12 @@ and extraction results to integrate with Neo4j/Graphiti-style schemas.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List, Tuple
-from datetime import datetime
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class EntityType(str, Enum):
@@ -53,9 +56,9 @@ class Entity(BaseModel):
 
     name: str
     type: EntityType
-    span: Tuple[int, int] = Field(default=(0, 0))
+    span: tuple[int, int] = Field(default=(0, 0))
     confidence: float = Field(ge=0.0, le=1.0, default=0.8)
-    properties: Dict[str, str] = Field(default_factory=dict)
+    properties: dict[str, str] = Field(default_factory=dict)
     source: str = Field(default="unknown")
 
 
@@ -76,7 +79,7 @@ class Relationship(BaseModel):
     target_entity: str
     relation_type: RelationType
     confidence: float = Field(ge=0.0, le=1.0, default=0.7)
-    properties: Dict[str, str] = Field(default_factory=dict)
+    properties: dict[str, str] = Field(default_factory=dict)
     valid_from: datetime | None = None
     valid_to: datetime | None = None
 
@@ -92,17 +95,17 @@ class EntityExtractionResult(BaseModel):
         extractor_type: Name of extractor ("ner", "llm", "hybrid")
     """
 
-    entities: List[Entity] = Field(default_factory=list)
-    relationships: List[Relationship] = Field(default_factory=list)
+    entities: list[Entity] = Field(default_factory=list)
+    relationships: list[Relationship] = Field(default_factory=list)
     chunk_id: str = ""
     extraction_time_ms: float = 0.0
     extractor_type: str = "unknown"
 
 
 __all__ = [
+    "Entity",
+    "EntityExtractionResult",
     "EntityType",
     "RelationType",
-    "Entity",
     "Relationship",
-    "EntityExtractionResult",
 ]

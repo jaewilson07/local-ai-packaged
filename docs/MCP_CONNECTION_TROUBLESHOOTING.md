@@ -19,7 +19,7 @@ Instead of using the internal Docker network URL, use the external URL through t
 1. **In Open WebUI External Tools**:
    - **Type**: `MCP (Streamable HTTP)`
    - **Server URL**: `https://api.datacrew.space/mcp`
-   - **Authentication**: 
+   - **Authentication**:
      - If Cloudflare Access is configured: Leave empty (authentication handled at edge)
      - If not configured: See [MCP Security Setup](./MCP_SECURITY_SETUP.md) to add authentication
 
@@ -135,4 +135,3 @@ If Open WebUI continues to have issues, you can use Cursor IDE which has better 
 - [Open WebUI GitHub Issue #14762](https://github.com/open-webui/open-webui/issues/14762)
 - [Lambda MCP Server Documentation](../04-lambda/server/mcp/AGENTS.md)
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
-

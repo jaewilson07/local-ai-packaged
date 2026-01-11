@@ -1,20 +1,15 @@
 """Shared exception classes for consistent error handling across projects."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class BaseProjectException(Exception):
     """Base exception for all project-specific errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        status_code: int = 500,
-        details: Optional[Dict[str, Any]] = None
-    ):
+
+    def __init__(self, message: str, status_code: int = 500, details: dict[str, Any] | None = None):
         """
         Initialize base project exception.
-        
+
         Args:
             message: Human-readable error message
             status_code: HTTP status code (for API errors)
@@ -28,17 +23,17 @@ class BaseProjectException(Exception):
 
 class MongoDBException(BaseProjectException):
     """Exception raised for MongoDB-related errors."""
-    
+
     def __init__(
         self,
         message: str,
-        operation: Optional[str] = None,
-        collection: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        operation: str | None = None,
+        collection: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         Initialize MongoDB exception.
-        
+
         Args:
             message: Error message
             operation: MongoDB operation that failed (e.g., "insert", "find")
@@ -52,17 +47,17 @@ class MongoDBException(BaseProjectException):
 
 class LLMException(BaseProjectException):
     """Exception raised for LLM-related errors."""
-    
+
     def __init__(
         self,
         message: str,
-        model: Optional[str] = None,
-        operation: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        model: str | None = None,
+        operation: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         Initialize LLM exception.
-        
+
         Args:
             message: Error message
             model: LLM model name
@@ -76,17 +71,17 @@ class LLMException(BaseProjectException):
 
 class ValidationException(BaseProjectException):
     """Exception raised for validation errors."""
-    
+
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        details: Optional[Dict[str, Any]] = None
+        field: str | None = None,
+        value: Any | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         Initialize validation exception.
-        
+
         Args:
             message: Error message
             field: Field name that failed validation
@@ -100,16 +95,16 @@ class ValidationException(BaseProjectException):
 
 class NotFoundException(BaseProjectException):
     """Exception raised when a resource is not found."""
-    
+
     def __init__(
         self,
         resource_type: str,
-        resource_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        resource_id: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         Initialize not found exception.
-        
+
         Args:
             resource_type: Type of resource (e.g., "user", "document")
             resource_id: ID of the resource that was not found
@@ -125,16 +120,16 @@ class NotFoundException(BaseProjectException):
 
 class ConfigurationException(BaseProjectException):
     """Exception raised for configuration errors."""
-    
+
     def __init__(
         self,
         message: str,
-        config_key: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        config_key: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         Initialize configuration exception.
-        
+
         Args:
             message: Error message
             config_key: Configuration key that is missing or invalid

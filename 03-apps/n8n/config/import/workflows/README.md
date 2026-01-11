@@ -16,7 +16,7 @@ This directory contains n8n workflows imported from various sources, organized b
 #### nostr-damus-gmail-telegram.json
 - **Source**: workflowsdiy/n8n-workflows
 - **Description**: Nostr #damus AI Powered Reporting with Gmail and Telegram integration
-- **Required Credentials**: 
+- **Required Credentials**:
   - Gmail (OAuth2)
   - Telegram Bot Token
   - OpenAI API Key (if using AI features)
@@ -267,8 +267,3 @@ This will recursively import all JSON files from subdirectories.
 ## Last Updated
 
 2025-01-05
-
-
-
-
-

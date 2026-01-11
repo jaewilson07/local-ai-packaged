@@ -36,7 +36,7 @@ check_openwebui_container() {
         echo -e "${GREEN}✓ Container is running${NC}"
         echo "  Status: $STATUS"
         echo "  Health: $HEALTH"
-        
+
         # Check recent logs for errors
         echo ""
         echo "  Recent logs (last 20 lines):"
@@ -53,7 +53,7 @@ check_postgres() {
     echo "3. Checking PostgreSQL connection..."
     if docker ps --format "{{.Names}}" | grep -q "supabase-db"; then
         echo -e "${GREEN}✓ PostgreSQL container found${NC}"
-        
+
         # Test connection from Open WebUI container
         if docker ps --format "{{.Names}}" | grep -q "^open-webui$"; then
             echo "  Testing connection from Open WebUI container..."
@@ -104,7 +104,7 @@ check_caddy() {
     echo "6. Checking Caddy reverse proxy..."
     if docker ps --format "{{.Names}}" | grep -q "^caddy$"; then
         echo -e "${GREEN}✓ Caddy container found${NC}"
-        
+
         # Check if Caddy can reach Open WebUI
         if docker exec caddy curl -s -o /dev/null -w "%{http_code}" http://open-webui:8080/health 2>/dev/null | grep -q "200"; then
             echo -e "${GREEN}✓ Caddy can reach Open WebUI${NC}"
@@ -126,7 +126,7 @@ check_db_performance() {
         docker exec supabase-db psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1
         END_TIME=$(date +%s%N)
         DURATION=$((($END_TIME - $START_TIME) / 1000000))
-        
+
         if [ $DURATION -lt 100 ]; then
             echo -e "${GREEN}✓ Database query fast (${DURATION}ms)${NC}"
         elif [ $DURATION -lt 1000 ]; then
@@ -134,7 +134,7 @@ check_db_performance() {
         else
             echo -e "${RED}✗ Database query very slow (${DURATION}ms)${NC}"
         fi
-        
+
         # Check for large conversation tables
         echo "  Checking conversation table size..."
         CONV_COUNT=$(docker exec supabase-db psql -U postgres -d postgres -t -c "SELECT COUNT(*) FROM conversations;" 2>/dev/null | tr -d ' ' || echo "0")
@@ -153,14 +153,14 @@ check_network() {
     echo "8. Checking Docker network..."
     if docker network inspect ai-network &>/dev/null; then
         echo -e "${GREEN}✓ ai-network exists${NC}"
-        
+
         # Check if Open WebUI is on the network
         if docker network inspect ai-network | grep -q "open-webui"; then
             echo -e "${GREEN}✓ Open WebUI is on ai-network${NC}"
         else
             echo -e "${RED}✗ Open WebUI not found on ai-network${NC}"
         fi
-        
+
         # Check if PostgreSQL is on the network
         if docker network inspect ai-network | grep -q "supabase-db"; then
             echo -e "${GREEN}✓ PostgreSQL is on ai-network${NC}"
@@ -179,10 +179,10 @@ check_env_vars() {
     if docker ps --format "{{.Names}}" | grep -q "^open-webui$"; then
         DB_TYPE=$(docker exec open-webui printenv DB_TYPE 2>/dev/null || echo "not set")
         DB_HOST=$(docker exec open-webui printenv DB_POSTGRESDB_HOST 2>/dev/null || echo "not set")
-        
+
         echo "  DB_TYPE: $DB_TYPE"
         echo "  DB_POSTGRESDB_HOST: $DB_HOST"
-        
+
         if [ "$DB_TYPE" = "postgresdb" ] && [ "$DB_HOST" = "supabase-db" ]; then
             echo -e "${GREEN}✓ Database configuration looks correct${NC}"
         else

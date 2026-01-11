@@ -10,26 +10,24 @@ Usage:
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add the project root to the path so we can import from start_services
 # Script is in 00-infrastructure/scripts/, so root is ../../..
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from start_services import (
-    pull_docker_images,
-    authenticate_dhi_registry,
-    generate_searxng_secret_key,
-    check_and_fix_docker_compose_for_searxng,
-)
 import argparse
+
+from start_services import (
+    authenticate_dhi_registry,
+    check_and_fix_docker_compose_for_searxng,
+    generate_searxng_secret_key,
+    pull_docker_images,
+)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Update Docker images to their latest versions."
-    )
+    parser = argparse.ArgumentParser(description="Update Docker images to their latest versions.")
     parser.add_argument(
         "--profile",
         choices=["cpu", "gpu-nvidia", "gpu-amd", "none"],
@@ -84,4 +82,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

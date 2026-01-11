@@ -64,7 +64,7 @@ Add the following variables to your root `.env` file:
 ENABLE_OAUTH_SIGNUP=true
 
 # Google OAuth Client ID (from Google Cloud Console)
-# Note: If you already have CLIENT_ID_GOOGLE_LOGIN set (e.g., for Infisical), 
+# Note: If you already have CLIENT_ID_GOOGLE_LOGIN set (e.g., for Infisical),
 # it will be automatically used. Otherwise, set GOOGLE_CLIENT_ID:
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 # OR reuse existing: CLIENT_ID_GOOGLE_LOGIN (already configured)
@@ -207,7 +207,7 @@ Look for:
 ### "Redirect URI Mismatch" Error
 
 - **Cause**: The redirect URI in Google Cloud Console doesn't match the actual callback URL
-- **Solution**: 
+- **Solution**:
   1. Check your `WEBUI_HOSTNAME` environment variable
   2. Verify the redirect URI in Google Cloud Console matches exactly:
      - `https://<WEBUI_HOSTNAME>/oauth/google/callback`
@@ -229,7 +229,7 @@ Look for:
 ### Local Development Issues
 
 - **Problem**: Google OAuth may not work with `localhost` in production OAuth clients
-- **Solution**: 
+- **Solution**:
   - Use a domain with proper SSL (recommended)
   - Or create a separate OAuth client for local development
   - Or use port forwarding with a service like ngrok for testing
@@ -272,4 +272,3 @@ After setting up Google OAuth:
 2. Verify user data is stored correctly in PostgreSQL
 3. Test conversation export and topic classification with OAuth users
 4. Configure additional OAuth providers if needed (requires Open WebUI update)
-

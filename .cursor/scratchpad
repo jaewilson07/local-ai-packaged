@@ -1,0 +1,70 @@
+# Session: MongoDB RLS Tests and Samples Implementation
+
+## Plan
+- [x] Create unit tests for RLS functions (build_access_filter, can_access_document, sharing functions)
+- [x] Create unit tests for MongoDB provisioning service
+- [x] Create integration tests for search with RLS filtering
+- [x] Create sample script demonstrating RLS with sharing
+- [x] Create sample script demonstrating user-based authentication
+- [x] Update existing MongoDB RAG samples to use user context
+- [x] Update scratchpad with test results
+- [ ] Update AGENTS.md with RLS capabilities and constraints
+
+## Implementation Status
+
+### Tests Created
+1. **test_rls.py** - Unit tests for RLS filter builder functions
+   - Test build_access_filter with various scenarios (ownership, public, shared, groups, admin)
+   - Test build_chunk_access_filter
+   - Test can_access_document for application-level checks
+   - Test add_sharing_to_document and remove_sharing_from_document
+   - Status: ✅ Complete, no linter errors
+
+2. **test_mongodb_provisioning.py** - Unit tests for MongoDB user provisioning
+   - Test username sanitization
+   - Test password generation
+   - Test user_exists method
+   - Test provision_user method (new and existing users)
+   - Test _create_rag_user_role
+   - Test delete_user
+   - Status: ✅ Complete, no linter errors
+
+3. **test_search_rls.py** - Integration tests for search with RLS
+   - Test semantic_search with RLS filtering
+   - Test text_search with RLS filtering
+   - Test hybrid_search with RLS filtering
+   - Test admin bypass
+   - Status: ✅ Complete, no linter errors
+
+### Samples Created
+1. **rls_sharing_example.py** - Demonstrates RLS and sharing
+   - Creates documents with different sharing configurations
+   - Tests RLS filters for different users
+   - Demonstrates document access checks
+   - Shows sharing modification
+   - Status: ✅ Complete, no linter errors
+
+2. **user_auth_example.py** - Demonstrates user-based authentication
+   - Shows creating dependencies with user context
+   - Demonstrates document ingestion with user ownership
+   - Shows search with user-scoped results
+   - Demonstrates admin context
+   - Status: ✅ Complete, no linter errors
+
+### Samples Updated
+1. **document_ingestion_example.py** - Added user context to pipeline
+2. **semantic_search_example.py** - Added user context to dependencies
+3. **hybrid_search_example.py** - Added user context to dependencies
+4. **memory_tools_example.py** - Added user context to dependencies
+5. **enhanced_rag_example.py** - Added user context to dependencies
+   - Status: ✅ All updated, no linter errors
+
+## Test Results
+- All test files created successfully
+- No linter errors in test files
+- No linter errors in sample files
+- All samples updated to use user context
+
+## Next Steps
+- Update AGENTS.md with RLS capabilities and constraints
+- Run tests to verify functionality (requires MongoDB and Ollama running)

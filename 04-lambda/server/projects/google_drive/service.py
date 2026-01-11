@@ -8,11 +8,10 @@ from pathlib import Path
 from typing import Literal
 
 from .classes import (
+    GoogleAuth,
     GoogleDoc,
     GoogleDrive,
-    GoogleAuth,
 )
-from .classes.google_drive_api import DEFAULT_FOLDER_ID
 from .models import GoogleDocumentTab, GoogleDriveFile, SearchResult
 
 
@@ -46,7 +45,7 @@ class GoogleDriveService:
             credentials_json=credentials_json,
             token_json=token_json,
             client_id=client_id,
-            client_secret=client_secret
+            client_secret=client_secret,
         )
         self.api = GoogleDrive(self.authenticator)
         self.docs_api = GoogleDoc(self.authenticator)
@@ -142,16 +141,16 @@ class GoogleDriveService:
     def download_file(self, file_id: str) -> bytes:
         """
         Download a file from Google Drive as binary data.
-        
+
         This method is useful for downloading binary files like LoRA models,
         images, or other non-text files.
-        
+
         Args:
             file_id: File ID in Google Drive
-        
+
         Returns:
             File content as bytes
-        
+
         Raises:
             ValueError: If download fails
         """

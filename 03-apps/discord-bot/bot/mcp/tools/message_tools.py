@@ -1,10 +1,10 @@
 """Message management MCP tools."""
 
 import logging
-from typing import List, Optional
+
 import discord
-from bot.mcp.server import mcp, get_discord_client
-from bot.mcp.models import MessageInfo
+
+from bot.mcp.server import get_discord_client, mcp
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 async def send_message(channel_id: str, content: str) -> dict:
     """
     Send a message to a Discord channel.
-    
+
     Args:
         channel_id: The Discord channel ID.
         content: The message content to send.
-    
+
     Returns:
         Dictionary containing the sent message information.
     """
@@ -25,10 +25,10 @@ async def send_message(channel_id: str, content: str) -> dict:
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     message = await channel.send(content)
     return {
         "id": str(message.id),
@@ -40,14 +40,14 @@ async def send_message(channel_id: str, content: str) -> dict:
 
 
 @mcp.tool
-async def read_messages(channel_id: str, limit: int = 50) -> List[dict]:
+async def read_messages(channel_id: str, limit: int = 50) -> list[dict]:
     """
     Read recent message history from a Discord channel.
-    
+
     Args:
         channel_id: The Discord channel ID.
         limit: Maximum number of messages to retrieve (default: 50, max: 100).
-    
+
     Returns:
         List of message information dictionaries.
     """
@@ -55,23 +55,25 @@ async def read_messages(channel_id: str, limit: int = 50) -> List[dict]:
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     limit = min(max(1, limit), 100)
     messages = []
     async for message in channel.history(limit=limit):
-        messages.append({
-            "id": str(message.id),
-            "content": message.content,
-            "author_id": str(message.author.id),
-            "author_username": message.author.name,
-            "channel_id": str(message.channel.id),
-            "timestamp": message.created_at.isoformat(),
-            "attachments": [att.url for att in message.attachments],
-        })
-    
+        messages.append(
+            {
+                "id": str(message.id),
+                "content": message.content,
+                "author_id": str(message.author.id),
+                "author_username": message.author.name,
+                "channel_id": str(message.channel.id),
+                "timestamp": message.created_at.isoformat(),
+                "attachments": [att.url for att in message.attachments],
+            }
+        )
+
     return messages
 
 
@@ -79,12 +81,12 @@ async def read_messages(channel_id: str, limit: int = 50) -> List[dict]:
 async def add_reaction(channel_id: str, message_id: str, emoji: str) -> dict:
     """
     Add a reaction emoji to a message.
-    
+
     Args:
         channel_id: The Discord channel ID.
         message_id: The Discord message ID.
         emoji: The emoji to add (can be unicode emoji or custom emoji ID/name).
-    
+
     Returns:
         Dictionary with success status.
     """
@@ -92,10 +94,10 @@ async def add_reaction(channel_id: str, message_id: str, emoji: str) -> dict:
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     try:
         message = await channel.fetch_message(int(message_id))
         await message.add_reaction(emoji)
@@ -107,15 +109,15 @@ async def add_reaction(channel_id: str, message_id: str, emoji: str) -> dict:
 
 
 @mcp.tool
-async def add_multiple_reactions(channel_id: str, message_id: str, emojis: List[str]) -> dict:
+async def add_multiple_reactions(channel_id: str, message_id: str, emojis: list[str]) -> dict:
     """
     Add multiple reactions to a message.
-    
+
     Args:
         channel_id: The Discord channel ID.
         message_id: The Discord message ID.
         emojis: List of emojis to add.
-    
+
     Returns:
         Dictionary with success status and count of reactions added.
     """
@@ -123,10 +125,10 @@ async def add_multiple_reactions(channel_id: str, message_id: str, emojis: List[
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     try:
         message = await channel.fetch_message(int(message_id))
         added = 0
@@ -142,16 +144,18 @@ async def add_multiple_reactions(channel_id: str, message_id: str, emojis: List[
 
 
 @mcp.tool
-async def remove_reaction(channel_id: str, message_id: str, emoji: str, user_id: Optional[str] = None) -> dict:
+async def remove_reaction(
+    channel_id: str, message_id: str, emoji: str, user_id: str | None = None
+) -> dict:
     """
     Remove a reaction from a message.
-    
+
     Args:
         channel_id: The Discord channel ID.
         message_id: The Discord message ID.
         emoji: The emoji to remove.
         user_id: Optional user ID to remove reaction from (default: bot's own reaction).
-    
+
     Returns:
         Dictionary with success status.
     """
@@ -159,10 +163,10 @@ async def remove_reaction(channel_id: str, message_id: str, emoji: str, user_id:
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     try:
         message = await channel.fetch_message(int(message_id))
         if user_id:
@@ -183,12 +187,12 @@ async def remove_reaction(channel_id: str, message_id: str, emoji: str, user_id:
 async def edit_message(channel_id: str, message_id: str, content: str) -> dict:
     """
     Edit an existing message in a Discord channel.
-    
+
     Args:
         channel_id: The Discord channel ID.
         message_id: The Discord message ID to edit.
         content: The new message content.
-    
+
     Returns:
         Dictionary containing the edited message information.
     """
@@ -196,16 +200,16 @@ async def edit_message(channel_id: str, message_id: str, content: str) -> dict:
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     try:
         message = await channel.fetch_message(int(message_id))
         # Check if message was sent by the bot
         if message.author.id != client.user.id:
             raise RuntimeError("Can only edit messages sent by the bot")
-        
+
         edited_message = await message.edit(content=content)
         return {
             "id": str(edited_message.id),
@@ -213,7 +217,9 @@ async def edit_message(channel_id: str, message_id: str, content: str) -> dict:
             "channel_id": str(edited_message.channel.id),
             "author_id": str(edited_message.author.id),
             "timestamp": edited_message.created_at.isoformat(),
-            "edited_timestamp": edited_message.edited_at.isoformat() if edited_message.edited_at else None,
+            "edited_timestamp": (
+                edited_message.edited_at.isoformat() if edited_message.edited_at else None
+            ),
         }
     except discord.NotFound:
         raise ValueError(f"Message {message_id} not found")
@@ -224,16 +230,18 @@ async def edit_message(channel_id: str, message_id: str, content: str) -> dict:
 
 
 @mcp.tool
-async def moderate_message(channel_id: str, message_id: str, delete: bool = True, timeout_user: Optional[int] = None) -> dict:
+async def moderate_message(
+    channel_id: str, message_id: str, delete: bool = True, timeout_user: int | None = None
+) -> dict:
     """
     Moderate a message by deleting it and optionally timing out the user.
-    
+
     Args:
         channel_id: The Discord channel ID.
         message_id: The Discord message ID to moderate.
         delete: Whether to delete the message (default: True).
         timeout_user: Optional timeout duration in seconds for the message author.
-    
+
     Returns:
         Dictionary with moderation actions taken.
     """
@@ -241,25 +249,25 @@ async def moderate_message(channel_id: str, message_id: str, delete: bool = True
     channel = client.get_channel(int(channel_id))
     if not channel:
         raise ValueError(f"Channel {channel_id} not found")
-    
+
     if not isinstance(channel, discord.TextChannel):
         raise ValueError(f"Channel {channel_id} is not a text channel")
-    
+
     try:
         message = await channel.fetch_message(int(message_id))
         actions = []
-        
+
         if delete:
             await message.delete()
             actions.append("deleted")
-        
+
         if timeout_user and message.author:
             member = channel.guild.get_member(message.author.id)
             if member:
                 # Timeout the user (requires TIMEOUT_MEMBERS permission)
                 await member.timeout_for(discord.timedelta(seconds=timeout_user))
                 actions.append(f"timeout_{timeout_user}s")
-        
+
         return {
             "success": True,
             "message_id": message_id,

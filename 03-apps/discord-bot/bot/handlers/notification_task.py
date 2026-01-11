@@ -1,14 +1,16 @@
 """Background task for checking new assets and sending notifications."""
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+
 import discord
-from bot.immich_client import ImmichClient
-from bot.database import Database
-from bot.utils import get_immich_gallery_url
+
 from bot.config import config
+from bot.database import Database
+from bot.immich_client import ImmichClient
+from bot.utils import get_immich_gallery_url
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class NotificationTask:
         self.immich_client = immich_client
         self.database = database
         self.running = False
-        self.task: Optional[asyncio.Task] = None
+        self.task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """Start the notification polling task."""
@@ -39,10 +41,8 @@ class NotificationTask:
         self.running = False
         if self.task:
             self.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.task
-            except asyncio.CancelledError:
-                pass
         logger.info("Notification task stopped")
 
     async def _poll_loop(self) -> None:

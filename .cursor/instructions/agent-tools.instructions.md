@@ -88,7 +88,7 @@ async def search_knowledge_base(
         # Access dependencies from context - they are already initialized
         # Do NOT call initialize() here - dependencies are provided by the caller
         deps = ctx.deps
-        
+
         # Perform search based on type using provided dependencies
         if search_type == "hybrid":
             results = await hybrid_search(
@@ -156,7 +156,7 @@ async def search_knowledge_base(
     search_type: Optional[str] = "semantic"
 ) -> str:
     """Search knowledge base with direct dependency access.
-    
+
     Note: Dependencies are already initialized by the caller before agent.run() is called.
     """
 
@@ -511,6 +511,70 @@ result = await agent.run("Hello", deps=deps)
 2. **Type safety**: `RunContext[DepsType]` ensures type checking matches the agent's `deps_type`
 3. **Lifecycle management**: Dependencies with resources (DB connections, HTTP clients) should have `initialize()` and `cleanup()` methods, but these are called by application code, not by Pydantic AI
 4. **No initialization in tools**: Tools should never call `initialize()` or create new dependency instances
+5. **For Pydantic BaseModel dependencies**: Use `@classmethod from_settings()` pattern for factory creation
+
+### Common Mistakes to Avoid
+
+**❌ WRONG - Initializing dependencies inside tools:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ❌ DON'T DO THIS - dependencies are already provided!
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        # ... use deps
+    finally:
+        await deps.cleanup()
+```
+
+**✅ CORRECT - Access dependencies from RunContext:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ✅ Dependencies are already initialized and provided
+    deps = ctx.deps
+    # Use deps directly - no initialization needed
+    results = await deps.search(query)
+    return format_results(results)
+```
+
+**❌ WRONG - Mixing FastAPI Depends() with Pydantic AI RunContext:**
+```python
+@agent.tool
+async def search(
+    ctx: RunContext[AgentDependencies],
+    db: Annotated[Session, Depends(get_db)]  # ❌ DON'T DO THIS
+) -> str:
+    # FastAPI Depends() doesn't work in Pydantic AI tools
+```
+
+**✅ CORRECT - Use RunContext for all dependencies:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ✅ All dependencies come from ctx.deps
+    db = ctx.deps.db
+    # Use db directly
+```
+
+**❌ WRONG - Creating new dependency instances in tools:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ❌ DON'T create new instances
+    new_deps = AgentDependencies(...)
+    await new_deps.initialize()
+```
+
+**✅ CORRECT - Use provided dependencies:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ✅ Use the provided dependencies
+    deps = ctx.deps
+    # Dependencies are already initialized by the caller
+```
 
 ## FastAPI Integration Patterns
 
@@ -581,7 +645,7 @@ async def get_user(
 When using Pydantic AI agents in FastAPI endpoints, combine both dependency systems:
 
 ```python
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 from fastapi import Depends, APIRouter
 from pydantic_ai import Agent, RunContext
 
@@ -671,7 +735,7 @@ async def get_deps_early_cleanup() -> AsyncGenerator[AgentDependencies, None]:
 @router.post("/query")
 async def query(
     deps: Annotated[
-        AgentDependencies, 
+        AgentDependencies,
         Depends(get_deps_early_cleanup, scope="function")
     ]
 ):
@@ -685,6 +749,59 @@ async def query(
 2. **Lifecycle management**: FastAPI handles dependency lifecycle with `yield`, Pydantic AI just uses the dependencies
 3. **Initialization timing**: Dependencies should be initialized in FastAPI dependency functions, not in Pydantic AI tools
 4. **Type consistency**: The type in `Annotated[Type, Depends(...)]` should match the agent's `deps_type`
+
+### Common Mistakes to Avoid
+
+**❌ WRONG - Using FastAPI Depends() in Pydantic AI tools:**
+```python
+@agent.tool
+async def search(
+    ctx: RunContext[AgentDependencies],
+    db: Annotated[Session, Depends(get_db)]  # ❌ FastAPI Depends() doesn't work here
+) -> str:
+    pass
+```
+
+**✅ CORRECT - All dependencies come from RunContext:**
+```python
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    # ✅ Access all dependencies via ctx.deps
+    db = ctx.deps.db
+    # Use db directly
+```
+
+**❌ WRONG - Initializing dependencies in FastAPI endpoints:**
+```python
+@router.post("/query")
+async def query(request: AgentRequest):
+    # ❌ DON'T initialize here - use FastAPI dependency
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        result = await agent.run(request.query, deps=deps)
+    finally:
+        await deps.cleanup()
+```
+
+**✅ CORRECT - Use FastAPI dependency with yield:**
+```python
+async def get_agent_deps() -> AsyncGenerator[AgentDependencies, None]:
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+@router.post("/query")
+async def query(
+    request: AgentRequest,
+    deps: Annotated[AgentDependencies, Depends(get_agent_deps)]  # ✅ FastAPI manages lifecycle
+):
+    result = await agent.run(request.query, deps=deps)
+    return result.data
+```
 
 ## Provider Configuration
 
@@ -758,7 +875,7 @@ async def search_knowledge_base(
     search_type: Optional[str] = "semantic"
 ) -> str:
     """Search with comprehensive error handling.
-    
+
     Note: Dependencies are already initialized by the caller.
     """
 
@@ -877,3 +994,102 @@ async def test_agent_with_real_search():
     finally:
         await agent_deps.cleanup()
 ```
+
+### Testing Tools Directly with RunContext
+
+When testing tools directly (outside of agent.run()), use the `create_run_context()` helper to create a proper `RunContext`:
+
+```python
+import pytest
+from server.projects.shared.context_helpers import create_run_context
+from server.projects.mongo_rag.dependencies import AgentDependencies
+from server.projects.mongo_rag.tools import semantic_search
+
+@pytest.mark.asyncio
+async def test_semantic_search_directly():
+    """Test semantic search tool directly with RunContext."""
+    deps = AgentDependencies()
+    await deps.initialize()
+
+    try:
+        # Create run context using helper
+        ctx = create_run_context(deps)
+
+        # Call tool directly
+        results = await semantic_search(ctx, query="test", match_count=5)
+
+        assert len(results) >= 0  # May be empty if no documents
+        if results:
+            assert results[0].similarity > 0
+    finally:
+        await deps.cleanup()
+```
+
+### Using create_run_context Helper
+
+The `create_run_context()` helper standardizes RunContext creation in samples and tests:
+
+```python
+from server.projects.shared.context_helpers import create_run_context
+
+# Simple usage - just pass dependencies
+ctx = create_run_context(deps)
+
+# With optional state
+ctx = create_run_context(deps, state={"key": "value"})
+
+# With agent instance (for advanced use cases)
+ctx = create_run_context(deps, agent=my_agent)
+
+# With custom run_id
+ctx = create_run_context(deps, run_id="custom-run-id")
+```
+
+**Benefits:**
+- Type-safe: Returns `RunContext[DepsType]` matching tool signatures
+- Consistent: Single pattern across all samples and tests
+- Maintainable: Centralized logic for RunContext creation
+- Simple: No need to manually construct RunContext with all parameters
+
+### Testing Agents with Override Pattern
+
+According to Pydantic AI best practices, use `agent.override()` to inject test dependencies:
+
+```python
+import pytest
+from pydantic_ai.models.test import TestModel
+from server.projects.mongo_rag.agent import rag_agent
+from server.projects.mongo_rag.dependencies import AgentDependencies
+
+@pytest.fixture
+def override_rag_agent():
+    """Override agent with TestModel for testing."""
+    test_deps = AgentDependencies()  # Mock or test dependencies
+    with rag_agent.override(model=TestModel(), deps=test_deps):
+        yield
+
+@pytest.mark.asyncio
+async def test_rag_agent(override_rag_agent: None):
+    """Test RAG agent with overridden model and dependencies."""
+    result = await rag_agent.run("What is authentication?")
+    assert result.data is not None
+    assert len(result.data) > 0
+```
+
+### When to Use Each Pattern
+
+**Use `agent.run(deps=deps)` when:**
+- Testing the full agent workflow
+- You want to test agent behavior end-to-end
+- You need to verify agent tool selection and orchestration
+
+**Use `create_run_context()` + direct tool calls when:**
+- Testing individual tools in isolation
+- You want to test tool logic without agent overhead
+- You need fine-grained control over tool inputs
+- Writing sample scripts that demonstrate tool usage
+
+**Use `agent.override()` when:**
+- Testing agent behavior with mocked models (TestModel)
+- Injecting test dependencies without modifying agent definition
+- Running tests that should not make real LLM calls

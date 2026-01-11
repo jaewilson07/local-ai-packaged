@@ -73,7 +73,7 @@ from typing import Any
 @dataclass
 class JiraIssue(BaseApi):
     """Base class for all Jira issue types."""
-    
+
     key: str
     summary: str
     description: str
@@ -82,21 +82,21 @@ class JiraIssue(BaseApi):
     issue_type: str
     labels: list[str] = field(default_factory=list)
     _raw: Any = field(default=None, repr=False)
-    
+
     @property
     def raw(self) -> Any:
         """Get the raw jira.Issue object for accessing extended attributes."""
         return self._raw
-    
+
     @classmethod
     def from_dict(cls, obj: dict[str, Any], **kwargs) -> JiraIssue:
         """
         Create instance from API response dictionary.
-        
+
         Args:
             obj: Dictionary with issue data or jira.Issue object
             **kwargs: Additional context (e.g., client, server)
-        
+
         Returns:
             JiraIssue instance
         """
@@ -114,10 +114,10 @@ class JiraIssue(BaseApi):
                 labels=getattr(issue.fields, "labels", []),
                 _raw=issue,
             )
-        
+
         # Handle dict response
         return cls(**obj)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes raw)."""
         return {
@@ -139,13 +139,13 @@ class JiraIssue(BaseApi):
 @dataclass
 class JiraEpic(JiraIssue):
     """Epic extends JiraIssue with epic-specific operations."""
-    
+
     @classmethod
     def search(cls, client: JiraAuth, project_key: str, query: str) -> list[JiraEpic]:
         """Search for Epics in a project."""
         # Epic-specific search implementation
         pass
-    
+
     def link_issue(self, client: JiraAuth, issue_key: str) -> bool:
         """Link an issue to this epic."""
         # Epic-specific linking
@@ -154,14 +154,14 @@ class JiraEpic(JiraIssue):
 @dataclass  
 class JiraStory(JiraIssue):
     """Story extends JiraIssue with story-specific operations."""
-    
+
     epic_key: Optional[str] = None
     subtasks: list[JiraSubtask] = field(default_factory=list)
-    
+
     def link_to_epic(self, client: JiraAuth, epic_key: str) -> bool:
         """Link this story to an epic."""
         pass
-    
+
     def create_subtasks(self, client: JiraAuth) -> list[JiraIssue]:
         """Create all subtasks under this story."""
         pass
@@ -175,21 +175,21 @@ class JiraStory(JiraIssue):
 class JiraAuth:
     """
     Authentication-only client for Jira API.
-    
+
     All CRUD operations are implemented on domain objects.
     """
 
     def __init__(self, server: str = "https://jira.example.com"):
         """Initialize with credentials from environment."""
         load_dotenv()
-        
+
         encoded_token = os.getenv("JIRA_TOKEN")
         if not encoded_token:
             raise ValueError("JIRA_TOKEN not found in .env file")
-        
+
         decoded_token = base64.b64decode(encoded_token).decode("utf-8")
         email, api_token = decoded_token.split(":", 1)
-        
+
         self.server = server
         self.email = email
         self.jira = JIRA(server=server, basic_auth=(email, api_token))
@@ -203,7 +203,7 @@ class JiraAuth:
 @dataclass
 class JiraIssue(BaseApi):
     # ... fields ...
-    
+
     @classmethod
     def get_by_id(cls, client: JiraAuth, issue_id: str) -> Optional[JiraIssue]:
         """Fetch issue by ID."""
@@ -212,7 +212,7 @@ class JiraIssue(BaseApi):
             return cls.from_dict(issue, server=client.server)
         except JIRAError:
             return None
-    
+
     @classmethod
     def create(
         cls,
@@ -230,7 +230,7 @@ class JiraIssue(BaseApi):
             "issuetype": {"name": "Story"},
         }
         fields.update(extra_fields)
-        
+
         new_issue = client.jira.create_issue(fields=fields)
         return cls.from_dict(new_issue, server=client.server)
 ```
@@ -241,7 +241,7 @@ class JiraIssue(BaseApi):
 @dataclass
 class JiraIssue(BaseApi):
     # ... fields ...
-    
+
     def add_comment(self, client: JiraAuth, comment: str) -> bool:
         """Add comment to this issue."""
         try:
@@ -249,7 +249,7 @@ class JiraIssue(BaseApi):
             return True
         except JIRAError:
             return False
-    
+
     def update(self, client: JiraAuth, **fields) -> None:
         """Update issue fields."""
         if self._raw:

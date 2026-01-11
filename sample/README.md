@@ -23,6 +23,7 @@ Before running any samples, ensure:
 2. **Environment variables configured**: See `.env` or Infisical for required variables
 3. **Dependencies installed**: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
 4. **Python path**: Samples automatically add the project to `sys.path`
+5. **Authentication**: For scripts making HTTP API calls, see [Authentication](#authentication) section below
 
 ## RAG Services
 
@@ -396,6 +397,66 @@ Demonstrates building a knowledge graph in Neo4j with entities and relationships
 **Prerequisites:**
 - Neo4j running and configured
 
+## Authentication
+
+Sample scripts that make HTTP API calls use Cloudflare Zero Trust authentication. The authentication system supports two access patterns:
+
+### Internal Network Access (Local Development)
+
+When running scripts locally, they default to using internal network URLs (`http://lambda-server:8000`) which **bypass Cloudflare Access authentication** (network isolation provides security):
+
+```python
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+
+# Defaults to http://lambda-server:8000 when running locally
+api_base_url = get_api_base_url()
+
+# Returns empty headers for internal network (no auth required)
+headers = get_auth_headers()
+```
+
+**Benefits**:
+- No JWT token required
+- Works seamlessly in local development
+- Faster (no external network calls)
+
+### External Network Access (Production)
+
+For external URLs (`https://api.datacrew.space`), scripts require a Cloudflare Access JWT token:
+
+```bash
+# Set external API URL
+export API_BASE_URL=https://api.datacrew.space
+
+# Get JWT token from browser DevTools (Cf-Access-Jwt-Assertion header)
+export CF_ACCESS_JWT=your-jwt-token-here
+```
+
+**Getting a JWT Token**:
+1. Access your application through Cloudflare Access
+2. Open browser DevTools (F12)
+3. Go to Network tab
+4. Make a request to any endpoint
+5. Look for the `Cf-Access-Jwt-Assertion` header in the request
+6. Copy that value and set it as `CF_ACCESS_JWT`
+
+### User Identification
+
+All scripts automatically load `CLOUDFLARE_EMAIL` from your `.env` file for user identification:
+
+```bash
+# In your .env file
+CLOUDFLARE_EMAIL=your-email@example.com
+```
+
+The shared authentication helpers (`sample/shared/auth_helpers.py`) automatically:
+- Load `.env` from project root
+- Provide `get_cloudflare_email()` for user identification
+- Handle internal vs external URL detection
+- Generate appropriate authentication headers
+
+**Reference**: See [sample/shared/auth_helpers.py](sample/shared/auth_helpers.py) for complete implementation details.
+
 ## Running Samples
 
 ### Basic Usage
@@ -416,6 +477,52 @@ cd sample/mongo_rag
 python semantic_search_example.py
 ```
 
+### Authentication
+
+All sample scripts that make HTTP API calls should use the shared authentication helpers from `sample/shared/auth_helpers.py`:
+
+```python
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+
+# Get API base URL (defaults to internal network for local development)
+api_base_url = get_api_base_url()
+
+# Get authentication headers (empty for internal, JWT for external)
+headers = get_auth_headers()
+
+# Get user email for identification
+cloudflare_email = get_cloudflare_email()
+```
+
+**Key Points**:
+- **Internal Network** (`http://lambda-server:8000`): No authentication required (network isolation provides security)
+- **External Network** (`https://api.datacrew.space`): Requires Cloudflare Access JWT token in `Cf-Access-Jwt-Assertion` header
+- **CLOUDFLARE_EMAIL**: Automatically loaded from `.env` file in project root for user identification
+- **Default Behavior**: Scripts default to internal network URLs when running locally, allowing seamless local development without JWT tokens
+
+**Available Helper Functions**:
+- `get_cloudflare_email()` - Get `CLOUDFLARE_EMAIL` from environment variables
+- `get_api_base_url()` - Get API base URL (defaults to internal network)
+- `get_auth_headers()` - Get authentication headers (handles internal vs external URLs automatically)
+- `require_cloudflare_email()` - Require and validate `CLOUDFLARE_EMAIL` is set
+- `is_internal_url()` - Check if URL is internal (bypasses authentication)
+
+**Example Usage**:
+```python
+import requests
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+
+api_base_url = get_api_base_url()
+headers = get_auth_headers()
+
+response = requests.get(
+    f"{api_base_url}/api/v1/comfyui/loras",
+    headers=headers
+)
+```
+
+**Reference**: See [sample/shared/auth_helpers.py](sample/shared/auth_helpers.py) for complete implementation and [AGENTS.md](../AGENTS.md) for detailed authentication patterns.
+
 ### Environment Setup
 
 Most samples require environment variables. Ensure your `.env` file or Infisical is configured with:
@@ -431,6 +538,11 @@ Most samples require environment variables. Ensure your `.env` file or Infisical
 - `N8N_API_URL`: N8N API URL
 - `N8N_API_KEY`: N8N API key (if required)
 - `GOOGLE_CALENDAR_CREDENTIALS_PATH`: Path to Google Calendar OAuth2 credentials
+- `CLOUDFLARE_EMAIL`: Your Cloudflare Access email (for authenticated API calls)
+- `CF_ACCESS_JWT`: Cloudflare Access JWT token (only needed for external API calls)
+- `CLOUDFLARE_EMAIL`: Your Cloudflare email for user identification (automatically loaded by sample scripts)
+- `API_BASE_URL`: API base URL (defaults to `http://lambda-server:8000` for internal network)
+- `CF_ACCESS_JWT`: Cloudflare Access JWT token (required only for external URLs)
 
 ## Sample Structure
 

@@ -116,16 +116,16 @@ class GoogleDrive:
     def download_file(self, file_id: str) -> bytes:
         """
         Download a file from Google Drive as binary data.
-        
+
         This method is useful for downloading binary files like LoRA models,
         images, or other non-text files.
-        
+
         Args:
             file_id: File ID in Google Drive
-        
+
         Returns:
             File content as bytes
-        
+
         Raises:
             ValueError: If download fails
         """
@@ -136,8 +136,8 @@ class GoogleDrive:
             downloader = MediaIoBaseDownload(file_content, request)
             done = False
             while not done:
-                status, done = downloader.next_chunk()
-            
+                _status, done = downloader.next_chunk()
+
             return file_content.getvalue()
         except HttpError as e:
             raise ValueError(f"Failed to download file {file_id}: {e}")
@@ -199,9 +199,7 @@ class GoogleDrive:
         try:
             if mime_type == "application/vnd.google-apps.document":
                 request = self.export_as_media(document_id, "text/plain")
-            elif mime_type == "text/markdown":
-                request = self.get_file_media(document_id)
-            elif mime_type.startswith("text/"):
+            elif mime_type == "text/markdown" or mime_type.startswith("text/"):
                 request = self.get_file_media(document_id)
             else:
                 raise ValueError(
@@ -212,16 +210,14 @@ class GoogleDrive:
             downloader = MediaIoBaseDownload(file_content, request)
             done = False
             while not done:
-                status, done = downloader.next_chunk()
+                _status, done = downloader.next_chunk()
 
             return file_content.getvalue().decode("utf-8")
 
         except HttpError as e:
             raise ValueError(f"Failed to download content for {document_id}: {e}")
 
-    def _build_with_frontmatter(
-        self, file_metadata: dict, mime_type: str, content: str
-    ) -> str:
+    def _build_with_frontmatter(self, file_metadata: dict, mime_type: str, content: str) -> str:
         """
         Build markdown content with YAML frontmatter.
 
@@ -245,15 +241,13 @@ class GoogleDrive:
         if "description" in file_metadata:
             frontmatter["description"] = file_metadata["description"]
 
-        if "owners" in file_metadata and file_metadata["owners"]:
+        if file_metadata.get("owners"):
             frontmatter["owners"] = [
                 owner.get("displayName", owner.get("emailAddress", "Unknown"))
                 for owner in file_metadata["owners"]
             ]
 
-        yaml_frontmatter = yaml.dump(
-            frontmatter, default_flow_style=False, sort_keys=False
-        )
+        yaml_frontmatter = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
         return f"---\n{yaml_frontmatter}---\n\n{content}"
 
     def _write_file(self, output_path: str | Path, content: str) -> None:
@@ -308,9 +302,7 @@ class GoogleDrive:
                 raise ValueError(f"No folder found with name: {folder_name}")
 
             if len(folders) > 1 and on_duplicates == "error":
-                folder_list = "\n".join(
-                    [f"  - {f['name']} (ID: {f['id']})" for f in folders]
-                )
+                folder_list = "\n".join([f"  - {f['name']} (ID: {f['id']})" for f in folders])
                 raise ValueError(
                     f"Multiple folders found with name '{folder_name}':\n{folder_list}\n"
                     f"Use folder_id parameter directly or set on_duplicates='newest'"
@@ -348,9 +340,7 @@ class GoogleDrive:
         target_folder_id = folder_id
         if folder_name:
             if folder_id:
-                raise ValueError(
-                    "Cannot specify both folder_id and folder_name. Choose one."
-                )
+                raise ValueError("Cannot specify both folder_id and folder_name. Choose one.")
             target_folder_id = self.resolve_folder(folder_name, on_duplicates)
 
         if not target_folder_id:
@@ -358,13 +348,9 @@ class GoogleDrive:
 
         # Build Drive API query
         has_operators = any(
-            op in query.lower()
-            for op in [" = ", " != ", "contains", " in ", " and ", " or "]
+            op in query.lower() for op in [" = ", " != ", "contains", " in ", " and ", " or "]
         )
-        if has_operators:
-            drive_query = query
-        else:
-            drive_query = f"fullText contains '{query}'"
+        drive_query = query if has_operators else f"fullText contains '{query}'"
 
         if target_folder_id:
             drive_query = f"('{target_folder_id}' in parents) and ({drive_query})"
@@ -435,4 +421,4 @@ class GoogleDrive:
         return [file.id for file in result.files]
 
 
-__all__ = ["GoogleDrive", "DEFAULT_FOLDER_ID"]
+__all__ = ["DEFAULT_FOLDER_ID", "GoogleDrive"]

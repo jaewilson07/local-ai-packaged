@@ -113,4 +113,3 @@ echo -n "7e806f8a12d4a535988a89201841f310" | wc -c
    ```bash
    docker exec infisical-backend wget -qO- http://localhost:8080/api/health
    ```
-

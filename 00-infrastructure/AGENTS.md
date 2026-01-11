@@ -48,6 +48,10 @@
 - Uses environment variable templating for hostnames (e.g., `${N8N_HOSTNAME:-:8001}`)
 - Supports both port-based (`:8001`) and domain-based (`n8n.example.com`) routing
 - Capabilities: `NET_BIND_SERVICE` only (hardened)
+- **Security**: Configured to trust Cloudflare IP ranges (when using Tunnel)
+  - All traffic comes through Cloudflare network
+  - Caddy forwards `Cf-Access-Jwt-Assertion` header to Lambda server
+  - See [Auth Project Security](../04-lambda/server/projects/auth/SECURITY.md) for details
 
 ### Cloudflare Tunnel
 - **Image**: `cloudflare/cloudflared:latest`
@@ -60,6 +64,27 @@
 - Protocol: HTTP/2
 - No port forwarding required (works behind NAT)
 - Token stored in environment variable (never commit to repo)
+
+### Cloudflare Access (Authentication)
+
+**Purpose**: Provides authentication for Lambda API server and other protected services
+
+**Setup**:
+- Access applications created via Cloudflare API or dashboard
+- Lambda API application: `api.datacrew.space`
+- Uses Google OAuth as IdP (configured in Cloudflare Access)
+
+**Key Configuration**:
+- **AUD Tag**: Application Audience Tag (64-char hex identifier)
+- **Retrieval**: Use `get-lambda-api-aud-tag.py` script
+- **Environment Variable**: `CLOUDFLARE_AUD_TAG` (set in Lambda server)
+- **Auth Domain**: `CLOUDFLARE_AUTH_DOMAIN` (e.g., `https://team.cloudflareaccess.com`)
+
+**Scripts**:
+- `get-lambda-api-aud-tag.py` - Retrieves AUD tag from Cloudflare API
+- `setup-lambda-api-access.py` - Creates Access application and links to tunnel route
+
+**Documentation**: See [Cloudflare Access Setup Guide](../docs/CLOUDFLARE_ACCESS_CLI_SETUP.md)
 
 ### Infisical (Secrets Management)
 - **Image**: `infisical/infisical:latest`
@@ -129,9 +154,14 @@ Location: `00-infrastructure/scripts/`
 
 #### `setup-cloudflare-tunnel-routes.py`
 - **Purpose**: Configure or remove Cloudflare Tunnel public hostnames.
-- **Usage**: 
+- **Usage**:
   - Add routes: `python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py`
   - Remove route: `python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py --remove HOSTNAME`
+
+#### `get-lambda-api-aud-tag.py`
+- **Purpose**: Retrieve the AUD tag from Cloudflare Access application for Lambda API.
+- **Usage**: `python3 00-infrastructure/scripts/get-lambda-api-aud-tag.py`
+- **Output**: Prints the AUD tag to stdout (copy to `CLOUDFLARE_AUD_TAG` environment variable)
 
 ### Infrastructure Management
 
@@ -158,7 +188,7 @@ networks:
 ### Environment Variable Strategy
 - **Shared**: `.env.global` (non-sensitive defaults)
 - **Sensitive**: `.env` (secrets) or Infisical
-- **Override Files**: 
+- **Override Files**:
   - `00-infrastructure/docker-compose.override.private.yml` (dev)
   - `00-infrastructure/docker-compose.override.public.yml` (prod)
 
@@ -202,6 +232,7 @@ docker exec redis redis-cli ping
 2. **Caddy Config Errors**: Check Caddyfile syntax with `caddy validate`
 3. **Infisical Auth Failures**: Verify encryption keys and database connection
 4. **Cloudflare Tunnel**: Verify token is valid and not expired
+5. **Cloudflare Access**: If Lambda server JWT validation fails, verify AUD tag matches Access application. Use `get-lambda-api-aud-tag.py` to retrieve correct value.
 
 ## Do's and Don'ts
 
@@ -218,6 +249,8 @@ docker exec redis redis-cli ping
 - Mix Infisical Redis with main Redis
 - Create new networks (use `ai-network`)
 - Expose ports unnecessarily (use `expose:` not `ports:`)
+- Commit Cloudflare Access AUD tags (store in environment variables or Infisical)
+- Bypass Caddy security (always trust Cloudflare IPs when using Tunnel)
 
 ## Domain Dictionary
 

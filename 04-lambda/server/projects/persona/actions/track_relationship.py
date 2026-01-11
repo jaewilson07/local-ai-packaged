@@ -1,31 +1,32 @@
 """Action tool for tracking relationship level with users."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
+
 import openai
 
+from server.projects.persona.config import config
 from server.projects.persona.models import RelationshipState
 from server.projects.persona.protocols import PersonaStore
-from server.projects.persona.config import config
 
 
 def calculate_relationship_update(
-    current_relationship: Optional[RelationshipState],
+    current_relationship: RelationshipState | None,
     user_message: str,
     bot_response: str,
-    llm_client: Optional[openai.AsyncOpenAI] = None
+    llm_client: openai.AsyncOpenAI | None = None,
 ) -> RelationshipState:
     """
     Calculate relationship update based on interaction.
-    
+
     Uses LLM to analyze sentiment and relationship dynamics.
-    
+
     Args:
         current_relationship: Current relationship state (None for new)
         user_message: User's message
         bot_response: Bot's response
         llm_client: Optional OpenAI client
-    
+
     Returns:
         Updated relationship state
     """
@@ -64,21 +65,21 @@ Example: 0.1|0.05"""
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
             )
-            
+
             result = response.choices[0].message.content or "0.0|0.0"
             parts = result.split("|")
             affection_change = float(parts[0].strip()) if len(parts) > 0 else 0.0
             trust_change = float(parts[1].strip()) if len(parts) > 1 else 0.0
-            
+
             affection = max(-1.0, min(1.0, affection + affection_change))
             trust = max(0.0, min(1.0, trust + trust_change))
-        except Exception as e:
+        except Exception:
             # Fall back to simple analysis
             pass
-    
+
     # Simplified relationship analysis (fallback)
     message_lower = (user_message + " " + bot_response).lower()
-    
+
     # Positive indicators increase affection
     if any(word in message_lower for word in ["love", "appreciate", "thank", "great", "awesome"]):
         affection = min(1.0, affection + 0.1)
@@ -109,11 +110,11 @@ async def track_relationship_action(
     user_message: str,
     bot_response: str,
     persona_store: PersonaStore,
-    llm_client: Optional[openai.AsyncOpenAI] = None
-) -> Dict[str, Any]:
+    llm_client: openai.AsyncOpenAI | None = None,
+) -> dict[str, Any]:
     """
     Track relationship level based on interaction.
-    
+
     Args:
         user_id: User identifier
         persona_id: Persona identifier
@@ -121,12 +122,12 @@ async def track_relationship_action(
         bot_response: Bot's response
         persona_store: Persona store
         llm_client: Optional OpenAI client
-    
+
     Returns:
         Dict with updated relationship state
     """
     current = persona_store.get_relationship(user_id, persona_id)
-    
+
     # If no current relationship, create initial state
     if not current:
         current = RelationshipState(
@@ -137,11 +138,11 @@ async def track_relationship_action(
             interaction_count=0,
             last_interaction=None,
         )
-    
+
     updated = calculate_relationship_update(current, user_message, bot_response, llm_client)
     updated.user_id = user_id
     updated.persona_id = persona_id
-    
+
     persona_store.update_relationship(user_id, persona_id, updated)
-    
+
     return {"relationship": updated.model_dump()}

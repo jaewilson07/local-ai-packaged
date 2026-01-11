@@ -4,18 +4,18 @@ set -e
 # Check if venv exists, if not create it and install packages
 if [ ! -f "/opt/venv/bin/python" ]; then
     echo "Python venv not found. Creating venv and installing packages..."
-    
+
     # Install uv if not available
     if ! command -v uv &> /dev/null; then
         pip install --no-cache-dir uv
     fi
-    
+
     # Create venv
     uv venv /opt/venv
-    
+
     # Activate and install packages
     source /opt/venv/bin/activate
-    
+
     # Install from pyproject.toml if it exists
     if [ -f "/app/pyproject.toml" ]; then
         uv pip install -e /app
@@ -23,9 +23,9 @@ if [ ! -f "/opt/venv/bin/python" ]; then
         # Fallback: install from copied pyproject.toml
         cd /app && uv pip install -e .
     fi
-    
+
     echo "✓ Python packages installed and persisted to volume"
-    
+
     # Run crawl4ai-setup after package installation
     # According to crawl4ai docs: https://docs.crawl4ai.com/basic/installation/
     # 1. Install: pip install crawl4ai (already done)
@@ -50,7 +50,7 @@ else
     echo "✓ Using existing Python packages from volume"
     # Always activate venv if it exists
     source /opt/venv/bin/activate
-    
+
     # Check if Playwright browsers are installed, if not run setup
     # Playwright installs to ~/.cache/ms-playwright, check if it exists
     PLAYWRIGHT_CACHE="${HOME:-/root}/.cache/ms-playwright"
@@ -80,4 +80,3 @@ export PATH="/opt/venv/bin:$PATH"
 # Run the application with explicit PATH
 # This ensures uvicorn and other commands are found
 exec env PATH="/opt/venv/bin:$PATH" "$@"
-

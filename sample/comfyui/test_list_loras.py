@@ -1,54 +1,52 @@
 """Test script to list LoRA models via the API.
 
 This script demonstrates how to properly call the ComfyUI LoRA endpoints
-with Cloudflare Access authentication.
+with Cloudflare Zero Trust authentication (supports both internal and external URLs).
 """
 
 import os
 import sys
+
 import requests
-from pathlib import Path
+
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
 
 
-def list_loras(api_base_url: str, cf_jwt: str, limit: int = 100, offset: int = 0):
+def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, offset: int = 0):
     """
     List all LoRA models available to the authenticated user.
-    
+
     Args:
-        api_base_url: Base URL of the API (e.g., "https://datacrew.space")
-        cf_jwt: Cloudflare Access JWT token (from Cf-Access-Jwt-Assertion header)
+        api_base_url: Base URL of the API
+        headers: Authentication headers (from get_auth_headers())
         limit: Maximum number of results
         offset: Pagination offset
-    
+
     Returns:
         List of LoRA models or None if failed
     """
     url = f"{api_base_url}/api/v1/comfyui/loras"
-    
-    headers = {
-        "Cf-Access-Jwt-Assertion": cf_jwt,
-    }
-    
-    params = {
-        "limit": limit,
-        "offset": offset
-    }
-    
-    print(f"Listing LoRA models...")
+
+    params = {"limit": limit, "offset": offset}
+
+    print("Listing LoRA models...")
     print(f"  URL: {url}")
-    print(f"  Using Cloudflare Access JWT")
-    
+    if headers:
+        print("  Using Cloudflare Access JWT")
+    else:
+        print("  Using internal network (no auth required)")
+
     try:
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
-        
+
         result = response.json()
         models = result.get("models", [])
         count = result.get("count", 0)
-        
+
         print(f"\n✅ Found {count} LoRA model(s):")
         print("=" * 60)
-        
+
         if not models:
             print("  No LoRA models found.")
         else:
@@ -56,14 +54,18 @@ def list_loras(api_base_url: str, cf_jwt: str, limit: int = 100, offset: int = 0
                 print(f"  ID: {model.get('id')}")
                 print(f"  Name: {model.get('name')}")
                 print(f"  Filename: {model.get('filename')}")
-                print(f"  Size: {model.get('file_size', 0):,} bytes" if model.get('file_size') else "  Size: Unknown")
+                print(
+                    f"  Size: {model.get('file_size', 0):,} bytes"
+                    if model.get("file_size")
+                    else "  Size: Unknown"
+                )
                 print(f"  Description: {model.get('description', 'N/A')}")
                 print(f"  Tags: {', '.join(model.get('tags', []))}")
                 print(f"  Created: {model.get('created_at')}")
                 print("-" * 60)
-        
+
         return models
-        
+
     except requests.exceptions.HTTPError as e:
         print(f"\n✗ HTTP Error: {e}")
         if e.response is not None:
@@ -71,54 +73,124 @@ def list_loras(api_base_url: str, cf_jwt: str, limit: int = 100, offset: int = 0
             try:
                 error_detail = e.response.json()
                 print(f"   Detail: {error_detail}")
-            except:
+            except Exception:
                 print(f"   Response: {e.response.text}")
-            
+
             if e.response.status_code == 403:
-                print("\n   ⚠️  This endpoint requires Cloudflare Access authentication.")
-                print("   Make sure you're accessing through Cloudflare Access or")
-                print("   include a valid Cf-Access-Jwt-Assertion header.")
+                print("\n   ⚠️  This endpoint requires authentication.")
+                print("   For external URLs, you need a Cloudflare Access JWT token.")
+                print("   For local development, use internal network URL:")
+                print("     export API_BASE_URL=http://lambda-server:8000")
         return None
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return None
+
+
+def verify_in_me_data(api_base_url: str, headers: dict[str, str], listed_models: list) -> bool:
+    """
+    Verify that listed LoRAs match what's in /api/me/data.
+
+    Args:
+        api_base_url: Base URL of the API
+        headers: Authentication headers (from get_auth_headers())
+        listed_models: List of LoRA models from the list endpoint
+
+    Returns:
+        True if data matches, False otherwise
+    """
+    url = f"{api_base_url}/api/me/data"
+
+    print("\nVerifying LoRAs match /api/me/data...")
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
+        result = response.json()
+        loras_summary = result.get("loras", {})
+
+        total_models = loras_summary.get("total_models", 0)
+        me_data_models = loras_summary.get("models", [])
+
+        print(f"  LoRAs from list endpoint: {len(listed_models)}")
+        print(f"  LoRAs from /api/me/data: {total_models}")
+
+        if len(listed_models) == total_models:
+            print(f"  ✅ Counts match!")
+        else:
+            print(f"  ⚠️  Count mismatch (may be expected if data was just created)")
+
+        # Check if all listed models are in /api/me/data
+        listed_ids = {model.get("id") for model in listed_models}
+        me_data_ids = {model.get("id") for model in me_data_models}
+
+        if listed_ids == me_data_ids:
+            print(f"  ✅ All LoRAs match /api/me/data!")
+            return True
+        else:
+            missing = listed_ids - me_data_ids
+            extra = me_data_ids - listed_ids
+            if missing:
+                print(f"  ⚠️  LoRAs in list but not in /api/me/data: {missing}")
+            if extra:
+                print(f"  ⚠️  LoRAs in /api/me/data but not in list: {extra}")
+            return False
+
+    except requests.exceptions.HTTPError as e:
+        print(f"  ✗ HTTP Error: {e}")
+        if e.response is not None:
+            try:
+                error_detail = e.response.json()
+                print(f"     Detail: {error_detail}")
+            except:
+                print(f"     Response: {e.response.text}")
+        return False
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        return False
 
 
 def main():
     """Main function."""
     # Configuration
-    api_base_url = os.getenv("API_BASE_URL", "https://datacrew.space")
-    cf_jwt = os.getenv("CF_ACCESS_JWT")
-    
-    if not cf_jwt:
+    try:
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
+    except ValueError as e:
         print("=" * 60)
-        print("Error: CF_ACCESS_JWT environment variable not set")
+        print("Authentication Error")
         print("=" * 60)
-        print("\nTo get your Cloudflare Access JWT:")
-        print("1. Access your application through Cloudflare Access")
-        print("2. Open browser DevTools (F12)")
-        print("3. Go to Network tab")
-        print("4. Make a request to any endpoint")
-        print("5. Look for the 'Cf-Access-Jwt-Assertion' header in the request")
-        print("6. Copy that value and set it as CF_ACCESS_JWT")
-        print("\nOr use this script from a browser extension that can inject headers.")
-        print("\nExample:")
-        print("  export CF_ACCESS_JWT=your-jwt-token-here")
-        print("  python sample/comfyui/test_list_loras.py")
+        print(f"\n{e}")
+        print("\nTip: For local development, use internal network URL:")
+        print("  export API_BASE_URL=http://lambda-server:8000")
+        print("  (or http://localhost:8000 if running outside Docker)")
         return
-    
+
+    cloudflare_email = get_cloudflare_email()
+
     print("=" * 60)
     print("ComfyUI LoRA List Test")
     print("=" * 60)
     print(f"API Base URL: {api_base_url}")
+    if cloudflare_email:
+        print(f"User Email: {cloudflare_email}")
+    if headers:
+        print("Authentication: Using Cloudflare Access JWT")
+    else:
+        print("Authentication: Internal network (no auth required)")
     print("=" * 60)
-    
+
     # List LoRAs
-    models = list_loras(api_base_url, cf_jwt)
-    
+    models = list_loras(api_base_url, headers)
+
     if models is not None:
+        # Verify LoRAs appear in /api/me/data
+        verify_in_me_data(api_base_url, headers, models)
+
         print("\n" + "=" * 60)
         print("Test completed successfully!")
         print("=" * 60)

@@ -1,16 +1,18 @@
 """Dependencies for Deep Research Agent."""
 
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
 import logging
+from dataclasses import dataclass
+from typing import Any
+
 import httpx
 from crawl4ai import AsyncWebCrawler, BrowserConfig
 from docling.document_converter import DocumentConverter
-from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
-from server.projects.deep_research.config import config
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
-from server.projects.graphiti_rag.config import config as graphiti_config
+
 from server.config import settings as global_settings
+from server.projects.deep_research.config import config
+from server.projects.graphiti_rag.config import config as graphiti_config
+from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
+from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 
@@ -20,49 +22,44 @@ class DeepResearchDeps(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
     """Dependencies injected into the deep research agent context."""
 
     # Core dependencies
-    http_client: Optional[httpx.AsyncClient] = None
-    crawler: Optional[AsyncWebCrawler] = None
-    document_converter: Optional[DocumentConverter] = None
-    settings: Optional[Any] = None
-    
+    http_client: httpx.AsyncClient | None = None
+    crawler: AsyncWebCrawler | None = None
+    document_converter: DocumentConverter | None = None
+    settings: Any | None = None
+
     # Graphiti dependencies (optional)
-    graphiti_deps: Optional[GraphitiDeps] = None
+    graphiti_deps: GraphitiDeps | None = None
 
     # Session context
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
     @classmethod
     def from_settings(
         cls,
-        http_client: Optional[httpx.AsyncClient] = None,
-        session_id: Optional[str] = None,
-        **kwargs
+        http_client: httpx.AsyncClient | None = None,
+        session_id: str | None = None,
+        **kwargs,
     ) -> "DeepResearchDeps":
         """
         Create dependencies from application settings.
-        
+
         Args:
             http_client: Optional httpx client (will create if not provided)
             session_id: Optional session ID for tracking
             **kwargs: Additional overrides
-            
+
         Returns:
             DeepResearchDeps instance (not yet initialized)
         """
         if http_client is None:
             http_client = httpx.AsyncClient(timeout=30.0)
-        
-        return cls(
-            http_client=http_client,
-            session_id=session_id,
-            settings=config,
-            **kwargs
-        )
+
+        return cls(http_client=http_client, session_id=session_id, settings=config, **kwargs)
 
     async def initialize(self) -> None:
         """
         Initialize external connections.
-        
+
         Raises:
             Exception: If initialization fails
         """
@@ -84,7 +81,7 @@ class DeepResearchDeps(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
                 browser_config = BrowserConfig(
                     headless=config.browser_headless,
                     verbose=False,
-                    text_mode=True  # Disable images for faster crawling
+                    text_mode=True,  # Disable images for faster crawling
                 )
                 self.crawler = AsyncWebCrawler(config=browser_config)
                 await self.crawler.__aenter__()

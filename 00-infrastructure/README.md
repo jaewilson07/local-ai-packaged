@@ -23,4 +23,3 @@ To create the network defined in `networks.yml`:
 ```bash
 docker network create ai-network
 ```
-

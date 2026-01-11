@@ -152,5 +152,3 @@ docker exec comfyui-supervisor-1 cp /opt/caddy/share/base_config.backup.TIMESTAM
 # Restart Caddy
 docker exec comfyui-supervisor-1 supervisorctl restart caddy
 ```
-
-

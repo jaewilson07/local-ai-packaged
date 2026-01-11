@@ -43,7 +43,9 @@ class SupabaseWorkflowStore:
         workflow_json: Dict[str, Any],
         description: Optional[str] = None,
         is_public: bool = False,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        parameter_schema: Optional[Dict[str, Any]] = None,
+        status: str = "draft"
     ) -> WorkflowResponse:
         """
         Create a new workflow.
@@ -64,11 +66,12 @@ class SupabaseWorkflowStore:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                INSERT INTO comfyui_workflows (user_id, name, description, workflow_json, is_public, tags)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO comfyui_workflows (user_id, name, description, workflow_json, is_public, tags, parameter_schema, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *
                 """,
-                user_id, name, description, json.dumps(workflow_json), is_public, tags or []
+                user_id, name, description, json.dumps(workflow_json), is_public, tags or [],
+                json.dumps(parameter_schema) if parameter_schema else None, status
             )
             
             return self._row_to_workflow(row)
@@ -104,6 +107,7 @@ class SupabaseWorkflowStore:
         self,
         user_id: UUID,
         is_public: Optional[bool] = None,
+        status: Optional[str] = None,
         limit: int = 100,
         offset: int = 0
     ) -> List[WorkflowResponse]:
@@ -122,28 +126,145 @@ class SupabaseWorkflowStore:
         pool = await self._get_pool()
         
         async with pool.acquire() as conn:
-            if is_public is None:
+            conditions = ["(user_id = $1 OR is_public = true)"]
+            params = [user_id]
+            param_num = 2
+            
+            if is_public is not None:
+                conditions.append(f"is_public = ${param_num}")
+                params.append(is_public)
+                param_num += 1
+            
+            if status is not None:
+                conditions.append(f"status = ${param_num}")
+                params.append(status)
+                param_num += 1
+            
+            where_clause = " AND ".join(conditions)
+            params.extend([limit, offset])
+            
+            rows = await conn.fetch(
+                f"""
+                SELECT * FROM comfyui_workflows
+                WHERE {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ${param_num} OFFSET ${param_num + 1}
+                """,
+                *params
+            )
+            
+            return [self._row_to_workflow(row) for row in rows]
+    
+    async def list_published_workflows(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        tags: Optional[List[str]] = None
+    ) -> List[WorkflowResponse]:
+        """
+        List all published workflows (available to all users).
+        
+        Args:
+            limit: Maximum number of results
+            offset: Offset for pagination
+            tags: Optional tags to filter by
+            
+        Returns:
+            List of published workflows
+        """
+        pool = await self._get_pool()
+        
+        async with pool.acquire() as conn:
+            if tags:
+                # Filter by tags (workflow must have at least one matching tag)
                 rows = await conn.fetch(
                     """
                     SELECT * FROM comfyui_workflows
-                    WHERE user_id = $1 OR is_public = true
-                    ORDER BY created_at DESC
+                    WHERE status = 'published'
+                    AND tags && $1
+                    ORDER BY published_at DESC NULLS LAST, created_at DESC
                     LIMIT $2 OFFSET $3
                     """,
-                    user_id, limit, offset
+                    tags, limit, offset
                 )
             else:
                 rows = await conn.fetch(
                     """
                     SELECT * FROM comfyui_workflows
-                    WHERE (user_id = $1 OR is_public = true) AND is_public = $2
-                    ORDER BY created_at DESC
-                    LIMIT $3 OFFSET $4
+                    WHERE status = 'published'
+                    ORDER BY published_at DESC NULLS LAST, created_at DESC
+                    LIMIT $1 OFFSET $2
                     """,
-                    user_id, is_public, limit, offset
+                    limit, offset
                 )
             
             return [self._row_to_workflow(row) for row in rows]
+    
+    async def publish_workflow(
+        self,
+        workflow_id: UUID,
+        user_id: UUID
+    ) -> Optional[WorkflowResponse]:
+        """
+        Publish a workflow (set status to 'published').
+        
+        Args:
+            workflow_id: Workflow UUID
+            user_id: User UUID (for ownership check)
+            
+        Returns:
+            Updated workflow if found and owned, None otherwise
+        """
+        pool = await self._get_pool()
+        
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE comfyui_workflows
+                SET status = 'published', published_at = NOW(), updated_at = NOW()
+                WHERE id = $1 AND user_id = $2
+                RETURNING *
+                """,
+                workflow_id, user_id
+            )
+            
+            if not row:
+                return None
+            
+            return self._row_to_workflow(row)
+    
+    async def unpublish_workflow(
+        self,
+        workflow_id: UUID,
+        user_id: UUID
+    ) -> Optional[WorkflowResponse]:
+        """
+        Unpublish a workflow (set status to 'draft').
+        
+        Args:
+            workflow_id: Workflow UUID
+            user_id: User UUID (for ownership check)
+            
+        Returns:
+            Updated workflow if found and owned, None otherwise
+        """
+        pool = await self._get_pool()
+        
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE comfyui_workflows
+                SET status = 'draft', updated_at = NOW()
+                WHERE id = $1 AND user_id = $2
+                RETURNING *
+                """,
+                workflow_id, user_id
+            )
+            
+            if not row:
+                return None
+            
+            return self._row_to_workflow(row)
     
     async def update_workflow(
         self,
@@ -153,7 +274,9 @@ class SupabaseWorkflowStore:
         description: Optional[str] = None,
         workflow_json: Optional[Dict[str, Any]] = None,
         is_public: Optional[bool] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        parameter_schema: Optional[Dict[str, Any]] = None,
+        status: Optional[str] = None
     ) -> Optional[WorkflowResponse]:
         """
         Update a workflow (with ownership check).
@@ -200,6 +323,19 @@ class SupabaseWorkflowStore:
         if tags is not None:
             updates.append(f"tags = ${param_num}")
             values.append(tags)
+            param_num += 1
+        
+        if parameter_schema is not None:
+            updates.append(f"parameter_schema = ${param_num}")
+            values.append(json.dumps(parameter_schema))
+            param_num += 1
+        
+        if status is not None:
+            updates.append(f"status = ${param_num}")
+            values.append(status)
+            if status == 'published':
+                # Set published_at when publishing
+                updates.append("published_at = NOW()")
             param_num += 1
         
         if not updates:
@@ -433,7 +569,8 @@ class SupabaseWorkflowStore:
         minio_path: str,
         file_size: Optional[int] = None,
         description: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        character_name: Optional[str] = None
     ) -> LoRAModelResponse:
         """
         Create LoRA model metadata.
@@ -455,11 +592,11 @@ class SupabaseWorkflowStore:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                INSERT INTO comfyui_lora_models (user_id, name, filename, minio_path, file_size, description, tags)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO comfyui_lora_models (user_id, name, filename, minio_path, file_size, description, tags, character_name)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *
                 """,
-                user_id, name, filename, minio_path, file_size, description, tags or []
+                user_id, name, filename, minio_path, file_size, description, tags or [], character_name
             )
             
             return self._row_to_lora_model(row)
@@ -492,6 +629,44 @@ class SupabaseWorkflowStore:
                 LIMIT $2 OFFSET $3
                 """,
                 user_id, limit, offset
+            )
+            
+            return [self._row_to_lora_model(row) for row in rows]
+    
+    async def list_lora_models_by_character(
+        self,
+        user_id: UUID,
+        character_name: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[LoRAModelResponse]:
+        """
+        List LoRA models by character name.
+        
+        Args:
+            user_id: User UUID
+            character_name: Character name to search for
+            limit: Maximum number of results
+            offset: Offset for pagination
+            
+        Returns:
+            List of LoRA models matching character name
+        """
+        pool = await self._get_pool()
+        
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM comfyui_lora_models
+                WHERE user_id = $1
+                AND (
+                    LOWER(character_name) = LOWER($2)
+                    OR $2 = ANY(SELECT LOWER(unnest(tags)))
+                )
+                ORDER BY created_at DESC
+                LIMIT $3 OFFSET $4
+                """,
+                user_id, character_name, limit, offset
             )
             
             return [self._row_to_lora_model(row) for row in rows]
@@ -559,6 +734,9 @@ class SupabaseWorkflowStore:
             workflow_json=json.loads(row['workflow_json']) if isinstance(row['workflow_json'], str) else row['workflow_json'],
             is_public=row['is_public'],
             tags=row['tags'] or [],
+            status=row.get('status', 'draft'),
+            published_at=row.get('published_at'),
+            parameter_schema=json.loads(row['parameter_schema']) if row.get('parameter_schema') and isinstance(row['parameter_schema'], str) else row.get('parameter_schema'),
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
@@ -589,5 +767,6 @@ class SupabaseWorkflowStore:
             file_size=row['file_size'],
             description=row['description'],
             tags=row['tags'] or [],
+            character_name=row.get('character_name'),
             created_at=row['created_at']
         )

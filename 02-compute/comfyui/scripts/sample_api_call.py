@@ -4,11 +4,11 @@ Sample ComfyUI API Call
 This script demonstrates how to generate an image using the ComfyUI API wrapper
 """
 
-import requests
 import json
-import time
 import sys
-from pathlib import Path
+import time
+
+import requests
 
 # Configuration
 BASE_URL = "http://localhost:8188"
@@ -24,6 +24,7 @@ WEB_PASSWORD = "password"
 # Create a session and authenticate to get cookie
 session = requests.Session()
 
+
 # First, authenticate to get session cookie
 def authenticate_session():
     """Authenticate and get session cookie"""
@@ -31,16 +32,13 @@ def authenticate_session():
     try:
         # Get login page first to get any CSRF tokens if needed
         response = session.get(login_url, timeout=5)
-        
+
         # Submit login credentials
-        login_data = {
-            "user": WEB_USER,
-            "password": WEB_PASSWORD
-        }
+        login_data = {"user": WEB_USER, "password": WEB_PASSWORD}
         response = session.post(login_url, data=login_data, timeout=5, allow_redirects=True)
-        
+
         if response.status_code in [200, 302]:
-            print(f"✅ Authenticated successfully")
+            print("✅ Authenticated successfully")
             return True
         else:
             print(f"⚠️  Authentication returned status: {response.status_code}")
@@ -51,8 +49,10 @@ def authenticate_session():
         session.auth = (WEB_USER, WEB_PASSWORD)
         return True
 
+
 # Authenticate
 authenticate_session()
+
 
 def create_sample_payload():
     """
@@ -76,85 +76,62 @@ def create_sample_payload():
                         "model": ["4", 0],
                         "positive": ["6", 0],
                         "negative": ["7", 0],
-                        "latent_image": ["5", 0]
+                        "latent_image": ["5", 0],
                     },
-                    "class_type": "KSampler"
+                    "class_type": "KSampler",
                 },
                 "4": {
-                    "inputs": {
-                        "ckpt_name": "v1-5-pruned-emaonly.ckpt"
-                    },
-                    "class_type": "CheckpointLoaderSimple"
+                    "inputs": {"ckpt_name": "v1-5-pruned-emaonly.ckpt"},
+                    "class_type": "CheckpointLoaderSimple",
                 },
                 "5": {
-                    "inputs": {
-                        "width": 512,
-                        "height": 512,
-                        "batch_size": 1
-                    },
-                    "class_type": "EmptyLatentImage"
+                    "inputs": {"width": 512, "height": 512, "batch_size": 1},
+                    "class_type": "EmptyLatentImage",
                 },
                 "6": {
                     "inputs": {
                         "text": "a beautiful landscape with mountains and a lake, sunset, highly detailed",
-                        "clip": ["4", 1]
+                        "clip": ["4", 1],
                     },
-                    "class_type": "CLIPTextEncode"
+                    "class_type": "CLIPTextEncode",
                 },
                 "7": {
-                    "inputs": {
-                        "text": "blurry, low quality, distorted",
-                        "clip": ["4", 1]
-                    },
-                    "class_type": "CLIPTextEncode"
+                    "inputs": {"text": "blurry, low quality, distorted", "clip": ["4", 1]},
+                    "class_type": "CLIPTextEncode",
                 },
-                "8": {
-                    "inputs": {
-                        "samples": ["3", 0],
-                        "vae": ["4", 2]
-                    },
-                    "class_type": "VAEDecode"
-                },
+                "8": {"inputs": {"samples": ["3", 0], "vae": ["4", 2]}, "class_type": "VAEDecode"},
                 "9": {
-                    "inputs": {
-                        "filename_prefix": "ComfyUI",
-                        "images": ["8", 0]
-                    },
-                    "class_type": "SaveImage"
-                }
+                    "inputs": {"filename_prefix": "ComfyUI", "images": ["8", 0]},
+                    "class_type": "SaveImage",
+                },
             },
             "s3": {
                 "access_key_id": "",
                 "secret_access_key": "",
                 "endpoint_url": "",
-                "bucket_name": ""
+                "bucket_name": "",
             },
-            "webhook": {
-                "url": "",
-                "extra_params": {}
-            }
+            "webhook": {"url": "", "extra_params": {}},
         }
     }
     return payload
+
 
 def submit_job(payload):
     """Submit a job to the API"""
     print("=" * 60)
     print("Submitting job to ComfyUI API...")
     print("=" * 60)
-    
+
     try:
         response = session.post(
-            API_PAYLOAD,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30
+            API_PAYLOAD, json=payload, headers={"Content-Type": "application/json"}, timeout=30
         )
-        
+
         if response.status_code == 202:
             result = response.json()
             request_id = result.get("id")
-            print(f"✅ Job submitted successfully!")
+            print("✅ Job submitted successfully!")
             print(f"   Request ID: {request_id}")
             print(f"   Status: {result.get('status', 'pending')}")
             return request_id
@@ -171,7 +148,7 @@ def submit_job(payload):
             print(f"❌ Failed to submit job (status: {response.status_code})")
             print(f"   Response: {response.text}")
             return None
-            
+
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to API. Is the container running?")
         print(f"   URL: {API_PAYLOAD}")
@@ -180,26 +157,27 @@ def submit_job(payload):
         print(f"❌ Error submitting job: {e}")
         return None
 
+
 def check_result(request_id, max_wait=300):
     """Poll for job result"""
     print("\n" + "=" * 60)
     print(f"Checking job status (Request ID: {request_id})")
     print("=" * 60)
-    
+
     start_time = time.time()
     check_interval = 2  # Check every 2 seconds
-    
+
     while time.time() - start_time < max_wait:
         try:
             response = session.get(f"{API_RESULT}/{request_id}", timeout=10)
-            
+
             if response.status_code == 200:
                 result = response.json()
                 status = result.get("status", "unknown")
                 message = result.get("message", "")
-                
+
                 print(f"   Status: {status} - {message}")
-                
+
                 if status == "completed":
                     print("\n✅ Job completed successfully!")
                     if "outputs" in result:
@@ -216,49 +194,50 @@ def check_result(request_id, max_wait=300):
                     print(f"\n⚠️  Unknown status: {status}")
                     time.sleep(check_interval)
                     continue
-                    
+
             elif response.status_code == 404:
-                print(f"⚠️  Request ID not found. Job may still be processing...")
+                print("⚠️  Request ID not found. Job may still be processing...")
                 time.sleep(check_interval)
                 continue
             else:
                 print(f"⚠️  Unexpected status code: {response.status_code}")
                 time.sleep(check_interval)
                 continue
-                
+
         except Exception as e:
             print(f"⚠️  Error checking result: {e}")
             time.sleep(check_interval)
             continue
-    
+
     print(f"\n⏱️  Timeout waiting for result (waited {max_wait} seconds)")
     return None
+
 
 def main():
     print("\n" + "=" * 60)
     print("ComfyUI API Sample - Image Generation")
     print("=" * 60 + "\n")
-    
+
     # Authenticate first
     print("Authenticating...")
     if not authenticate_session():
         print("⚠️  Authentication may have failed, but continuing...")
-    
+
     # Create payload
     payload = create_sample_payload()
-    
+
     print("\n📋 Payload structure:")
     print(json.dumps(payload, indent=2))
-    
+
     # Submit job
     request_id = submit_job(payload)
     if not request_id:
         print("\n❌ Failed to submit job. Exiting.")
         sys.exit(1)
-    
+
     # Wait for result
     result = check_result(request_id)
-    
+
     if result and result.get("status") == "completed":
         print("\n" + "=" * 60)
         print("✅ Success! Image generation completed")
@@ -273,6 +252,6 @@ def main():
         print("\n❌ Job did not complete successfully")
         return 1
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

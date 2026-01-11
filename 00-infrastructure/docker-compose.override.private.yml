@@ -13,7 +13,7 @@ services:
       - 127.0.0.1:8009:8009  # comfyui
       - 127.0.0.1:8010:8010  # qdrant
       - 127.0.0.1:80:80      # cloudflare tunnel (domain-based routing)
-  
+
   redis:
     ports:
       - 127.0.0.1:6379:6379

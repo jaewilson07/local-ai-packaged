@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-01-11T14:40:36.653345",
+  "duration": 1.15,
+  "exit_code": 2,
+  "summary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "success_rate": 0
+  },
+  "coverage": {
+    "enabled": true,
+    "percent": 0.0,
+    "data": {}
+  },
+  "failures": [],
+  "stdout": "",
+  "stderr": "warning: `VIRTUAL_ENV=/home/jaewilson07/GitHub/local-ai-packaged/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nerror: Failed to spawn: `pytest`\n  Caused by: No such file or directory (os error 2)\n"
+}

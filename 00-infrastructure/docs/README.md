@@ -36,4 +36,3 @@ Temporary review and status documents are archived in `docs/archive/`:
 - Review summaries (merged into INFRASTRUCTURE_STATUS.md)
 - Launch checklists (merged into INFRASTRUCTURE_STATUS.md)
 - Status documents (merged into INFRASTRUCTURE_STATUS.md)
-

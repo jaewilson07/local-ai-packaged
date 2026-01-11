@@ -23,10 +23,10 @@ To get Zone ID:
 3. Zone ID is shown in the right sidebar under "API"
 """
 
-import requests
-import json
 import sys
 import time
+
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -227,9 +227,9 @@ def add_dns_record(email=None, api_key=None, api_token=None, zone_id=None, recor
             else:
                 return False, f"HTTP {response.status_code}: {result}"
     except requests.exceptions.RequestException as e:
-        return False, f"Request error: {str(e)}"
+        return False, f"Request error: {e!s}"
     except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+        return False, f"Unexpected error: {e!s}"
 
 
 def main():

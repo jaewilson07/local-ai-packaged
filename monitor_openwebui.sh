@@ -47,7 +47,7 @@ check_db_connection() {
     else
         echo -e "${RED}✗ Network connectivity FAILED${NC}"
     fi
-    
+
     if docker exec supabase-db pg_isready -U postgres >/dev/null 2>&1; then
         echo -e "${GREEN}✓ PostgreSQL is ready${NC}"
     else
@@ -71,16 +71,15 @@ while true; do
     echo "=========================================="
     echo "Last update: $(date '+%Y-%m-%d %H:%M:%S')"
     echo ""
-    
+
     check_db_connection
     check_health
     check_db_tables
-    
+
     echo -e "\n${YELLOW}=== Recent Logs (last 20 lines) ===${NC}"
     docker logs open-webui --tail 20 2>&1 | tail -20
-    
+
     echo ""
     echo "Press Ctrl+C to stop..."
     sleep 5
 done
-

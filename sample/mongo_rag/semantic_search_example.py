@@ -11,8 +11,8 @@ Prerequisites:
 """
 
 import asyncio
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Set environment variables for host execution (not Docker)
@@ -20,22 +20,25 @@ from pathlib import Path
 os.environ.setdefault("LLM_BASE_URL", "http://localhost:11434/v1")
 os.environ.setdefault("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
 # MongoDB with authentication (default credentials: admin/admin123)
-os.environ.setdefault("MONGODB_URI", "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin")
+os.environ.setdefault(
+    "MONGODB_URI",
+    "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin",
+)
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
+import logging
+
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.tools import semantic_search
 from server.projects.shared.context_helpers import create_run_context
-import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -46,40 +49,46 @@ async def main():
     queries = [
         "What is authentication?",
         "How does vector search work?",
-        "Explain document chunking strategies"
+        "Explain document chunking strategies",
     ]
-    
-    print("="*80)
+
+    print("=" * 80)
     print("MongoDB RAG - Semantic Search Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example demonstrates pure semantic (vector) search.")
     print("It uses MongoDB's $vectorSearch aggregation to find similar documents.")
     print()
+
+    # Initialize dependencies with user context (for RLS)
+    # In production, these would come from authenticated user session
+    from uuid import uuid4
+    user_id = str(uuid4())  # Simulated user ID
+    user_email = "demo@example.com"  # Simulated user email
     
-    # Initialize dependencies
-    deps = AgentDependencies()
+    deps = AgentDependencies.from_settings(
+        user_id=user_id,
+        user_email=user_email,
+        is_admin=False,
+        user_groups=[]
+    )
     await deps.initialize()
-    
+
     try:
         # Create run context for search tools
         ctx = create_run_context(deps)
-        
+
         # Perform semantic search for each query
         for i, query in enumerate(queries, 1):
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"Query {i}: {query}")
-            print("="*80)
-            
+            print("=" * 80)
+
             logger.info(f"🔍 Performing semantic search for: {query}")
-            
+
             # Perform semantic search
-            results = await semantic_search(
-                ctx=ctx,
-                query=query,
-                match_count=5
-            )
-            
+            results = await semantic_search(ctx=ctx, query=query, match_count=5)
+
             # Display results
             if results:
                 print(f"\nFound {len(results)} results:\n")
@@ -93,11 +102,11 @@ async def main():
             else:
                 print("\n⚠️  No results found. Make sure documents are ingested.")
                 print("   Run document_ingestion_example.py to ingest documents first.")
-        
-        print("\n" + "="*80)
+
+        print("\n" + "=" * 80)
         print("✅ Semantic search completed successfully!")
-        print("="*80)
-        
+        print("=" * 80)
+
     except Exception as e:
         logger.exception(f"❌ Error during semantic search: {e}")
         print(f"\n❌ Fatal error: {e}")

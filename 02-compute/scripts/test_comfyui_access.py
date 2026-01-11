@@ -7,8 +7,9 @@ Tests both local and remote access patterns to verify Cloudflare Access setup.
 
 import os
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Add project root to path
 project_root = Path(__file__).resolve().parent.parent
@@ -22,11 +23,11 @@ def test_local_access():
     print("=" * 60)
     print("Test 1: Local Access (localhost:8188)")
     print("=" * 60)
-    
+
     try:
         session = get_comfyui_client("http://localhost:8188")
         response = session.get("http://localhost:8188", timeout=5)
-        
+
         if response.status_code == 200:
             print("✅ Local access works (no authentication needed)")
             return True
@@ -47,18 +48,18 @@ def test_remote_access_with_token():
     print("\n" + "=" * 60)
     print("Test 2: Remote Access with Service Token")
     print("=" * 60)
-    
+
     token = os.getenv("COMFYUI_ACCESS_TOKEN")
     if not token:
         print("⚠️  COMFYUI_ACCESS_TOKEN not set - skipping remote test")
         print("   Set it with: export COMFYUI_ACCESS_TOKEN=your-token")
         return None
-    
+
     try:
         session = get_comfyui_client("https://comfyui.datacrew.space")
         # Try a simple endpoint
         response = session.get("https://comfyui.datacrew.space", timeout=10)
-        
+
         if response.status_code == 200:
             print("✅ Remote access works with service token")
             return True
@@ -94,12 +95,12 @@ def test_remote_access_without_token():
     print("\n" + "=" * 60)
     print("Test 3: Remote Access without Token (Should Fail)")
     print("=" * 60)
-    
+
     # Temporarily unset token
     original_token = os.environ.pop("COMFYUI_ACCESS_TOKEN", None)
-    
+
     try:
-        session = get_comfyui_client("https://comfyui.datacrew.space")
+        get_comfyui_client("https://comfyui.datacrew.space")
         print("❌ Should have raised ValueError - token validation failed")
         return False
     except ValueError:
@@ -119,13 +120,13 @@ def test_helper_function():
     print("\n" + "=" * 60)
     print("Test 4: Helper Function Validation")
     print("=" * 60)
-    
+
     try:
         # Test local client
         local_client = get_comfyui_client("http://localhost:8188")
         assert "CF-Access-Token" not in local_client.headers, "Local should not have token"
         print("✅ Local client created correctly (no token)")
-        
+
         # Test remote client (should require token)
         token = os.getenv("COMFYUI_ACCESS_TOKEN")
         if token:
@@ -139,7 +140,7 @@ def test_helper_function():
                 return False
             except ValueError:
                 print("✅ Remote client correctly requires token")
-        
+
         return True
     except Exception as e:
         print(f"❌ Error testing helper function: {e}")
@@ -150,18 +151,18 @@ def main():
     print("\n" + "=" * 60)
     print("ComfyUI Access Configuration Test")
     print("=" * 60 + "\n")
-    
+
     results = {
         "local_access": test_local_access(),
         "helper_function": test_helper_function(),
         "remote_without_token": test_remote_access_without_token(),
         "remote_with_token": test_remote_access_with_token(),
     }
-    
+
     print("\n" + "=" * 60)
     print("Test Summary")
     print("=" * 60)
-    
+
     for test_name, result in results.items():
         if result is True:
             status = "✅ PASS"
@@ -170,11 +171,11 @@ def main():
         else:
             status = "⚠️  SKIP"
         print(f"{test_name:30} {status}")
-    
+
     print("\n" + "=" * 60)
     print("Next Steps")
     print("=" * 60)
-    
+
     if not results.get("remote_with_token"):
         print("\n⚠️  Remote access not working. Complete these steps:")
         print("1. Set up Cloudflare Access in dashboard")
@@ -184,13 +185,10 @@ def main():
     else:
         print("\n✅ All tests passed!")
         print("Cloudflare Access is configured correctly.")
-    
+
     if results.get("local_access"):
         print("\n✅ Local access works - existing scripts unaffected")
 
 
 if __name__ == "__main__":
     main()
-
-
-

@@ -42,16 +42,16 @@ class N8nWorkflowDeps:
     n8n_api_url: str = field(default_factory=lambda: config.n8n_api_url)
     n8n_api_key: Optional[str] = field(default_factory=lambda: config.n8n_api_key)
     session_id: Optional[str] = None
-    
+
     @classmethod
     def from_settings(cls, ...) -> "N8nWorkflowDeps":
         """Create dependencies from application settings."""
         return cls(...)
-    
+
     async def initialize(self) -> None:
         """Initialize external connections."""
         ...
-    
+
     async def cleanup(self) -> None:
         """Clean up external connections."""
         ...
@@ -88,7 +88,7 @@ def _get_n8n_workflow_model(model_choice: Optional[str] = None) -> OpenAIModel:
     llm_choice = model_choice or config.llm_model
     base_url = config.llm_base_url
     api_key = config.llm_api_key
-    
+
     provider = OpenAIProvider(base_url=base_url, api_key=api_key)
     return OpenAIModel(llm_choice, provider=provider)
 ```
@@ -144,11 +144,11 @@ async def create_workflow_tool(
     """Tool description."""
     deps = N8nWorkflowDeps.from_settings()
     await deps.initialize()
-    
+
     class DepsWrapper:
         def __init__(self, deps):
             self.deps = deps
-    
+
     deps_ctx = DepsWrapper(deps)
     try:
         return await create_workflow(deps_ctx, ...)
@@ -283,7 +283,7 @@ async def create_workflow_endpoint(request: CreateWorkflowRequest):
 
 **Deviation**: Agent uses `StateDeps[N8nWorkflowState]` but tools expect `N8nWorkflowDeps`.
 
-**Rationale**: 
+**Rationale**:
 - Enables AGUI (Agent UI) support for interactive workflows
 - Follows the same pattern as `mongo_rag` agent
 - Tool wrappers bridge the gap cleanly
@@ -309,4 +309,3 @@ The N8n Workflow agent implementation **fully complies** with:
 - ✅ Type safety requirements
 
 The only intentional deviation (StateDeps pattern) is well-documented and follows established patterns in the codebase.
-

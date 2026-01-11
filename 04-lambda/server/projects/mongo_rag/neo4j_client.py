@@ -7,8 +7,8 @@ ingestion and agent tools.
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict
 from dataclasses import dataclass
+
 from neo4j import AsyncGraphDatabase
 from pydantic import BaseModel
 
@@ -29,7 +29,7 @@ class GraphEntity(BaseModel):
     name: str
     type: str
     confidence: float | None = None
-    properties: Dict[str, str] = {}
+    properties: dict[str, str] = {}
 
 
 class Neo4jClient:
@@ -41,7 +41,7 @@ class Neo4jClient:
 
     def __init__(self, config: Neo4jConfig) -> None:
         self._config = config
-        self._driver: Optional[AsyncGraphDatabase.driver] = None
+        self._driver: AsyncGraphDatabase.driver | None = None
 
     async def connect(self) -> None:
         """Open connection to Neo4j cluster and validate with a noop query."""
@@ -58,7 +58,11 @@ class Neo4jClient:
             self._driver = None
 
     async def create_entity(
-        self, name: str, entity_type: str, properties: Dict[str, str] | None = None, confidence: float | None = None
+        self,
+        name: str,
+        entity_type: str,
+        properties: dict[str, str] | None = None,
+        confidence: float | None = None,
     ) -> str:
         """Create or merge an entity node.
 
@@ -94,7 +98,7 @@ class Neo4jClient:
         source_element_id: str,
         target_element_id: str,
         rel_type: str,
-        properties: Dict[str, str] | None = None,
+        properties: dict[str, str] | None = None,
     ) -> None:
         """Create a relationship between two existing nodes.
 
@@ -131,7 +135,7 @@ class Neo4jClient:
                 eid=entity_element_id,
             )
 
-    async def find_related_entities(self, name: str, depth: int = 1) -> List[GraphEntity]:
+    async def find_related_entities(self, name: str, depth: int = 1) -> list[GraphEntity]:
         """Find entities related to the given entity name up to a certain depth.
 
         Args:
@@ -158,12 +162,16 @@ class Neo4jClient:
                     name=row["name"],
                     type=row["type"],
                     confidence=row.get("confidence"),
-                    properties={k: v for k, v in row["node"].items() if k not in {"name", "type", "confidence"}},
+                    properties={
+                        k: v
+                        for k, v in row["node"].items()
+                        if k not in {"name", "type", "confidence"}
+                    },
                 )
                 for row in rows
             ]
 
-    async def get_entity_timeline(self, name: str) -> List[Dict[str, str]]:
+    async def get_entity_timeline(self, name: str) -> list[dict[str, str]]:
         """Return temporal events/relationships for the entity by name.
 
         Returns simplified records including relationship type and timestamps.
@@ -190,4 +198,4 @@ class Neo4jClient:
             ]
 
 
-__all__ = ["Neo4jClient", "Neo4jConfig", "GraphEntity"]
+__all__ = ["GraphEntity", "Neo4jClient", "Neo4jConfig"]

@@ -36,27 +36,27 @@ graph TB
         REST[ REST API<br/>/api/v1/openwebui/classify ]
         MCP[ MCP Tools<br/>classify_conversation_topics ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ openwebui_topics_agent<br/>Pydantic AI Agent ]
         TOOL[ classify_topics_tool<br/>Agent Tool Wrapper ]
     end
-    
+
     subgraph "Business Logic"
         CLASSIFY[ classify_topics<br/>Core Classification Function ]
         FORMAT[ _format_conversation<br/>Message Formatter ]
         PROMPT[ _create_classification_prompt<br/>Prompt Builder ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ OpenWebUITopicsDeps<br/>HTTP Client, Config ]
         HTTP[ httpx.AsyncClient<br/>LLM API Client ]
     end
-    
+
     subgraph "External Services"
         LLM[ Ollama LLM<br/>ollama:11434 ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOL
@@ -66,7 +66,7 @@ graph TB
     CLASSIFY --> DEPS
     DEPS --> HTTP
     HTTP --> LLM
-    
+
     style AGENT fill:#e1f5ff
     style CLASSIFY fill:#fff4e1
     style DEPS fill:#f0f0f0
@@ -86,7 +86,7 @@ sequenceDiagram
     participant Prompt as _create_classification_prompt
     participant Deps as OpenWebUITopicsDeps
     participant LLM as Ollama LLM
-    
+
     Client->>API: POST /classify with messages
     API->>Agent: Run agent with request
     Agent->>Tool: classify_topics_tool()

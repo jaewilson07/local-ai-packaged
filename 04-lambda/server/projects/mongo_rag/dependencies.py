@@ -1,56 +1,90 @@
 """Dependencies for MongoDB RAG Agent."""
 
-from typing import Optional, Dict, Any
 import logging
+from typing import Any
+
+import openai
+from pydantic import BaseModel, ConfigDict, Field
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-import openai
 
-from pydantic import BaseModel, Field, ConfigDict
-from server.projects.mongo_rag.config import config
-from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
 from server.projects.graphiti_rag.config import config as graphiti_config
+from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
+from server.projects.mongo_rag.config import config
 
 logger = logging.getLogger(__name__)
 
 
 class AgentDependencies(BaseModel):
     """Dependencies injected into the agent context."""
-    
+
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         # Exclude from OpenAPI schema generation (FastAPI dependency injection only)
-        json_schema_extra={"exclude": True}
+        json_schema_extra={"exclude": True},
     )
 
     # Core dependencies
-    mongo_client: Optional[AsyncMongoClient] = None
-    db: Optional[Any] = None
-    openai_client: Optional[openai.AsyncOpenAI] = None
-    settings: Optional[Any] = None
-    
+    mongo_client: AsyncMongoClient | None = None
+    db: Any | None = None
+    openai_client: openai.AsyncOpenAI | None = None
+    settings: Any | None = None
+
     # Graphiti dependencies (optional)
-    graphiti_deps: Optional[GraphitiDeps] = None
+    graphiti_deps: GraphitiDeps | None = None
 
     # Session context
-    session_id: Optional[str] = None
-    user_preferences: Dict[str, Any] = Field(default_factory=dict)
+    session_id: str | None = None
+    user_preferences: dict[str, Any] = Field(default_factory=dict)
     query_history: list = Field(default_factory=list)
+
+    # User context for RLS
+    current_user_id: str | None = None
+    current_user_email: str | None = None
+    is_admin: bool = False
+    user_groups: list = Field(default_factory=list)
 
     @classmethod
     def from_settings(
         cls,
-        mongo_client: Optional[AsyncMongoClient] = None,
-        session_id: Optional[str] = None,
-        **kwargs
+        mongo_client: AsyncMongoClient | None = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        user_email: str | None = None,
+        is_admin: bool = False,
+        user_groups: list | None = None,
+        mongodb_username: str | None = None,
+        mongodb_password: str | None = None,
+        **kwargs,
     ) -> "AgentDependencies":
-        """Create dependencies from application settings."""
-        return cls(
+        """
+        Create dependencies from application settings.
+
+        Args:
+            mongo_client: Optional pre-initialized MongoDB client
+            session_id: Optional session ID
+            user_id: User UUID for RLS
+            user_email: User email for RLS
+            is_admin: Whether user is admin
+            user_groups: List of group IDs user belongs to
+            mongodb_username: MongoDB username for user-based auth
+            mongodb_password: MongoDB password for user-based auth
+            **kwargs: Additional fields
+        """
+        deps = cls(
             mongo_client=mongo_client,
             session_id=session_id,
-            **kwargs
+            current_user_id=user_id,
+            current_user_email=user_email,
+            is_admin=is_admin,
+            user_groups=user_groups or [],
+            **kwargs,
         )
+        # Store MongoDB credentials for user-based connection
+        if hasattr(deps, "__dict__"):
+            deps.__dict__["_mongodb_username"] = mongodb_username
+            deps.__dict__["_mongodb_password"] = mongodb_password
+        return deps
 
     async def initialize(self) -> None:
         """
@@ -68,9 +102,48 @@ class AgentDependencies(BaseModel):
         # Initialize MongoDB client
         if not self.mongo_client:
             try:
-                self.mongo_client = AsyncMongoClient(
-                    config.mongodb_uri, serverSelectionTimeoutMS=5000
-                )
+                # Use user-based authentication if credentials provided
+                mongodb_uri = config.mongodb_uri
+                if hasattr(self, "_mongodb_username") and hasattr(self, "_mongodb_password"):
+                    mongodb_username = self.__dict__.get("_mongodb_username")
+                    mongodb_password = self.__dict__.get("_mongodb_password")
+
+                    if mongodb_username and mongodb_password:
+                        # Build user-based connection string
+                        # Extract base URI components
+                        from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+                        parsed = urlparse(config.mongodb_uri)
+
+                        # Build new URI with user credentials
+                        # Format: mongodb://username:password@host:port/database?options
+                        netloc = f"{mongodb_username}:{mongodb_password}@{parsed.hostname}"
+                        if parsed.port:
+                            netloc += f":{parsed.port}"
+
+                        # Preserve query parameters
+                        query_params = parse_qs(parsed.query)
+                        query_params["authSource"] = ["admin"]  # Ensure authSource
+                        query_string = urlencode(query_params, doseq=True)
+
+                        mongodb_uri = urlunparse(
+                            (
+                                parsed.scheme,
+                                netloc,
+                                parsed.path,
+                                parsed.params,
+                                query_string,
+                                parsed.fragment,
+                            )
+                        )
+
+                        logger.info(f"Connecting to MongoDB as user: {mongodb_username}")
+                    else:
+                        logger.info("Using service account for MongoDB connection")
+                else:
+                    logger.info("Using service account for MongoDB connection")
+
+                self.mongo_client = AsyncMongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
                 self.db = self.mongo_client[config.mongodb_database]
 
                 # Verify connection with ping
@@ -83,7 +156,8 @@ class AgentDependencies(BaseModel):
                             "documents": config.mongodb_collection_documents,
                             "chunks": config.mongodb_collection_chunks,
                         },
-                    }
+                        "user": self.current_user_email or "service_account",
+                    },
                 )
             except (ConnectionFailure, ServerSelectionTimeoutError) as e:
                 logger.exception("mongodb_connection_failed", extra={"error": str(e)})
@@ -100,9 +174,9 @@ class AgentDependencies(BaseModel):
                 extra={
                     "model": config.embedding_model,
                     "dimension": config.embedding_dimension,
-                }
+                },
             )
-        
+
         # Initialize Graphiti if enabled
         if graphiti_config.use_graphiti and not self.graphiti_deps:
             try:
@@ -121,7 +195,7 @@ class AgentDependencies(BaseModel):
             self.mongo_client = None
             self.db = None
             logger.info("mongodb_connection_closed")
-        
+
         if self.graphiti_deps:
             await self.graphiti_deps.cleanup()
             self.graphiti_deps = None
@@ -169,4 +243,3 @@ class AgentDependencies(BaseModel):
         # Keep only last 10 queries
         if len(self.query_history) > 10:
             self.query_history.pop(0)
-

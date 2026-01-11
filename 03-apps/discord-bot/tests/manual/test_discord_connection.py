@@ -6,11 +6,12 @@ This script can be run independently to test Discord bot connection:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add bot directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+import contextlib
 
 import discord
 from bot.config import config
@@ -21,51 +22,50 @@ async def test_discord_connection():
     print("=" * 60)
     print("Testing Discord Bot Connection")
     print("=" * 60)
-    
+
     # Check configuration
     if not config.DISCORD_BOT_TOKEN:
         print("❌ ERROR: DISCORD_BOT_TOKEN not set in environment")
         return False
-    
+
     print(f"✓ Bot Token: {config.DISCORD_BOT_TOKEN[:10]}...")
     print()
-    
+
     # Create client with intents
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
-    
+
     client = discord.Client(intents=intents)
-    
+
     connected = False
     error_message = None
-    
+
     @client.event
     async def on_ready():
         nonlocal connected
         connected = True
-        print(f"✅ Bot connected successfully!")
+        print("✅ Bot connected successfully!")
         print(f"  Bot Name: {client.user.name}")
         print(f"  Bot ID: {client.user.id}")
         print()
-    
+
     @client.event
     async def on_error(event, *args, **kwargs):
         nonlocal error_message
         import traceback
+
         error_message = traceback.format_exc()
-    
+
     try:
         print("Connecting to Discord...")
         # Start connection with timeout
-        task = asyncio.create_task(client.start(config.DISCORD_BOT_TOKEN))
-        
+        asyncio.create_task(client.start(config.DISCORD_BOT_TOKEN))
+
         # Wait for connection or timeout
-        try:
+        with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(asyncio.sleep(5), timeout=10)
-        except asyncio.TimeoutError:
-            pass
-        
+
         if connected:
             # Test channel access
             print("Test 1: Checking channel access...")
@@ -81,7 +81,7 @@ async def test_discord_connection():
             else:
                 print("⚠ DISCORD_UPLOAD_CHANNEL_ID not set")
             print()
-            
+
             # Test guild access
             print("Test 2: Checking server access...")
             guilds = list(client.guilds)
@@ -91,7 +91,7 @@ async def test_discord_connection():
             if len(guilds) > 5:
                 print(f"  ... and {len(guilds) - 5} more")
             print()
-            
+
             # Test permissions
             print("Test 3: Checking bot permissions...")
             if guilds:
@@ -105,7 +105,7 @@ async def test_discord_connection():
                     print(f"  - Attach Files: {perms.attach_files}")
                     print(f"  - Use Slash Commands: {perms.use_slash_commands}")
             print()
-            
+
             await client.close()
             print("=" * 60)
             print("✅ All Discord connection tests passed!")
@@ -116,13 +116,13 @@ async def test_discord_connection():
             if error_message:
                 print(f"Error: {error_message}")
             return False
-            
+
     except discord.LoginFailure:
         print("❌ ERROR: Invalid bot token")
         print("Please check your DISCORD_BOT_TOKEN")
         return False
     except Exception as e:
-        print(f"❌ ERROR: {type(e).__name__}: {str(e)}")
+        print(f"❌ ERROR: {type(e).__name__}: {e!s}")
         print()
         print("Troubleshooting:")
         print("1. Verify DISCORD_BOT_TOKEN is correct")

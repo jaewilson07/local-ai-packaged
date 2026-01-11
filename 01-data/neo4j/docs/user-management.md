@@ -125,7 +125,7 @@ def provision_user(user_email):
     # Sanitize email for Neo4j username
     username = user_email.replace("@", "_at_").replace(".", "_")
     password = generate_secure_password()
-    
+
     with admin_driver.session() as session:
         # Create user (requires admin privileges)
         session.run(
@@ -133,13 +133,13 @@ def provision_user(user_email):
             username=username,
             password=password
         )
-        
+
         # Grant permissions
         session.run(
             "GRANT ROLE reader TO $username",
             username=username
         )
-    
+
     return username, password
 
 def get_user_credentials(user_email):
@@ -186,11 +186,11 @@ email_to_neo4j_username("user@example.com")  # "user_at_example_com"
 def deprovision_user(user_email):
     """Remove Neo4j user account."""
     username = email_to_neo4j_username(user_email)
-    
+
     with admin_driver.session() as session:
         # Revoke permissions
         session.run("REVOKE ROLE reader FROM $username", username=username)
-        
+
         # Delete user
         session.run("DROP USER $username IF EXISTS", username=username)
 ```
@@ -210,7 +210,7 @@ You can combine both strategies:
    ```bash
    # XKCD-style passphrase
    xkcdpass -n 4
-   
+
    # Or random hex
    openssl rand -hex 32
    ```
@@ -251,22 +251,22 @@ class Neo4jUserManager:
             auth=(admin_user, admin_password)
         )
         self.user_cache = {}  # Cache user credentials
-    
+
     def get_or_create_user(self, user_email):
         """Get existing user or create new one."""
         username = email_to_neo4j_username(user_email)
-        
+
         # Check cache
         if username in self.user_cache:
             return self.user_cache[username]
-        
+
         # Check if user exists
         with self.admin_driver.session() as session:
             result = session.run(
                 "SHOW USERS",
             )
             existing_users = [record["user"] for record in result]
-            
+
             if username not in existing_users:
                 # Create new user
                 password = self.generate_password()
@@ -281,14 +281,14 @@ class Neo4jUserManager:
                 # User exists, retrieve password from storage
                 password = self.get_password_from_storage(username)
                 self.user_cache[username] = password
-        
+
         return password
-    
+
     def generate_password(self):
         """Generate secure random password."""
         alphabet = string.ascii_letters + string.digits + string.punctuation
         return ''.join(secrets.choice(alphabet) for _ in range(24))
-    
+
     def get_password_from_storage(self, username):
         """Retrieve password from secure storage."""
         # Implement your storage retrieval logic

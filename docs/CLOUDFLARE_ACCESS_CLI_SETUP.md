@@ -4,6 +4,8 @@
 
 While `cloudflared` CLI doesn't directly support creating Access applications, you can use the Cloudflare API via a Python script to automate the setup.
 
+This guide covers setting up Cloudflare Access for the Lambda API server, which uses JWT validation for authentication.
+
 ## Quick Setup
 
 Run the automated script:
@@ -119,6 +121,62 @@ curl -X PUT "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/cfd_tunn
   }'
 ```
 
+## Understanding the AUD Tag
+
+**What is the AUD Tag?**
+
+The **AUD Tag** (Application Audience Tag) is a unique 64-character hexadecimal identifier that Cloudflare generates for each Access application. It's used in JWT token validation to ensure tokens are only accepted from the correct application, preventing token reuse attacks.
+
+**Why is it Required?**
+
+When Cloudflare Access generates a JWT token for an authenticated user, it includes an `aud` (audience) claim set to your application's AUD tag. The Lambda server validates this claim matches your configured `CLOUDFLARE_AUD_TAG` before granting access. This ensures:
+
+- Tokens from other Access applications are rejected
+- Only tokens intended for your specific application are accepted
+- Security is maintained even if someone obtains a valid JWT from a different application
+
+**How to Get Your AUD Tag:**
+
+**Method 1: Using the Script (Recommended)**
+```bash
+cd /home/jaewilson07/GitHub/local-ai-packaged
+python3 00-infrastructure/scripts/get-lambda-api-aud-tag.py
+```
+
+This script automatically queries the Cloudflare API to retrieve the AUD tag for your application.
+
+**Method 2: From Cloudflare Dashboard**
+1. Go to [Cloudflare One Dashboard](https://one.dash.cloudflare.com/)
+2. Navigate to **Access controls** > **Applications**
+3. Select your application (e.g., "Lambda API" for `api.datacrew.space`)
+4. In the **Basic information** tab, copy the **Application Audience (AUD) Tag**
+
+**Method 3: From Cloudflare API**
+```bash
+curl -X GET "https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps" \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  | jq '.result[] | select(.domain=="api.datacrew.space") | .aud'
+```
+
+**Setting the AUD Tag:**
+
+Once you have the AUD tag, configure it in your environment:
+
+```bash
+# In docker-compose.yml or .env
+CLOUDFLARE_AUD_TAG=e869f0dbb027893e1c9ded98f81e6c85420c574098c895a51f79a1e9930c948c
+
+# Or via Infisical (production)
+infisical secrets set CLOUDFLARE_AUD_TAG=e869f0dbb027893e1c9ded98f81e6c85420c574098c895a51f79a1e9930c948c
+```
+
+**Current AUD Tag for Lambda API:**
+```
+e869f0dbb027893e1c9ded98f81e6c85420c574098c895a51f79a1e9930c948c
+```
+
+This is already configured in `04-lambda/docker-compose.yml` as a default value.
+
 ## Verification
 
 After running the script:
@@ -131,6 +189,16 @@ curl -I https://api.datacrew.space/mcp/openapi.json
 **Expected**: HTTP 302 redirect to Cloudflare Access
 
 **If you get JSON**: Still not protected - check tunnel route configuration
+
+**Test Authentication:**
+```bash
+# Get a valid JWT by accessing through browser, then:
+curl -H "Cf-Access-Jwt-Assertion: <your-jwt-token>" https://api.datacrew.space/api/me
+```
+
+**Expected**: JSON response with user profile
+
+**If you get 401/403**: Check AUD tag configuration and JWT validity
 
 ## Troubleshooting
 
@@ -156,6 +224,50 @@ python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py
 3. Find `api.datacrew.space` route
 4. Edit → Access → Select "Lambda API"
 
+### JWT Validation Errors
+
+**Error**: `"Invalid token: Missing required audience (CLOUDFLARE_AUD_TAG)"`
+
+**Solution**: 
+1. Verify AUD tag is correct:
+   ```bash
+   python3 00-infrastructure/scripts/get-lambda-api-aud-tag.py
+   ```
+2. Check environment variable is set:
+   ```bash
+   docker exec lambda-server env | grep CLOUDFLARE_AUD_TAG
+   ```
+3. Restart Lambda server if AUD tag was updated:
+   ```bash
+   docker compose -p localai-lambda restart lambda-server
+   ```
+
+**Error**: `"Invalid token: Invalid signature"`
+
+**Solution**:
+1. Verify `CLOUDFLARE_AUTH_DOMAIN` is correct (should match your Cloudflare team domain)
+2. Check JWT is from the correct Access application
+3. Ensure JWT hasn't expired (default: 24 hours)
+
+**Error**: `"Missing Cf-Access-Jwt-Assertion header"`
+
+**Solution**:
+1. Verify request is going through Cloudflare Access (not direct to server)
+2. Check Caddy is forwarding the header correctly
+3. For internal network requests, use `http://lambda-server:8000` (bypasses Cloudflare Access)
+
+### Lambda Server Can't Fetch Public Keys
+
+**Error**: `"Failed to fetch public keys from Cloudflare"`
+
+**Solution**:
+1. Verify `CLOUDFLARE_AUTH_DOMAIN` is accessible from Lambda server
+2. Check network connectivity:
+   ```bash
+   docker exec lambda-server curl -I https://your-team.cloudflareaccess.com/cdn-cgi/access/certs
+   ```
+3. Verify DNS resolution works inside container
+
 ## Using Wildcard Access Policy
 
 If you have a wildcard access policy (`*.datacrew.space`), you can link it directly:
@@ -169,6 +281,6 @@ If you have a wildcard access policy (`*.datacrew.space`), you can link it direc
 
 - [Cloudflare Access API Documentation](https://developers.cloudflare.com/api/operations/access-applications-list-access-applications)
 - [Cloudflare Tunnel API Documentation](https://developers.cloudflare.com/api/operations/cloudflare-tunnel-get-cloudflare-tunnel-configuration)
+- [Auth Project README](../04-lambda/server/projects/auth/README.md) - Detailed authentication system documentation
 - [MCP Security Setup Guide](./MCP_SECURITY_SETUP.md)
 - [Urgent Security Fix](./URGENT_SECURITY_FIX.md)
-

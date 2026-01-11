@@ -74,7 +74,7 @@ volumes:
   - ./01-data/supabase/upstream/docker/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
   - ./01-data/supabase/upstream/docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
   # ... (all upstream volume references)
-  
+
   # Data directories
   - ./01-data/supabase/data/minio:/data
   - ./01-data/supabase/data/storage:/var/lib/storage:z
@@ -176,7 +176,7 @@ If you have existing data in the wrong locations (e.g., `00-infrastructure/flowi
    ```bash
    # Example: Move flowise data
    mv 00-infrastructure/flowise/data 03-apps/flowise/data
-   
+
    # Example: Move comfyui data
    mv 00-infrastructure/comfyui/data 02-compute/comfyui/data
    ```
@@ -187,4 +187,3 @@ If you have existing data in the wrong locations (e.g., `00-infrastructure/flowi
 **Last Updated**: 2026-01-04
 **Issue**: Files being created in `00-infrastructure/` instead of correct stack directories
 **Resolution**: Updated all volume paths to use full paths from project root
-

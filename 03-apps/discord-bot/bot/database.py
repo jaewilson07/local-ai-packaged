@@ -1,15 +1,16 @@
 """SQLite database operations for user mapping."""
 
-import aiosqlite
-from typing import Optional
 from datetime import datetime
+
+import aiosqlite
+
 from bot.config import config
 
 
 class Database:
     """Database manager for user mappings."""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str | None = None):
         self.db_path = db_path or config.BOT_DB_PATH
 
     async def initialize(self) -> None:
@@ -35,7 +36,7 @@ class Database:
             )
             await db.commit()
 
-    async def get_user_by_discord_id(self, discord_id: str) -> Optional[dict]:
+    async def get_user_by_discord_id(self, discord_id: str) -> dict | None:
         """Get user mapping by Discord ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -45,7 +46,7 @@ class Database:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
-    async def get_user_by_immich_person_id(self, immich_person_id: str) -> Optional[dict]:
+    async def get_user_by_immich_person_id(self, immich_person_id: str) -> dict | None:
         """Get user mapping by Immich person ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -79,7 +80,7 @@ class Database:
             )
             await db.commit()
 
-    async def get_last_check_timestamp(self) -> Optional[datetime]:
+    async def get_last_check_timestamp(self) -> datetime | None:
         """Get last notification check timestamp."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute("SELECT timestamp FROM last_check WHERE id = 1") as cursor:

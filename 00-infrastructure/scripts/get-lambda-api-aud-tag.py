@@ -10,13 +10,13 @@ Usage:
     python get-lambda-api-aud-tag.py
 """
 
-import requests
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import requests
 from dotenv import load_dotenv
-from typing import Dict, Optional
 
 # Load .env from project root
 script_dir = Path(__file__).parent
@@ -36,7 +36,7 @@ FULL_DOMAIN = f"{SUBDOMAIN}.{DOMAIN}"
 ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 
 
-def get_infisical_secrets() -> Dict[str, str]:
+def get_infisical_secrets() -> dict[str, str]:
     """Get secrets from Infisical using CLI."""
     secrets_dict = {}
     try:
@@ -48,17 +48,17 @@ def get_infisical_secrets() -> Dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
-                if '=' in line:
-                    key, value = line.split('=', 1)
+                if "=" in line:
+                    key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip()
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    elif value.startswith("'") and value.endswith("'"):
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
                         value = value[1:-1]
                     secrets_dict[key] = value
     except Exception:
@@ -79,7 +79,7 @@ def get_auth_headers():
     api_token = get_env_var("CLOUDFLARE_API_TOKEN", "")
     email = get_env_var("CLOUDFLARE_EMAIL", "")
     api_key = get_env_var("CLOUDFLARE_API_KEY", "")
-    
+
     if api_token and api_token.strip():
         return {
             "Authorization": f"Bearer {api_token.strip()}",
@@ -92,14 +92,16 @@ def get_auth_headers():
             "Content-Type": "application/json",
         }
     else:
-        raise ValueError("Either API token or email+API key must be provided (check Infisical or .env)")
+        raise ValueError(
+            "Either API token or email+API key must be provided (check Infisical or .env)"
+        )
 
 
 def get_account_id(headers):
     """Get Cloudflare account ID."""
     if ACCOUNT_ID:
         return ACCOUNT_ID
-    
+
     # Try to get from API
     try:
         response = requests.get(
@@ -113,21 +115,21 @@ def get_account_id(headers):
                 return accounts[0]["id"]
     except Exception:
         pass
-    
+
     raise ValueError("CLOUDFLARE_ACCOUNT_ID must be set or auto-detected from API")
 
 
 def get_aud_tag(headers, account_id):
     """Get AUD tag for Lambda API Access application."""
     apps_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps"
-    
+
     try:
         response = requests.get(apps_url, headers=headers, timeout=30)
         if response.status_code != 200:
             print(f"[ERROR] Failed to get applications: HTTP {response.status_code}")
             print(f"   Response: {response.text[:300]}")
             return None
-        
+
         apps = response.json().get("result", [])
         for app in apps:
             if app.get("domain") == FULL_DOMAIN:
@@ -135,7 +137,7 @@ def get_aud_tag(headers, account_id):
                 if aud_tag:
                     return aud_tag
                 else:
-                    print(f"[WARNING] Application found but no AUD tag in response")
+                    print("[WARNING] Application found but no AUD tag in response")
                     print(f"   Application ID: {app.get('id')}")
                     print(f"   Application name: {app.get('name')}")
                     # Try to get detailed app info
@@ -147,13 +149,13 @@ def get_aud_tag(headers, account_id):
                         aud_tag = detail.get("aud")
                         if aud_tag:
                             return aud_tag
-        
+
         print(f"[ERROR] Application not found for domain: {FULL_DOMAIN}")
-        print(f"   Available applications:")
+        print("   Available applications:")
         for app in apps:
             print(f"   - {app.get('name')} ({app.get('domain')})")
         return None
-        
+
     except Exception as e:
         print(f"[ERROR] Exception while fetching applications: {e}")
         return None
@@ -163,14 +165,14 @@ def main():
     """Main function."""
     print(f"Getting AUD tag for Lambda API Access application: {FULL_DOMAIN}")
     print()
-    
+
     try:
         headers = get_auth_headers()
         account_id = get_account_id(headers)
         print(f"[INFO] Using Cloudflare account: {account_id}")
-        
+
         aud_tag = get_aud_tag(headers, account_id)
-        
+
         if aud_tag:
             print()
             print("=" * 60)
@@ -194,13 +196,14 @@ def main():
             print("   Make sure the Lambda API Access application exists")
             print("   Run: python setup-lambda-api-access.py")
             return 1
-            
+
     except ValueError as e:
         print(f"[ERROR] {e}")
         return 1
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -1,50 +1,43 @@
 """Pydantic models for persona state and personality definitions."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
 class SeedPreferences(BaseModel):
     """Initial preferences that can be overridden by memory over time."""
+
     communication_style: str = Field(
         default="friendly and helpful",
         description="How the bot communicates (formal, casual, witty, etc.)",
     )
-    topics_of_interest: List[str] = Field(
+    topics_of_interest: list[str] = Field(
         default_factory=list, description="Topics the bot is naturally drawn to discuss"
     )
     emoji_usage: str = Field(
         default="moderate",
         description="How often the bot uses emojis (never, rare, moderate, frequent)",
     )
-    formality: str = Field(
-        default="balanced", description="Level of formality in responses"
-    )
+    formality: str = Field(default="balanced", description="Level of formality in responses")
 
 
 class Personality(BaseModel):
     """Complete personality definition for a chatbot persona."""
+
     id: str = Field(..., description="Unique lowercase identifier")
     name: str = Field(..., description="Display name")
     byline: str = Field(default="", description="Short description")
-    identity: List[str] = Field(
-        default_factory=list, description="Core traits that never change"
-    )
-    behavior: List[str] = Field(
-        default_factory=list, description="Response style guidelines"
-    )
+    identity: list[str] = Field(default_factory=list, description="Core traits that never change")
+    behavior: list[str] = Field(default_factory=list, description="Response style guidelines")
     seed_preferences: SeedPreferences = Field(
         default_factory=SeedPreferences,
         description="Starting preferences (can be overridden by memory)",
     )
-    profile_image: Optional[str] = Field(
-        default=None, description="Optional image path or URL"
-    )
+    profile_image: str | None = Field(default=None, description="Optional image path or URL")
 
-    def build_system_prompt(
-        self, memory_overrides: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def build_system_prompt(self, memory_overrides: dict[str, Any] | None = None) -> str:
         """Build a system prompt from identity, behavior, and preferences."""
         sections = []
 
@@ -89,23 +82,24 @@ class Personality(BaseModel):
 
 class ActivePersona(BaseModel):
     """Tracks which personality is active for each interface."""
+
     cli: str = Field(default="jarvis", description="Active persona ID for CLI")
     discord: str = Field(default="alex", description="Active persona ID for Discord")
 
 
 class MoodState(BaseModel):
     """Current emotional state of persona."""
+
     primary_emotion: str = Field(
         ..., description="Primary emotion (happy, sad, excited, neutral, etc.)"
     )
-    intensity: float = Field(
-        ..., ge=0.0, le=1.0, description="Emotional intensity from 0.0 to 1.0"
-    )
+    intensity: float = Field(..., ge=0.0, le=1.0, description="Emotional intensity from 0.0 to 1.0")
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class RelationshipState(BaseModel):
     """Relationship level with specific user."""
+
     user_id: str = Field(..., description="User identifier")
     persona_id: str = Field(..., description="Persona identifier")
     affection_score: float = Field(
@@ -115,34 +109,32 @@ class RelationshipState(BaseModel):
         default=0.5, ge=0.0, le=1.0, description="Trust level from 0.0 to 1.0"
     )
     interaction_count: int = Field(default=0, description="Number of interactions")
-    last_interaction: Optional[datetime] = Field(
+    last_interaction: datetime | None = Field(
         default=None, description="Last interaction timestamp"
     )
 
 
 class ConversationContext(BaseModel):
     """Current conversation mode/context."""
+
     mode: str = Field(
         default="balanced",
         description="Conversation mode (deep_empathy, casual_chat, storytelling, balanced_factual, balanced)",
     )
-    topic: Optional[str] = Field(default=None, description="Current conversation topic")
-    depth_level: int = Field(
-        default=3, ge=1, le=5, description="Conversation depth level from 1-5"
-    )
+    topic: str | None = Field(default=None, description="Current conversation topic")
+    depth_level: int = Field(default=3, ge=1, le=5, description="Conversation depth level from 1-5")
 
 
 class PersonaState(BaseModel):
     """Complete stateful persona representation."""
+
     base_profile: Personality = Field(..., description="Base personality from JSON")
     current_mood: MoodState = Field(..., description="Current emotional state")
-    relationships: Dict[str, RelationshipState] = Field(
+    relationships: dict[str, RelationshipState] = Field(
         default_factory=dict, description="Relationships keyed by user_id"
     )
-    current_context: ConversationContext = Field(
-        ..., description="Current conversation context"
-    )
-    learned_preferences: Dict[str, Any] = Field(
+    current_context: ConversationContext = Field(..., description="Current conversation context")
+    learned_preferences: dict[str, Any] = Field(
         default_factory=dict, description="Learned preferences from memory"
     )
 
@@ -150,12 +142,14 @@ class PersonaState(BaseModel):
 # API Request/Response Models
 class GetVoiceInstructionsRequest(BaseModel):
     """Request to get voice instructions."""
+
     user_id: str = Field(..., description="User ID")
     persona_id: str = Field(..., description="Persona ID")
 
 
 class RecordInteractionRequest(BaseModel):
     """Request to record an interaction."""
+
     user_id: str = Field(..., description="User ID")
     persona_id: str = Field(..., description="Persona ID")
     user_message: str = Field(..., description="User's message")
@@ -164,12 +158,14 @@ class RecordInteractionRequest(BaseModel):
 
 class GetPersonaStateRequest(BaseModel):
     """Request to get persona state."""
+
     user_id: str = Field(..., description="User ID")
     persona_id: str = Field(..., description="Persona ID")
 
 
 class UpdateMoodRequest(BaseModel):
     """Request to update mood."""
+
     user_id: str = Field(..., description="User ID")
     persona_id: str = Field(..., description="Persona ID")
     primary_emotion: str = Field(..., description="Primary emotion")
@@ -178,11 +174,13 @@ class UpdateMoodRequest(BaseModel):
 
 class VoiceInstructionsResponse(BaseModel):
     """Response with voice instructions."""
+
     success: bool = Field(..., description="Whether the operation was successful")
     voice_instructions: str = Field(..., description="Generated voice/style instructions")
 
 
 class PersonaStateResponse(BaseModel):
     """Response with persona state."""
+
     success: bool = Field(..., description="Whether the operation was successful")
     persona_state: PersonaState = Field(..., description="Current persona state")

@@ -1,11 +1,11 @@
 """Tests to validate that sample files can execute (with mocked dependencies)."""
 
-import pytest
-import sys
 import asyncio
+import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 
 # Sample files that have a main() function to execute
 EXECUTABLE_SAMPLES = [
@@ -45,22 +45,22 @@ EXECUTABLE_SAMPLES = [
     # Neo4j - all have main()
     ("neo4j", "basic_cypher_example.py"),
     ("neo4j", "knowledge_graph_example.py"),
+    # Deep Research - all have main() or async test functions
+    ("deep_research", "test_linear_researcher.py"),
+    ("deep_research", "test_storm_research.py"),
+    ("deep_research", "test_searxng_simple.py"),
 ]
 
 
-async def execute_sample_main(
-    service_dir: str,
-    filename: str,
-    mocks: dict
-) -> tuple[bool, str]:
+async def execute_sample_main(service_dir: str, filename: str, mocks: dict) -> tuple[bool, str]:
     """
     Attempt to execute the main() function of a sample file with mocked dependencies.
-    
+
     Args:
         service_dir: Service directory name
         filename: Sample filename
         mocks: Dictionary of mocks to apply
-        
+
     Returns:
         Tuple of (success: bool, error_message: str)
     """
@@ -69,59 +69,66 @@ async def execute_sample_main(
     sample_base = project_root / "sample"
     lambda_path = project_root / "04-lambda"
     sample_path = sample_base / service_dir / filename
-    
+
     if not sample_path.exists():
         return False, f"File not found: {sample_path}"
-    
+
     # Add lambda path to sys.path
     lambda_str = str(lambda_path)
     if lambda_str not in sys.path:
         sys.path.insert(0, lambda_str)
-    
+
     try:
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
-            f"{service_dir}.{filename.replace('.py', '')}",
-            sample_path
+            f"{service_dir}.{filename.replace('.py', '')}", sample_path
         )
         if spec is None or spec.loader is None:
             return False, "Failed to create module spec"
-        
+
         module = importlib.util.module_from_spec(spec)
-        
+
         # Apply mocks before loading
-        with patch.multiple(
-            "server.projects.mongo_rag.dependencies",
-            AsyncMongoClient=mocks.get("mongodb_client", AsyncMock)
-        ), patch.multiple(
-            "server.projects.crawl4ai_rag.dependencies",
-            AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
-            AsyncWebCrawler=mocks.get("crawler", AsyncMock)
-        ), patch.multiple(
-            "server.projects.graphiti_rag.dependencies",
-            Graphiti=mocks.get("graphiti", AsyncMock)
-        ), patch.multiple(
-            "server.projects.calendar.dependencies",
-            AsyncMongoClient=mocks.get("mongodb_client", AsyncMock)
-        ), patch.multiple(
-            "server.projects.persona.dependencies",
-            AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
-            openai=mocks.get("openai", Mock())
-        ), patch.multiple(
-            "server.projects.openwebui_export.dependencies",
-            AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
-            httpx=mocks.get("httpx", Mock())
-        ), patch.multiple(
-            "server.projects.n8n_workflow.dependencies",
-            httpx=mocks.get("httpx", Mock())
+        with (
+            patch.multiple(
+                "server.projects.mongo_rag.dependencies",
+                AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
+            ),
+            patch.multiple(
+                "server.projects.crawl4ai_rag.dependencies",
+                AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
+                AsyncWebCrawler=mocks.get("crawler", AsyncMock),
+            ),
+            patch.multiple(
+                "server.projects.graphiti_rag.dependencies",
+                Graphiti=mocks.get("graphiti", AsyncMock),
+            ),
+            patch.multiple(
+                "server.projects.calendar.dependencies",
+                AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
+            ),
+            patch.multiple(
+                "server.projects.persona.dependencies",
+                AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
+                openai=mocks.get("openai", Mock()),
+            ),
+            patch.multiple(
+                "server.projects.openwebui_export.dependencies",
+                AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
+                httpx=mocks.get("httpx", Mock()),
+            ),
+            patch.multiple(
+                "server.projects.n8n_workflow.dependencies", httpx=mocks.get("httpx", Mock())
+            ),
         ):
             # Load the module
             spec.loader.exec_module(module)
-            
+
             # Check if main() exists
             if not hasattr(module, "main"):
                 return False, "Module does not have a main() function"
-            
+
             # Execute main() with timeout
             try:
                 await asyncio.wait_for(module.main(), timeout=5.0)
@@ -129,11 +136,11 @@ async def execute_sample_main(
             except asyncio.TimeoutError:
                 return False, "main() execution timed out"
             except Exception as e:
-                return False, f"Error executing main(): {str(e)}"
-    
+                return False, f"Error executing main(): {e!s}"
+
     except Exception as e:
-        return False, f"Error loading/executing module: {str(e)}"
-    
+        return False, f"Error loading/executing module: {e!s}"
+
     finally:
         # Clean up
         if lambda_str in sys.path:
@@ -157,19 +164,19 @@ async def test_sample_execution(
 ):
     """
     Test that a sample file's main() function can execute with mocked dependencies.
-    
+
     This test validates:
     - The file can be imported
     - The main() function exists
     - The main() function can execute without crashing (with mocks)
     """
     sample_path = sample_base_path / service_dir / filename
-    
+
     # Check file exists
     assert sample_path.exists(), f"Sample file not found: {sample_path}"
-    
+
     # Prepare mocks
-    mongo_client, mongo_db = mock_mongodb
+    mongo_client, _mongo_db = mock_mongodb
     mocks = {
         "mongodb_client": mongo_client,
         "openai": Mock(AsyncOpenAI=Mock(return_value=mock_openai_client)),
@@ -177,12 +184,10 @@ async def test_sample_execution(
         "crawler": Mock(return_value=mock_crawl4ai_crawler),
         "graphiti": Mock(return_value=mock_graphiti),
     }
-    
+
     # Execute with mocks
-    success, error_msg = await execute_sample_main(
-        service_dir, filename, mocks
-    )
-    
+    success, error_msg = await execute_sample_main(service_dir, filename, mocks)
+
     assert success, (
         f"Failed to execute {service_dir}/{filename}: {error_msg}. "
         "Check that the main() function is properly defined and dependencies are mocked."

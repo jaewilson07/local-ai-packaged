@@ -40,10 +40,16 @@ class GoogleAuth:
         # Try to get credentials from various sources
         self.credentials_json = credentials_json or os.getenv("GDOC_CLIENT")
         self.token_json = token_json or os.getenv("GDOC_TOKEN")
-        
+
         # Try common env var names for client_id and client_secret
-        self.client_id = client_id or os.getenv("GOOGLE_CLIENT_ID") or os.getenv("CLIENT_ID_GOOGLE_LOGIN")
-        self.client_secret = client_secret or os.getenv("GOOGLE_CLIENT_SECRET") or os.getenv("CLIENT_SECRET_GOOGLE_LOGIN")
+        self.client_id = (
+            client_id or os.getenv("GOOGLE_CLIENT_ID") or os.getenv("CLIENT_ID_GOOGLE_LOGIN")
+        )
+        self.client_secret = (
+            client_secret
+            or os.getenv("GOOGLE_CLIENT_SECRET")
+            or os.getenv("CLIENT_SECRET_GOOGLE_LOGIN")
+        )
 
         # If we have JSON format, use that
         if self.credentials_json and self.token_json:
@@ -83,7 +89,7 @@ class GoogleAuth:
         try:
             # Try to load existing token from env var
             token_json = self.token_json or os.getenv("GDOC_TOKEN")
-            
+
             if token_json:
                 # We have a token, use it
                 token_data = json.loads(token_json)
@@ -95,10 +101,10 @@ class GoogleAuth:
                     client_secret=self.client_secret,
                     scopes=self.SCOPES,
                 )
-                
+
                 if creds.expired and creds.refresh_token:
                     creds.refresh(Request())
-                
+
                 return creds
             else:
                 # No token yet - user needs to authenticate

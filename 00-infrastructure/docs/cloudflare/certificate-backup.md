@@ -118,4 +118,3 @@ But for most use cases, the tunnel token is sufficient and simpler.
 - [Infisical Usage Guide](../../docs/infisical/usage.md)
 - [Cloudflare Setup Guide](./setup.md)
 - [Infisical Setup Guide](../../docs/infisical/setup.md)
-

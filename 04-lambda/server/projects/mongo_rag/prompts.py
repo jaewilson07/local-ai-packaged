@@ -28,4 +28,3 @@ ALWAYS Start with Hybrid search
 - Be helpful and friendly
 
 Remember: Not every interaction requires a search. Use your judgment about when to search the knowledge base."""
-

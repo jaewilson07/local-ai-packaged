@@ -1,26 +1,29 @@
 """Immich API client."""
 
-import aiohttp
-from typing import Optional
 from datetime import datetime
+
+import aiohttp
+
 from bot.config import config
 
 
 class ImmichClient:
     """Client for Immich API operations."""
 
-    def __init__(self, base_url: str = None, api_key: str = None):
+    def __init__(self, base_url: str | None = None, api_key: str | None = None):
         self.base_url = (base_url or config.IMMICH_SERVER_URL).rstrip("/")
         self.api_key = api_key or config.IMMICH_API_KEY
         self.headers = {"x-api-key": self.api_key}
 
     async def upload_asset(
-        self, file_data: bytes, filename: str, description: Optional[str] = None
+        self, file_data: bytes, filename: str, description: str | None = None
     ) -> dict:
         """Upload asset to Immich."""
         url = f"{self.base_url}/api/asset/upload"
         data = aiohttp.FormData()
-        data.add_field("assetData", file_data, filename=filename, content_type="application/octet-stream")
+        data.add_field(
+            "assetData", file_data, filename=filename, content_type="application/octet-stream"
+        )
         if description:
             data.add_field("description", description)
 
@@ -41,13 +44,11 @@ class ImmichClient:
                 # Filter by name (case-insensitive partial match)
                 name_lower = name.lower()
                 filtered = [
-                    person
-                    for person in people
-                    if name_lower in person.get("name", "").lower()
+                    person for person in people if name_lower in person.get("name", "").lower()
                 ]
                 return filtered[:10]  # Limit to 10 results
 
-    async def get_person_thumbnail(self, person_id: str) -> Optional[str]:
+    async def get_person_thumbnail(self, person_id: str) -> str | None:
         """Get thumbnail URL for a person."""
         url = f"{self.base_url}/api/person/{person_id}/thumbnail"
         return f"{url}?x-api-key={self.api_key}"
@@ -77,7 +78,7 @@ class ImmichClient:
                 # Response is paginated, return items
                 return result.get("items", [])
 
-    async def get_asset_thumbnail(self, asset_id: str) -> Optional[str]:
+    async def get_asset_thumbnail(self, asset_id: str) -> str | None:
         """Get thumbnail URL for an asset."""
         url = f"{self.base_url}/api/asset/{asset_id}/thumbnail"
         return f"{url}?x-api-key={self.api_key}"

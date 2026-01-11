@@ -184,4 +184,3 @@ If you see CORS errors in the console, the Content-Security-Policy in Caddy may 
 
 - Open WebUI GitHub Issues: https://github.com/open-webui/open-webui/issues
 - Open WebUI Discussions: https://github.com/open-webui/open-webui/discussions
-

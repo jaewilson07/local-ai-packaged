@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import List
 from datetime import datetime
-from pydantic_ai import Agent
-from pydantic import BaseModel, Field
 
-from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
+
 from server.config import settings
-from .models import Entity, EntityType, Relationship, RelationType, EntityExtractionResult
+
 from .base import EntityExtractor
+from .models import Entity, EntityExtractionResult, EntityType, Relationship, RelationType
 
 
 class LLMEntity(BaseModel):
@@ -36,8 +37,8 @@ class LLMRelationship(BaseModel):
 class LLMExtraction(BaseModel):
     """Overall structured extraction from LLM."""
 
-    entities: List[LLMEntity] = Field(default_factory=list)
-    relationships: List[LLMRelationship] = Field(default_factory=list)
+    entities: list[LLMEntity] = Field(default_factory=list)
+    relationships: list[LLMRelationship] = Field(default_factory=list)
 
 
 class LLMExtractor(EntityExtractor):
@@ -47,7 +48,7 @@ class LLMExtractor(EntityExtractor):
         # Create LLM model from settings
         provider = OpenAIProvider(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
         model = OpenAIModel(settings.llm_model, provider=provider)
-        
+
         self._agent = Agent(
             model,
             result_type=LLMExtraction,
@@ -97,7 +98,7 @@ class LLMExtractor(EntityExtractor):
             extractor_type="llm",
         )
 
-    def get_supported_types(self) -> List[EntityType]:
+    def get_supported_types(self) -> list[EntityType]:
         # LLM can detect all supported types
         return list(EntityType)
 

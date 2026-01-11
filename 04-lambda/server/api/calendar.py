@@ -1,18 +1,21 @@
 """Calendar project REST API."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Annotated, AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from server.projects.auth.dependencies import get_current_user
+from server.projects.auth.models import User
+from server.projects.calendar.dependencies import CalendarDeps
 from server.projects.calendar.models import (
-    CreateCalendarEventRequest,
-    UpdateCalendarEventRequest,
-    DeleteCalendarEventRequest,
-    ListCalendarEventsRequest,
     CalendarEventResponse,
     CalendarEventsListResponse,
+    CreateCalendarEventRequest,
+    DeleteCalendarEventRequest,
+    UpdateCalendarEventRequest,
 )
-from server.projects.calendar.dependencies import CalendarDeps
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -31,21 +34,20 @@ async def get_calendar_deps() -> AsyncGenerator[CalendarDeps, None]:
 
 @router.post("/create", response_model=CalendarEventResponse)
 async def create_calendar_event_endpoint(
-    request: CreateCalendarEventRequest,
-    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
+    request: CreateCalendarEventRequest, deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Create a new calendar event in Google Calendar.
-    
+
     This endpoint creates a new event in Google Calendar and tracks the sync state
     to prevent duplicates. The event is stored with a unique local_event_id that
     can be used for future updates or deletions.
-    
+
     **Use Cases:**
     - Create calendar events from extracted data
     - Schedule events automatically
     - Sync events from other systems
-    
+
     **Request Body:**
     ```json
     {
@@ -62,7 +64,7 @@ async def create_calendar_event_endpoint(
         "calendar_id": "primary"
     }
     ```
-    
+
     **Response:**
     ```json
     {
@@ -79,7 +81,7 @@ async def create_calendar_event_endpoint(
     ```
     """
     sync_service = deps.get_sync_service()
-    
+
     event_data_dict = request.event_data.dict()
     result = await sync_service.sync_event_to_google_calendar(
         user_id=request.user_id,
@@ -88,7 +90,7 @@ async def create_calendar_event_endpoint(
         event_data=event_data_dict,
         calendar_id=request.calendar_id,
     )
-    
+
     return CalendarEventResponse(
         success=result.get("success", False),
         gcal_event_id=result.get("gcal_event_id"),
@@ -104,20 +106,19 @@ async def create_calendar_event_endpoint(
 
 @router.post("/update", response_model=CalendarEventResponse)
 async def update_calendar_event_endpoint(
-    request: UpdateCalendarEventRequest,
-    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
+    request: UpdateCalendarEventRequest, deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Update an existing calendar event in Google Calendar.
-    
+
     This endpoint updates an existing event in Google Calendar. The event is identified
     by the local_event_id and gcal_event_id. Only provided fields will be updated.
-    
+
     **Use Cases:**
     - Update event details (time, location, description)
     - Modify event attendees
     - Change event title or description
-    
+
     **Request Body:**
     ```json
     {
@@ -136,42 +137,42 @@ async def update_calendar_event_endpoint(
     ```
     """
     sync_service = deps.get_sync_service()
-    
+
     # Get existing event to merge with updates
     sync_state = await sync_service.get_sync_status(
         request.user_id, request.persona_id, request.local_event_id
     )
-    
+
     if not sync_state:
         raise HTTPException(
             status_code=404,
-            detail=f"Event {request.local_event_id} not found in sync state. Create the event first."
+            detail=f"Event {request.local_event_id} not found in sync state. Create the event first.",
         )
-    
+
     gcal_event_id = sync_state.get("gcal_event_id")
     if not gcal_event_id:
         raise HTTPException(
             status_code=404,
-            detail=f"Google Calendar event ID not found for {request.local_event_id}. The event may not have been synced yet."
+            detail=f"Google Calendar event ID not found for {request.local_event_id}. The event may not have been synced yet.",
         )
-    
+
     event_data_dict = request.event_data.dict()
-    result = await sync_service.update_event(
+    updated_event = await sync_service.update_event(
+        event_id=gcal_event_id,
+        event_data=event_data_dict,
+        calendar_id=request.calendar_id,
         user_id=request.user_id,
         persona_id=request.persona_id,
         local_event_id=request.local_event_id,
-        gcal_event_id=gcal_event_id,
-        event_data=event_data_dict,
-        calendar_id=request.calendar_id,
     )
-    
+
     return CalendarEventResponse(
-        success=result.get("success", False),
-        gcal_event_id=result.get("gcal_event_id"),
-        sync_status=result.get("sync_status"),
-        message=result.get("message", ""),
-        action="updated" if result.get("success") else None,
-        html_link=result.get("html_link"),
+        success=True,
+        gcal_event_id=updated_event.get("id", gcal_event_id),
+        sync_status="synced",
+        message="Event updated successfully",
+        action="updated",
+        html_link=updated_event.get("htmlLink"),
         event_summary=event_data_dict.get("summary"),
         event_start=event_data_dict.get("start"),
         event_end=event_data_dict.get("end"),
@@ -180,20 +181,19 @@ async def update_calendar_event_endpoint(
 
 @router.post("/delete", response_model=CalendarEventResponse)
 async def delete_calendar_event_endpoint(
-    request: DeleteCalendarEventRequest,
-    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
+    request: DeleteCalendarEventRequest, deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Delete a calendar event from Google Calendar.
-    
+
     This endpoint deletes an event from Google Calendar. The event is identified
     by the Google Calendar event ID.
-    
+
     **Use Cases:**
     - Cancel scheduled events
     - Remove events that are no longer needed
     - Clean up duplicate events
-    
+
     **Request Body:**
     ```json
     {
@@ -204,13 +204,17 @@ async def delete_calendar_event_endpoint(
     ```
     """
     sync_service = deps.get_sync_service()
-    
-    success = await sync_service.delete_event(
-        user_id=request.user_id,
-        event_id=request.event_id,
-        calendar_id=request.calendar_id,
-    )
-    
+
+    try:
+        await sync_service.delete_event(
+            event_id=request.event_id,
+            calendar_id=request.calendar_id,
+        )
+        success = True
+    except Exception as e:
+        logger.exception(f"Failed to delete event: {e}")
+        success = False
+
     return CalendarEventResponse(
         success=success,
         gcal_event_id=request.event_id,
@@ -227,26 +231,26 @@ async def list_calendar_events_endpoint(
     calendar_id: str = "primary",
     start_time: str | None = None,
     end_time: str | None = None,
-    timezone: str = "America/Los_Angeles"
+    timezone: str = "America/Los_Angeles",
 ):
     """
     List calendar events from Google Calendar.
-    
+
     This endpoint retrieves a list of events from Google Calendar within a specified
     time range. If no time range is provided, it defaults to the next 30 days.
-    
+
     **Use Cases:**
     - View upcoming events
     - Check calendar availability
     - List events in a specific time range
-    
+
     **Query Parameters:**
     - `user_id` (required): User ID
     - `calendar_id` (optional, default: "primary"): Google Calendar ID
     - `start_time` (optional): Start time in ISO format
     - `end_time` (optional): End time in ISO format
     - `timezone` (optional, default: "America/Los_Angeles"): Timezone string
-    
+
     **Response:**
     ```json
     {
@@ -267,17 +271,81 @@ async def list_calendar_events_endpoint(
     ```
     """
     sync_service = deps.get_sync_service()
-    
+
+    # Parse time strings to datetime objects if provided
+    from datetime import datetime
+
+    time_min = None
+    time_max = None
+    if start_time:
+        try:
+            time_min = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        except Exception:
+            time_min = datetime.fromisoformat(start_time)
+    if end_time:
+        try:
+            time_max = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        except Exception:
+            time_max = datetime.fromisoformat(end_time)
+
     events = await sync_service.list_events(
-        user_id=user_id,
+        time_min=time_min,
+        time_max=time_max,
+        max_results=100,  # Default max results
         calendar_id=calendar_id,
-        start_time=start_time,
-        end_time=end_time,
-        timezone=timezone,
     )
-    
+
     return CalendarEventsListResponse(
         success=True,
         events=events,
         count=len(events),
     )
+
+
+@router.get("/count")
+async def count_calendar_events_endpoint(
+    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],
+    user: User = Depends(get_current_user),
+    calendar_id: str | None = Query(None, description="Filter by calendar ID"),
+    persona_id: str | None = Query(None, description="Filter by persona ID"),
+):
+    """
+    Get count of synced calendar events for the authenticated user.
+
+    This endpoint returns the total number of synced calendar events and a breakdown
+    by calendar ID. The user_id is automatically extracted from the authenticated user.
+
+    **Use Cases:**
+    - Check how many events are synced across all calendars
+    - Get event counts per calendar
+    - Monitor sync status
+
+    **Query Parameters:**
+    - `calendar_id` (optional): Filter by specific calendar ID
+    - `persona_id` (optional): Filter by specific persona ID
+
+    **Response:**
+    ```json
+    {
+        "total_events": 42,
+        "events_by_calendar": {
+            "primary": 30,
+            "work@group.calendar.google.com": 12
+        },
+        "calendars_count": 2
+    }
+    ```
+
+    **Authentication:**
+    - Requires Cloudflare Access JWT in `Cf-Access-Jwt-Assertion` header
+    - Automatically filters by authenticated user's ID
+    """
+    sync_service = deps.get_sync_service()
+
+    result = await sync_service.get_synced_events_count(
+        user_id=str(user.id),
+        persona_id=persona_id,
+        calendar_id=calendar_id,
+    )
+
+    return result

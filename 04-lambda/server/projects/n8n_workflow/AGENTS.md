@@ -39,29 +39,29 @@ graph TB
         REST[ REST API<br/>/api/v1/n8n/* ]
         MCP[ MCP Tools<br/>create_workflow, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ n8n_workflow_agent<br/>Pydantic AI Agent ]
         TOOLS[ N8n Tools<br/>CRUD, discovery, RAG search ]
     end
-    
+
     subgraph "RAG Integration"
         RAGSEARCH[ search_n8n_knowledge_base<br/>Knowledge Base Search ]
         NODEEXAMPLES[ search_n8n_node_examples<br/>Node Examples ]
         RAG[ MongoDB RAG<br/>Knowledge Base ]
     end
-    
+
     subgraph "N8n Operations"
         DISCOVER[ discover_n8n_nodes<br/>Node Discovery ]
         CRUD[ Workflow CRUD<br/>Create, Update, Delete ]
         EXEC[ execute_workflow<br/>Workflow Execution ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ N8nWorkflowDeps<br/>HTTP Client ]
         N8N[ N8n API<br/>n8n:5678 ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -76,7 +76,7 @@ graph TB
     CRUD --> DEPS
     EXEC --> DEPS
     DEPS --> N8N
-    
+
     style AGENT fill:#e1f5ff
     style RAGSEARCH fill:#fff4e1
     style CRUD fill:#e1ffe1
@@ -97,31 +97,31 @@ sequenceDiagram
     participant RAG as MongoDB RAG
     participant N8n as N8n API
     participant Create as create_workflow
-    
+
     Client->>Agent: Create workflow (name, description)
     Agent->>Tool: create_workflow(name, description)
-    
+
     Tool->>RAGSearch: Search knowledge base for workflow patterns
     RAGSearch->>RAG: Semantic search
     RAG-->>RAGSearch: Relevant documentation/examples
     RAGSearch-->>Tool: Knowledge base results
-    
+
     Tool->>Discover: Discover available nodes
     Discover->>N8n: GET /nodes
     N8n-->>Discover: Available node types
     Discover-->>Tool: Node list
-    
+
     Tool->>NodeExamples: Search for node configuration examples
     NodeExamples->>RAG: Search for specific node examples
     RAG-->>NodeExamples: Node configuration examples
     NodeExamples-->>Tool: Examples
-    
+
     Tool->>Tool: Design workflow using RAG knowledge + node examples
     Tool->>Create: Create workflow with nodes and connections
     Create->>N8n: POST /workflows
     N8n-->>Create: Workflow created
     Create-->>Tool: Workflow result
-    
+
     Tool-->>Agent: Workflow created with RAG-informed design
     Agent-->>Client: Workflow creation response
 ```
@@ -156,10 +156,10 @@ n8n_workflow/
   # In tools.py
   # Step 1: Search knowledge base
   rag_results = await search_n8n_knowledge_base(deps, query, match_count=5)
-  
+
   # Step 2: Discover nodes
   available_nodes = await discover_n8n_nodes(deps, category=None)
-  
+
   # Step 3: Create workflow with RAG-informed design
   workflow = await create_workflow(deps, name, nodes, connections)
   ```
@@ -187,13 +187,13 @@ n8n_workflow/
       f"{deps.api_url}/workflows",
       json={"name": name, "nodes": nodes, "connections": connections}
   )
-  
+
   # Update
   response = await deps.http_client.put(
       f"{deps.api_url}/workflows/{workflow_id}",
       json={"name": name, "nodes": nodes}
   )
-  
+
   # Delete
   response = await deps.http_client.delete(
       f"{deps.api_url}/workflows/{workflow_id}"
@@ -224,7 +224,7 @@ async def create_n8n_workflow_tool(
     try:
         # Search knowledge base first
         rag_results = await search_n8n_knowledge_base(deps, name, match_count=5)
-        
+
         # Create workflow
         workflow = await create_workflow(deps, name, nodes, connections)
         return f"Workflow created: {workflow.get('id')}"
@@ -243,7 +243,7 @@ async def search_n8n_knowledge_base(
     # Use MongoDB RAG project's search
     from server.projects.mongo_rag.tools import hybrid_search
     from server.projects.mongo_rag.dependencies import AgentDependencies
-    
+
     rag_deps = AgentDependencies()
     await rag_deps.initialize()
     try:
@@ -252,7 +252,7 @@ async def search_n8n_knowledge_base(
             def __init__(self, deps):
                 self.deps = deps
         wrapper = DepsWrapper(rag_deps)
-        
+
         results = await hybrid_search(
             ctx=wrapper,
             query=query,

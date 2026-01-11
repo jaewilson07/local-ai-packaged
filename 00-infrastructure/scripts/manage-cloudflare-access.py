@@ -11,9 +11,9 @@ COMPREHENSIVE DOCUMENTATION: MANAGING ACCESS TO APPS
 
 OVERVIEW
 --------
-When you have multiple applications exposed through Cloudflare Tunnel (ComfyUI, 
-N8N, Open WebUI, etc.), managing access policies individually becomes tedious 
-and error-prone. This script helps you create and manage unified access policies 
+When you have multiple applications exposed through Cloudflare Tunnel (ComfyUI,
+N8N, Open WebUI, etc.), managing access policies individually becomes tedious
+and error-prone. This script helps you create and manage unified access policies
 that can be shared across all applications.
 
 THE PROBLEM
@@ -25,7 +25,7 @@ THE PROBLEM
 
 THE SOLUTION: REUSABLE POLICIES
 -------------------------------
-Cloudflare Access supports reusable policies that can be shared across multiple 
+Cloudflare Access supports reusable policies that can be shared across multiple
 applications. Benefits:
 - ✅ Consistency: All applications use the same access rules
 - ✅ Centralized Management: Update once, applies everywhere
@@ -106,7 +106,7 @@ Via API Script:
 python3 cloudflare_manage_unified_access_for_services.py --apply-all
 ```
 
-Note: The API has limitations for adding reusable policies. You may need to 
+Note: The API has limitations for adding reusable policies. You may need to
 add them via the dashboard.
 
 Step 4: Verify Configuration
@@ -142,7 +142,7 @@ When you add a new application to your tunnel:
    - Under Access, select YourApp
    - Save
 
-That's it! The new application now uses the same access rules as all your 
+That's it! The new application now uses the same access rules as all your
 other applications.
 
 UPDATING ACCESS RULES
@@ -190,7 +190,7 @@ To protect datacrew.space and all its subdomains:
    - For catch-all route, set Access to "Datacrew Wildcard Access"
    - For root domain route, set Access to "Datacrew Root Access"
 
-Precedence: Specific applications (like comfyui.datacrew.space) take precedence 
+Precedence: Specific applications (like comfyui.datacrew.space) take precedence
 over wildcard applications, which is the desired behavior.
 
 GOOGLE OAUTH SETUP
@@ -295,7 +295,7 @@ The script uses these Cloudflare API endpoints:
 - Create Policy: POST /accounts/{account_id}/access/apps/{app_id}/policies
 - Update Policy: PUT /accounts/{account_id}/access/apps/{app_id}/policies/{policy_id}
 
-For more details, see: 
+For more details, see:
 https://developers.cloudflare.com/api/operations/access-policies-list-access-policies
 
 RELATED SCRIPTS
@@ -307,13 +307,13 @@ RELATED SCRIPTS
 ================================================================================
 """
 
-import requests
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import requests
 from dotenv import load_dotenv
-from typing import Dict, List, Optional
 
 # Load .env from project root
 script_dir = Path(__file__).parent
@@ -327,7 +327,8 @@ ACCOUNT_ID = "7552371386451b222f527fa794562a37"
 STANDARD_POLICY_NAME = "Standard Access Policy"
 STANDARD_POLICY_DESCRIPTION = "Unified access policy for all tunnel applications"
 
-def get_infisical_secrets() -> Dict[str, str]:
+
+def get_infisical_secrets() -> dict[str, str]:
     """Get secrets from Infisical using CLI."""
     secrets_dict = {}
     try:
@@ -339,22 +340,23 @@ def get_infisical_secrets() -> Dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
-                if '=' in line:
-                    key, value = line.split('=', 1)
+                if "=" in line:
+                    key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip()
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    elif value.startswith("'") and value.endswith("'"):
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
                         value = value[1:-1]
                     secrets_dict[key] = value
     except Exception:
         pass
     return secrets_dict
+
 
 def get_env_var(key: str, default: str = "") -> str:
     """Get environment variable from Infisical first, then .env file."""
@@ -363,18 +365,24 @@ def get_env_var(key: str, default: str = "") -> str:
         return infisical_secrets[key]
     return os.getenv(key, default)
 
+
 def get_auth_headers():
     """Get authentication headers for Cloudflare API."""
     API_TOKEN = get_env_var("CLOUDFLARE_API_TOKEN", "")
     CLOUDFLARE_EMAIL = get_env_var("CLOUDFLARE_EMAIL", "")
     CLOUDFLARE_API_KEY = get_env_var("CLOUDFLARE_API_KEY", "")
-    
+
     if API_TOKEN and API_TOKEN.strip():
         return {
             "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json",
         }
-    elif CLOUDFLARE_EMAIL and CLOUDFLARE_EMAIL.strip() and CLOUDFLARE_API_KEY and CLOUDFLARE_API_KEY.strip():
+    elif (
+        CLOUDFLARE_EMAIL
+        and CLOUDFLARE_EMAIL.strip()
+        and CLOUDFLARE_API_KEY
+        and CLOUDFLARE_API_KEY.strip()
+    ):
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
@@ -383,34 +391,36 @@ def get_auth_headers():
     else:
         raise ValueError("Either API token or email+API key must be provided")
 
+
 def get_all_applications(headers, account_id):
     """Get all Access applications."""
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps"
     response = requests.get(url, headers=headers, timeout=30)
-    
+
     if response.status_code != 200:
         print(f"[ERROR] Failed to get applications: HTTP {response.status_code}")
         return []
-    
+
     data = response.json()
     if not data.get("success"):
         print(f"[ERROR] API error: {data.get('errors', [{}])[0].get('message', 'Unknown')}")
         return []
-    
+
     return data.get("result", [])
+
 
 def get_reusable_policies(headers, account_id):
     """Get all reusable policies."""
     # Reusable policies are stored at account level, not app level
     # We need to get them from any app that uses them
     apps = get_all_applications(headers, account_id)
-    
+
     all_policies = {}
     for app in apps:
         app_id = app.get("id")
         url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps/{app_id}/policies"
         response = requests.get(url, headers=headers, timeout=30)
-        
+
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
@@ -420,80 +430,83 @@ def get_reusable_policies(headers, account_id):
                         policy_id = policy.get("id")
                         if policy_id not in all_policies:
                             all_policies[policy_id] = policy
-    
+
     return list(all_policies.values())
+
 
 def create_or_get_standard_reusable_policy(headers, account_id):
     """Create or get the standard reusable policy."""
     # Get existing reusable policies
     reusable_policies = get_reusable_policies(headers, account_id)
-    
+
     # Check if standard policy already exists
     for policy in reusable_policies:
         if policy.get("name") == STANDARD_POLICY_NAME:
             print(f"[SKIP] Standard reusable policy already exists: {STANDARD_POLICY_NAME}")
             return policy.get("id")
-    
+
     # Get configuration from environment
     ALLOWED_EMAILS_STR = get_env_var("CLOUDFLARE_ACCESS_EMAILS", "")
     ALLOWED_EMAILS = ALLOWED_EMAILS_STR.split(",") if ALLOWED_EMAILS_STR else []
     ALLOWED_EMAIL_DOMAIN = get_env_var("CLOUDFLARE_ACCESS_EMAIL_DOMAIN", "")
     GOOGLE_IDP_ID = get_env_var("GOOGLE_IDP_ID", "")
-    
+
     # Build include rules
     include_rules = []
-    
+
     if ALLOWED_EMAILS and ALLOWED_EMAILS[0]:
         for email in ALLOWED_EMAILS:
             email = email.strip()
             if email:
-                include_rules.append({
-                    "email": {"email": email}
-                })
-    
+                include_rules.append({"email": {"email": email}})
+
     if ALLOWED_EMAIL_DOMAIN:
-        include_rules.append({
-            "email_domain": {"domain": ALLOWED_EMAIL_DOMAIN}
-        })
-    
+        include_rules.append({"email_domain": {"domain": ALLOWED_EMAIL_DOMAIN}})
+
     if not include_rules:
         print("[WARNING] No access rules specified. Using 'everyone' rule (Email OTP).")
         include_rules.append({"everyone": {}})
-    
+
     # Create policy data
     policy_data = {
         "name": STANDARD_POLICY_NAME,
         "decision": "allow",
         "include": include_rules,
-        "reusable": True  # Make it reusable
+        "reusable": True,  # Make it reusable
     }
-    
+
     # Add Google OAuth if configured
     if GOOGLE_IDP_ID:
         policy_data["identity_provider_selectors"] = [GOOGLE_IDP_ID]
-    
+
     # Create policy on first application (reusable policies are account-level)
     apps = get_all_applications(headers, account_id)
     if not apps:
         print("[ERROR] No applications found. Create at least one application first.")
         return None
-    
+
     # Use first app to create reusable policy
     app_id = apps[0].get("id")
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps/{app_id}/policies"
-    
+    url = (
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps/{app_id}/policies"
+    )
+
     try:
         response = requests.post(url, headers=headers, json=policy_data, timeout=30)
         if response.status_code in [200, 201]:
             result = response.json()
             if result.get("success"):
                 policy_id = result["result"]["id"]
-                print(f"[OK] Created standard reusable policy: {STANDARD_POLICY_NAME} (ID: {policy_id})")
+                print(
+                    f"[OK] Created standard reusable policy: {STANDARD_POLICY_NAME} (ID: {policy_id})"
+                )
                 return policy_id
             else:
                 errors = result.get("errors", [])
                 if errors:
-                    print(f"[ERROR] Failed to create policy: {errors[0].get('message', 'Unknown error')}")
+                    print(
+                        f"[ERROR] Failed to create policy: {errors[0].get('message', 'Unknown error')}"
+                    )
                 return None
         else:
             print(f"[ERROR] Failed to create policy: HTTP {response.status_code}")
@@ -503,43 +516,44 @@ def create_or_get_standard_reusable_policy(headers, account_id):
         print(f"[ERROR] Exception creating policy: {e}")
         return None
 
+
 def apply_standard_policy_to_all_apps(headers, account_id, policy_id):
     """Apply the standard reusable policy to all applications."""
     apps = get_all_applications(headers, account_id)
-    
+
     if not apps:
         print("[WARNING] No applications found")
         return
-    
+
     print(f"\n[INFO] Applying standard policy to {len(apps)} application(s)...")
-    
+
     for app in apps:
         app_id = app.get("id")
         app_name = app.get("name")
         app_domain = app.get("domain")
-        
+
         # Get current policies
         url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps/{app_id}/policies"
         response = requests.get(url, headers=headers, timeout=30)
-        
+
         if response.status_code != 200:
             print(f"   ⚠️  {app_name} ({app_domain}): Could not get policies")
             continue
-        
+
         data = response.json()
         if not data.get("success"):
             print(f"   ⚠️  {app_name} ({app_domain}): API error")
             continue
-        
+
         policies = data.get("result", [])
-        
+
         # Check if standard policy is already applied
         has_standard_policy = False
         for policy in policies:
             if policy.get("id") == policy_id:
                 has_standard_policy = True
                 break
-        
+
         if has_standard_policy:
             print(f"   ✅ {app_name} ({app_domain}): Already has standard policy")
         else:
@@ -549,45 +563,46 @@ def apply_standard_policy_to_all_apps(headers, account_id, policy_id):
             # However, Cloudflare API doesn't support "adding" a reusable policy directly
             # We need to create a new policy that references the reusable one, or
             # update the app's allowed_idps to match
-            
+
             # For now, we'll just verify the policy exists and provide instructions
             print(f"   ⚠️  {app_name} ({app_domain}): Standard policy not applied")
-            print(f"      Note: Reusable policies must be added via dashboard:")
-            print(f"      1. Go to: https://one.dash.cloudflare.com/")
+            print("      Note: Reusable policies must be added via dashboard:")
+            print("      1. Go to: https://one.dash.cloudflare.com/")
             print(f"      2. Access → Applications → {app_name}")
             print(f"      3. Edit policies → Add '{STANDARD_POLICY_NAME}'")
-            print(f"      4. Save")
+            print("      4. Save")
+
 
 def list_all_applications_and_policies(headers, account_id):
     """List all applications and their policies."""
     apps = get_all_applications(headers, account_id)
-    
+
     if not apps:
         print("[INFO] No applications found")
         return
-    
+
     print(f"\n[INFO] Found {len(apps)} application(s):\n")
-    
+
     for app in apps:
         app_id = app.get("id")
         app_name = app.get("name")
         app_domain = app.get("domain")
-        
+
         print(f"Application: {app_name}")
         print(f"  Domain: {app_domain}")
         print(f"  ID: {app_id}")
-        
+
         # Get policies
         url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps/{app_id}/policies"
         response = requests.get(url, headers=headers, timeout=30)
-        
+
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
                 policies = data.get("result", [])
                 reusable = [p for p in policies if p.get("reusable")]
                 non_reusable = [p for p in policies if not p.get("reusable")]
-                
+
                 print(f"  Policies ({len(policies)} total):")
                 if reusable:
                     print(f"    Reusable ({len(reusable)}):")
@@ -599,63 +614,74 @@ def list_all_applications_and_policies(headers, account_id):
                         print(f"      - {p.get('name')} ({p.get('decision')})")
         print()
 
+
 def main():
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Manage unified access policies across Cloudflare Tunnel applications")
-    parser.add_argument("--create-policy", action="store_true", help="Create standard reusable policy")
-    parser.add_argument("--apply-all", action="store_true", help="Apply standard policy to all applications")
-    parser.add_argument("--list", action="store_true", help="List all applications and their policies")
-    parser.add_argument("--policy-name", default=STANDARD_POLICY_NAME, help="Name of the standard policy")
-    
+
+    parser = argparse.ArgumentParser(
+        description="Manage unified access policies across Cloudflare Tunnel applications"
+    )
+    parser.add_argument(
+        "--create-policy", action="store_true", help="Create standard reusable policy"
+    )
+    parser.add_argument(
+        "--apply-all", action="store_true", help="Apply standard policy to all applications"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List all applications and their policies"
+    )
+    parser.add_argument(
+        "--policy-name", default=STANDARD_POLICY_NAME, help="Name of the standard policy"
+    )
+
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("Cloudflare Unified Access Policy Manager")
     print("=" * 60)
     print()
-    
+
     try:
         headers = get_auth_headers()
     except ValueError as e:
         print(f"[ERROR] {e}")
         sys.exit(1)
-    
+
     if args.list or (not args.create_policy and not args.apply_all):
         list_all_applications_and_policies(headers, ACCOUNT_ID)
-    
+
     if args.create_policy:
         print("\n[INFO] Creating standard reusable policy...")
         policy_id = create_or_get_standard_reusable_policy(headers, ACCOUNT_ID)
-        
+
         if policy_id:
             print(f"\n[OK] Standard policy ID: {policy_id}")
             print("\nTo apply this policy to all applications:")
             print("  1. Run: python3 manage_unified_access.py --apply-all")
             print("  2. Or manually add it in the Cloudflare dashboard")
-    
+
     if args.apply_all:
         print("\n[INFO] Applying standard policy to all applications...")
         reusable_policies = get_reusable_policies(headers, ACCOUNT_ID)
-        
+
         standard_policy = None
         for policy in reusable_policies:
             if policy.get("name") == STANDARD_POLICY_NAME:
                 standard_policy = policy
                 break
-        
+
         if not standard_policy:
             print(f"[ERROR] Standard policy '{STANDARD_POLICY_NAME}' not found")
             print("   Create it first: python3 manage_unified_access.py --create-policy")
             sys.exit(1)
-        
+
         policy_id = standard_policy.get("id")
         apply_standard_policy_to_all_apps(headers, ACCOUNT_ID, policy_id)
-    
+
     print("\n" + "=" * 60)
     print("Complete")
     print("=" * 60)
 
+
 if __name__ == "__main__":
     main()
-

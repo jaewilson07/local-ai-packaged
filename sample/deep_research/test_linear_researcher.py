@@ -4,8 +4,8 @@ This script tests the end-to-end flow of the Linear Researcher agent.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Set minimal environment variables before imports
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017/test")
@@ -17,36 +17,36 @@ os.environ.setdefault("EMBEDDING_API_KEY", "test-key")
 os.environ.setdefault("SEARXNG_URL", "http://localhost:8081")
 
 # Add the lambda directory to the path
-lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../04-lambda'))
+lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../04-lambda"))
 sys.path.insert(0, lambda_dir)
 
 
 async def test_linear_researcher():
     """Test the Linear Researcher agent."""
     from server.projects.deep_research.workflow import run_linear_research
-    
+
     print("=" * 80)
     print("Testing Linear Researcher Agent (Phase 3)")
     print("=" * 80)
     print()
-    
+
     # Test query
     query = "Who is the CEO of Anthropic?"
     print(f"Query: {query}")
     print()
-    
+
     try:
         # Run the agent
         print("Running agent...")
         result = await run_linear_research(query)
-        
+
         # Display results
         print()
         print("=" * 80)
         print("Results")
         print("=" * 80)
         print()
-        print(f"Answer:")
+        print("Answer:")
         print(result.data.answer)
         print()
         print(f"Sources ({len(result.data.sources)}):")
@@ -57,7 +57,7 @@ async def test_linear_researcher():
         print()
         print(f"Session ID: {result.data.session_id}")
         print()
-        
+
         # Check if answer is reasonable
         if len(result.data.answer) > 50:
             print("✅ Test passed: Agent produced a substantial answer")
@@ -65,10 +65,11 @@ async def test_linear_researcher():
         else:
             print("⚠️  Warning: Answer seems too short")
             return False
-            
+
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

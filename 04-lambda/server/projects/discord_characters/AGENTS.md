@@ -40,30 +40,30 @@ graph TB
         MSG[ Message Handler<br/>Mention Detection ]
         ENG[ Engagement Task<br/>Random Engagement ]
     end
-    
+
     subgraph "API Layer"
         REST[ REST API<br/>/api/v1/discord/characters/* ]
         MCP[ MCP Tools<br/>add_discord_character, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ discord_characters_agent<br/>Pydantic AI Agent ]
     end
-    
+
     subgraph "Service Layer"
         MANAGER[ DiscordCharacterManager<br/>Channel Management ]
         STORE[ DiscordCharacterStore<br/>MongoDB Storage ]
     end
-    
+
     subgraph "Integration"
         PERSONA[ Persona Service<br/>Character Definitions ]
         CONV[ Conversation Service<br/>Response Generation ]
     end
-    
+
     subgraph "Data Storage"
         MONGO[ MongoDB<br/>Channel Characters<br/>Conversation History ]
     end
-    
+
     BOT --> REST
     CMD --> REST
     MSG --> REST
@@ -77,7 +77,7 @@ graph TB
     AGENT --> CONV
     PERSONA --> MONGO
     CONV --> MONGO
-    
+
     style AGENT fill:#e1f5ff
     style MANAGER fill:#fff4e1
     style STORE fill:#e1ffe1
@@ -98,7 +98,7 @@ sequenceDiagram
     participant Persona as Persona Service
     participant Conv as Conversation Service
     participant MongoDB
-    
+
     User->>Discord: @CharacterName, message
     Discord->>Bot: Message event
     Bot->>API: POST /chat (channel_id, character_id, message)

@@ -5,8 +5,8 @@ This tests the implementation directly to validate it works.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Set minimal environment variables before imports
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017/test")
@@ -18,12 +18,12 @@ os.environ.setdefault("EMBEDDING_API_KEY", "test-key")
 os.environ.setdefault("SEARXNG_URL", "http://searxng:8080")
 
 # Add the lambda directory to the path
-lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../04-lambda'))
+lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../04-lambda"))
 sys.path.insert(0, lambda_dir)
 
-from server.projects.deep_research.tools import search_web
-from server.projects.deep_research.models import SearchWebRequest
 from server.projects.deep_research.dependencies import DeepResearchDeps
+from server.projects.deep_research.models import SearchWebRequest
+from server.projects.deep_research.tools import search_web
 
 
 async def test_search():
@@ -32,31 +32,28 @@ async def test_search():
     print("Direct Test: search_web for 'blues muse'")
     print("=" * 80)
     print()
-    
+
     # Initialize dependencies
     print("Initializing dependencies...")
     deps = DeepResearchDeps.from_settings()
     await deps.initialize()
-    
+
     try:
         # Create request
-        request = SearchWebRequest(
-            query="blues muse",
-            result_count=5
-        )
-        
+        request = SearchWebRequest(query="blues muse", result_count=5)
+
         # Call search_web
         print(f"Searching for: '{request.query}'...")
         result = await search_web(deps, request)
-        
+
         # Display results
         print()
-        print(f"✓ Search completed!")
+        print("✓ Search completed!")
         print(f"  Success: {result.success}")
         print(f"  Count: {result.count}")
         print(f"  Query: {result.query}")
         print()
-        
+
         if result.results:
             print("Results:")
             for i, res in enumerate(result.results[:3], 1):
@@ -66,9 +63,9 @@ async def test_search():
                 print()
         else:
             print("  No results returned")
-        
+
         return result.success and result.count > 0
-        
+
     finally:
         await deps.cleanup()
 

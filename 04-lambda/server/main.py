@@ -1,9 +1,9 @@
 """FastAPI application for Lambda multi-project server."""
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
 import logging
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from server.config import settings
 from server.core.logging import setup_logging
@@ -13,44 +13,48 @@ setup_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
 # Setup FastMCP server first (needed for lifespan)
-from server.mcp.fastmcp_server import mcp
 from contextlib import asynccontextmanager
+
+from server.mcp.fastmcp_server import mcp
 
 # Create ASGI app from MCP server
 # Mount at "/mcp" with path='/' gives endpoint at /mcp/
-mcp_app = mcp.http_app(path='/')
+mcp_app = mcp.http_app(path="/")
+
 
 # Combine MCP lifespan with our startup/shutdown logic
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("lambda_server_started", extra={"version": "1.0.0"})
-    
+
     # Generate MCP server modules for code execution
     try:
         from pathlib import Path
+
         from server.mcp.codegen import generate_all_servers
-        
+
         servers_dir = Path(__file__).parent / "mcp" / "servers"
         generate_all_servers(servers_dir)
         logger.info("mcp_code_generation_complete", extra={"servers_dir": str(servers_dir)})
     except Exception as e:
         logger.exception(f"mcp_code_generation_failed: {e}")
         # Don't fail startup if code generation fails
-    
+
     # Run MCP lifespan startup
     async with mcp_app.lifespan(app):
         yield
-    
+
     # Shutdown
     logger.info("lambda_server_shutdown")
+
 
 # Create FastAPI app with combined lifespan
 app = FastAPI(
     title="Lambda Server",
     description="Multi-project FastAPI server with MCP and REST APIs",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -62,7 +66,24 @@ app.add_middleware(
 )
 
 # Import and include routers
-from server.api import health, auth, mongo_rag, crawl4ai_rag, graphiti_rag, n8n_workflow, openwebui_export, openwebui_topics, searxng, calendar_sync, calendar, knowledge, persona, conversation, mcp_rest, data_view
+from server.api import (
+    auth,
+    calendar,
+    calendar_sync,
+    conversation,
+    crawl4ai_rag,
+    data_view,
+    graphiti_rag,
+    health,
+    knowledge,
+    mcp_rest,
+    mongo_rag,
+    n8n_workflow,
+    openwebui_export,
+    openwebui_topics,
+    persona,
+    searxng,
+)
 from server.projects.blob_storage.router import router as blob_storage_router
 from server.projects.comfyui_workflow.router import router as comfyui_workflow_router
 from server.projects.discord_characters.api import router as discord_characters_router
@@ -87,6 +108,7 @@ app.include_router(discord_characters_router, prefix="/api/v1", tags=["discord-c
 app.include_router(data_view.router, prefix="/api/v1/data", tags=["data-view"])
 app.include_router(mcp_rest.router)  # REST API wrapper for MCP tools
 
+
 # Add a simple GET endpoint for MCP server info (for testing/debugging)
 # Note: This must be defined BEFORE mounting /mcp to avoid route conflicts
 @app.get("/mcp-info")
@@ -95,35 +117,34 @@ async def mcp_info():
     try:
         # Get registered tools from FastMCP via tool_manager._tools
         registered_tools = []
-        if hasattr(mcp, '_tool_manager'):
+        if hasattr(mcp, "_tool_manager"):
             tool_manager = mcp._tool_manager
             # Access _tools directly (it's a dict of tool_name -> FunctionTool)
-            if hasattr(tool_manager, '_tools') and tool_manager._tools:
+            if hasattr(tool_manager, "_tools") and tool_manager._tools:
                 for tool_name, tool in tool_manager._tools.items():
-                    desc = 'No description'
-                    if hasattr(tool, 'description') and tool.description:
-                        desc = str(tool.description).split('\n')[0].strip()
-                    registered_tools.append({
-                        "name": tool_name,
-                        "description": desc
-                    })
-        
+                    desc = "No description"
+                    if hasattr(tool, "description") and tool.description:
+                        desc = str(tool.description).split("\n")[0].strip()
+                    registered_tools.append({"name": tool_name, "description": desc})
+
         return {
-            "server": getattr(mcp, 'name', 'Lambda Server'),
+            "server": getattr(mcp, "name", "Lambda Server"),
             "endpoint": "/mcp",
             "protocol": "SSE (Server-Sent Events) - Use MCP client, not browser",
             "note": "The /mcp endpoint uses Server-Sent Events (SSE) for MCP protocol communication. Use an MCP client (like Cursor) to connect, not a web browser. Visit http://localhost:8000/docs for API documentation.",
             "available_tools_count": len(registered_tools),
-            "tools": registered_tools[:50]  # Show first 50 tools
+            "tools": registered_tools[:50],  # Show first 50 tools
         }
     except Exception as e:
         import traceback
+
         return {
             "error": str(e),
             "traceback": traceback.format_exc(),
             "server": "Lambda Server",
-            "endpoint": "/mcp"
+            "endpoint": "/mcp",
         }
+
 
 # Add OpenAPI endpoint for MCP tools (for Open WebUI compatibility)
 # Note: This must be defined BEFORE mounting /mcp to avoid route conflicts
@@ -131,45 +152,42 @@ async def mcp_info():
 async def mcp_openapi():
     """
     Generate OpenAPI 3.0 specification from FastMCP tools.
-    
+
     This endpoint allows Open WebUI and other OpenAPI-compatible clients
     to discover and use MCP tools via standard OpenAPI specification.
     """
+
     from fastapi.responses import JSONResponse
-    import json
-    
+
     try:
         # Get tools from FastMCP
         tools = []
-        if hasattr(mcp, '_tool_manager'):
+        if hasattr(mcp, "_tool_manager"):
             tool_manager = mcp._tool_manager
-            if hasattr(tool_manager, '_tools') and tool_manager._tools:
+            if hasattr(tool_manager, "_tools") and tool_manager._tools:
                 for tool_name, tool in tool_manager._tools.items():
                     # Get tool description
                     description = ""
-                    if hasattr(tool, 'description') and tool.description:
-                        description = str(tool.description).split('\n')[0].strip()
-                    
+                    if hasattr(tool, "description") and tool.description:
+                        description = str(tool.description).split("\n")[0].strip()
+
                     # Get input schema
-                    input_schema = {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                    
+                    input_schema = {"type": "object", "properties": {}, "required": []}
+
                     # Try to extract schema from tool
-                    if hasattr(tool, 'inputSchema'):
+                    if hasattr(tool, "inputSchema"):
                         input_schema = tool.inputSchema
-                    elif hasattr(tool, 'parameters'):
+                    elif hasattr(tool, "parameters"):
                         input_schema = tool.parameters
-                    elif hasattr(tool, 'func'):
+                    elif hasattr(tool, "func"):
                         # Try to get schema from function signature
                         import inspect
+
                         sig = inspect.signature(tool.func)
                         properties = {}
                         required = []
                         for param_name, param in sig.parameters.items():
-                            if param_name == 'self':
+                            if param_name == "self":
                                 continue
                             param_type = "string"  # Default
                             if param.annotation != inspect.Parameter.empty:
@@ -181,45 +199,35 @@ async def mcp_openapi():
                                     param_type = "boolean"
                                 elif param.annotation == float:
                                     param_type = "number"
-                                elif param.annotation == list or param.annotation == List:
+                                elif param.annotation in (list, List):
                                     param_type = "array"
-                                elif param.annotation == dict or param.annotation == Dict:
+                                elif param.annotation in (dict, Dict):
                                     param_type = "object"
-                            
-                            properties[param_name] = {
-                                "type": param_type,
-                                "description": ""
-                            }
-                            
+
+                            properties[param_name] = {"type": param_type, "description": ""}
+
                             if param.default == inspect.Parameter.empty:
                                 required.append(param_name)
-                        
+
                         input_schema = {
                             "type": "object",
                             "properties": properties,
-                            "required": required
+                            "required": required,
                         }
-                    
-                    tools.append({
-                        "name": tool_name,
-                        "description": description,
-                        "inputSchema": input_schema
-                    })
-        
+
+                    tools.append(
+                        {"name": tool_name, "description": description, "inputSchema": input_schema}
+                    )
+
         # Generate OpenAPI 3.0 spec
         openapi_spec = {
             "openapi": "3.0.0",
             "info": {
                 "title": "Lambda MCP Server",
                 "description": "Model Context Protocol server with REST API wrapper",
-                "version": "1.0.0"
+                "version": "1.0.0",
             },
-            "servers": [
-                {
-                    "url": "/api/v1/mcp",
-                    "description": "MCP REST API"
-                }
-            ],
+            "servers": [{"url": "/api/v1/mcp", "description": "MCP REST API"}],
             "paths": {
                 "/tools/call": {
                     "post": {
@@ -235,18 +243,18 @@ async def mcp_openapi():
                                         "properties": {
                                             "name": {
                                                 "type": "string",
-                                                "description": "Name of the MCP tool to call"
+                                                "description": "Name of the MCP tool to call",
                                             },
                                             "arguments": {
                                                 "type": "object",
                                                 "description": "Tool arguments",
-                                                "additionalProperties": True
-                                            }
+                                                "additionalProperties": True,
+                                            },
                                         },
-                                        "required": ["name"]
+                                        "required": ["name"],
                                     }
                                 }
-                            }
+                            },
                         },
                         "responses": {
                             "200": {
@@ -258,13 +266,13 @@ async def mcp_openapi():
                                             "properties": {
                                                 "success": {"type": "boolean"},
                                                 "result": {"type": "object"},
-                                                "error": {"type": "string"}
-                                            }
+                                                "error": {"type": "string"},
+                                            },
                                         }
                                     }
-                                }
+                                },
                             }
-                        }
+                        },
                     }
                 },
                 "/tools/list": {
@@ -287,19 +295,19 @@ async def mcp_openapi():
                                                         "properties": {
                                                             "name": {"type": "string"},
                                                             "description": {"type": "string"},
-                                                            "inputSchema": {"type": "object"}
-                                                        }
-                                                    }
+                                                            "inputSchema": {"type": "object"},
+                                                        },
+                                                    },
                                                 },
-                                                "count": {"type": "integer"}
-                                            }
+                                                "count": {"type": "integer"},
+                                            },
                                         }
                                     }
-                                }
+                                },
                             }
-                        }
+                        },
                     }
-                }
+                },
             },
             "components": {
                 "schemas": {
@@ -308,13 +316,13 @@ async def mcp_openapi():
                         "properties": {
                             "name": {"type": "string"},
                             "description": {"type": "string"},
-                            "inputSchema": {"type": "object"}
-                        }
+                            "inputSchema": {"type": "object"},
+                        },
                     }
                 }
-            }
+            },
         }
-        
+
         # Add individual tool endpoints to OpenAPI spec
         for tool in tools:
             tool_path = f"/tools/{tool['name']}"
@@ -325,39 +333,30 @@ async def mcp_openapi():
                     "operationId": f"call_{tool['name']}",
                     "requestBody": {
                         "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": tool["inputSchema"]
-                            }
-                        }
+                        "content": {"application/json": {"schema": tool["inputSchema"]}},
                     },
                     "responses": {
                         "200": {
                             "description": "Tool execution result",
                             "content": {
                                 "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "additionalProperties": True
-                                    }
+                                    "schema": {"type": "object", "additionalProperties": True}
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
             }
-        
+
         return JSONResponse(content=openapi_spec)
     except Exception as e:
         logger.exception(f"Error generating OpenAPI spec: {e}")
         import traceback
+
         return JSONResponse(
-            status_code=500,
-            content={
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            status_code=500, content={"error": str(e), "traceback": traceback.format_exc()}
         )
+
 
 # Mount FastMCP server AFTER defining other routes
 # Mount at "/mcp" with path='/' gives endpoint at /mcp/
@@ -367,9 +366,4 @@ app.mount("/mcp", mcp_app)
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {
-        "service": "Lambda Server",
-        "version": "1.0.0",
-        "status": "running"
-    }
-
+    return {"service": "Lambda Server", "version": "1.0.0", "status": "running"}

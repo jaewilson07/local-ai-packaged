@@ -1,28 +1,27 @@
 """Action tool for tracking conversation context and mode."""
 
-from typing import Any, Dict, Optional
+from typing import Any
+
 import openai
 
+from server.projects.persona.config import config
 from server.projects.persona.models import ConversationContext
 from server.projects.persona.protocols import PersonaStore
-from server.projects.persona.config import config
 
 
 def analyze_conversation_context(
-    user_message: str,
-    bot_response: str,
-    llm_client: Optional[openai.AsyncOpenAI] = None
+    user_message: str, bot_response: str, llm_client: openai.AsyncOpenAI | None = None
 ) -> ConversationContext:
     """
     Analyze conversation context and determine mode.
-    
+
     Uses LLM to analyze conversation depth, topic, and emotional tone.
-    
+
     Args:
         user_message: User's message
         bot_response: Bot's response
         llm_client: Optional OpenAI client
-    
+
     Returns:
         Conversation context
     """
@@ -46,28 +45,30 @@ Example: deep_empathy|relationships|4"""
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
             )
-            
+
             result = response.choices[0].message.content or "balanced||3"
             parts = result.split("|")
             mode = parts[0].strip() if len(parts) > 0 else "balanced"
             topic = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
             depth = int(parts[2].strip()) if len(parts) > 2 else 3
             depth = max(1, min(5, depth))  # Clamp to 1-5
-            
+
             return ConversationContext(
                 mode=mode,
                 topic=topic,
                 depth_level=depth,
             )
-        except Exception as e:
+        except Exception:
             # Fall back to simple analysis
             pass
-    
+
     # Simplified context analysis (fallback)
     message_lower = (user_message + " " + bot_response).lower()
-    
+
     # Determine conversation mode
-    if any(word in message_lower for word in ["feel", "emotion", "sad", "happy", "anxious", "worried"]):
+    if any(
+        word in message_lower for word in ["feel", "emotion", "sad", "happy", "anxious", "worried"]
+    ):
         mode = "deep_empathy"
         depth = 4
     elif any(word in message_lower for word in ["story", "remember", "happened", "experience"]):
@@ -91,7 +92,7 @@ Example: deep_empathy|relationships|4"""
         "work": ["job", "work", "career", "office"],
         "hobbies": ["hobby", "interest", "fun", "activity"],
     }
-    
+
     for topic_name, keywords in topic_keywords.items():
         if any(keyword in message_lower for keyword in keywords):
             topic = topic_name
@@ -110,11 +111,11 @@ async def track_context_action(
     user_message: str,
     bot_response: str,
     persona_store: PersonaStore,
-    llm_client: Optional[openai.AsyncOpenAI] = None
-) -> Dict[str, Any]:
+    llm_client: openai.AsyncOpenAI | None = None,
+) -> dict[str, Any]:
     """
     Track conversation context based on interaction.
-    
+
     Args:
         user_id: User identifier
         persona_id: Persona identifier
@@ -122,11 +123,11 @@ async def track_context_action(
         bot_response: Bot's response
         persona_store: Persona store
         llm_client: Optional OpenAI client
-    
+
     Returns:
         Dict with updated conversation context
     """
     context = analyze_conversation_context(user_message, bot_response, llm_client)
     persona_store.update_conversation_context(user_id, persona_id, context)
-    
+
     return {"context": context.model_dump()}

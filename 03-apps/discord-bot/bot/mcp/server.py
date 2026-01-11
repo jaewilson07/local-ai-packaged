@@ -6,7 +6,7 @@ Discord servers.
 """
 
 import logging
-from typing import Optional
+
 import discord
 from fastmcp import FastMCP
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("Discord Bot")
 
 # Global Discord client (set by main.py)
-_discord_client: Optional[discord.Client] = None
+_discord_client: discord.Client | None = None
 
 
 def set_discord_client(client: discord.Client) -> None:

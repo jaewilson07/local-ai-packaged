@@ -125,7 +125,7 @@ class ResearchState(BaseModel):
     outline: List[str]
     vectors: List[ResearchVector]
     # The "Ledger" of all verified facts available for writing
-    knowledge_graph_session_id: str 
+    knowledge_graph_session_id: str
     final_report: Optional[str] = None
 ```
 
@@ -253,7 +253,7 @@ Registered three tools in `fastmcp_server.py`:
 ### Success Criteria / Test
 
 - ✅ Ingest a URL about "blues muse" (see sample script)
-- ✅ Call `query_knowledge("What is blues muse?")` 
+- ✅ Call `query_knowledge("What is blues muse?")`
 - ✅ Result returns exact text chunks with `source_url` and similarity scores
 - ✅ Sample script demonstrates full flow: Search → Fetch → Parse → Ingest → Query
 - ⚠️ End-to-end testing blocked by server startup issue (build dependencies)

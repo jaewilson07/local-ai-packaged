@@ -19,3 +19,20 @@
 - See `AGENTS.md` for detailed project structure and conventions
 - Stack-based Docker Compose architecture
 - Monorepo with numbered stacks (00-infrastructure, 01-data, etc.)
+
+## Exception Handling
+
+- **NEVER use naked exceptions** (bare `except:` clauses). Always catch specific exception types.
+- **Use the structured exception layer** informed by service and capability:
+  - Base exception: `BaseProjectException` from `server.core.exceptions`
+  - Service-specific exceptions: `MongoDBException`, `LLMException`, `ConfigurationException`, etc.
+  - Domain-specific exceptions: `ValidationException`, `NotFoundException`
+- **When to create new exception types**:
+  - Create service-specific exceptions (e.g., `SupabaseException`, `Neo4jException`) that inherit from `BaseProjectException`
+  - Create capability-specific exceptions (e.g., `WorkflowException`, `RAGException`) for domain logic
+  - Include relevant context (operation, resource, model, etc.) in exception initialization
+- **Exception handling pattern**:
+  - Use `@handle_project_errors()` decorator for API endpoints (see `server.core.error_handling`)
+  - Catch specific exceptions, not generic `Exception` unless absolutely necessary
+  - Always log exceptions with context before re-raising or converting to HTTP responses
+  - Use `except Exception as e:` only as a final catch-all with proper logging, never as the primary handler

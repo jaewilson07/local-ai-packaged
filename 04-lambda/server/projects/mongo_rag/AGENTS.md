@@ -17,6 +17,8 @@ The MongoDB RAG project provides a comprehensive Retrieval-Augmented Generation 
 - **Code Example Extraction**: Agentic RAG for extracting and searching code examples from documentation
 - **Flexible Search Modes**: Semantic-only, text-only, or hybrid search strategies
 - **Multi-Format Support**: PDF, Word, PowerPoint, Excel, HTML, Markdown, and Audio (via Docling)
+- **Row-Level Security (RLS)**: User-based access control with document ownership, public sharing, direct sharing, and group-based sharing
+- **User-Based Authentication**: MongoDB user provisioning with RBAC roles for secure multi-tenant access
 
 **Use Cases:**
 - Document Q&A: Ask questions over ingested documentation and get cited answers
@@ -43,18 +45,18 @@ graph TB
         REST[ REST API<br/>/api/v1/rag/* ]
         MCP[ MCP Tools<br/>search_knowledge_base, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ rag_agent<br/>Pydantic AI Agent ]
         TOOLS[ Agent Tools<br/>search, enhanced_search, memory ops ]
     end
-    
+
     subgraph "Search Layer"
         HYBRID[ hybrid_search<br/>Semantic + Text RRF ]
         SEMANTIC[ semantic_search<br/>Vector Search ]
         TEXT[ text_search<br/>Keyword Search ]
     end
-    
+
     subgraph "Enhanced RAG Nodes"
         DECOMPOSE[ decompose_query<br/>Query Decomposition ]
         GRADE[ grade_documents<br/>Relevance Filtering ]
@@ -62,22 +64,22 @@ graph TB
         CITATIONS[ extract_citations<br/>Citation Extraction ]
         REWRITE[ rewrite_query<br/>Query Rewriting ]
     end
-    
+
     subgraph "Memory Layer"
         MEMORY[ MemoryTools<br/>Interface ]
         STORE[ MongoMemoryStore<br/>Implementation ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ AgentDependencies<br/>MongoDB, OpenAI Client ]
         MONGO[ MongoDB<br/>Vector Store ]
         NEO4J[ Neo4j<br/>Knowledge Graph ]
     end
-    
+
     subgraph "External Services"
         OLLAMA[ Ollama<br/>LLM & Embeddings ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -97,7 +99,7 @@ graph TB
     DEPS --> NEO4J
     DEPS --> OLLAMA
     STORE --> MONGO
-    
+
     style AGENT fill:#e1f5ff
     style HYBRID fill:#fff4e1
     style DECOMPOSE fill:#fff4e1
@@ -121,14 +123,14 @@ sequenceDiagram
     participant Citations as extract_citations
     participant Deps as AgentDependencies
     participant MongoDB
-    
+
     Client->>Agent: Complex multi-part query
     Agent->>Enhanced: enhanced_search(query, use_decomposition=true)
     Enhanced->>Decompose: decompose_query(query)
     Decompose->>Deps: Call LLM for decomposition
     Deps-->>Decompose: Sub-queries list
     Decompose-->>Enhanced: [sub_query1, sub_query2, ...]
-    
+
     loop For each sub-query
         Enhanced->>Search: hybrid_search(sub_query)
         Search->>Deps: Get embedding, search MongoDB
@@ -137,20 +139,20 @@ sequenceDiagram
         Deps-->>Search: Results
         Search-->>Enhanced: Results for sub-query
     end
-    
+
     Enhanced->>Grade: grade_documents(all_results)
     Grade->>Deps: Call LLM for relevance scoring
     Deps-->>Grade: Graded results
     Grade-->>Enhanced: Filtered results
-    
+
     Enhanced->>Synthesize: synthesize_results(graded_results)
     Synthesize->>Deps: Call LLM for synthesis
     Deps-->>Synthesize: Synthesized answer
     Synthesize-->>Enhanced: Final answer
-    
+
     Enhanced->>Citations: extract_citations(results)
     Citations-->>Enhanced: Citation metadata
-    
+
     Enhanced-->>Agent: Answer with citations
     Agent-->>Client: Final response
 ```
@@ -163,12 +165,12 @@ sequenceDiagram
     participant MemoryTools
     participant Store as MongoMemoryStore
     participant MongoDB
-    
+
     Agent->>MemoryTools: record_message(user_id, persona_id, content)
     MemoryTools->>Store: add_message(message)
     Store->>MongoDB: Insert message document
     MongoDB-->>Store: Success
-    
+
     Agent->>MemoryTools: get_recent_messages(user_id, persona_id, limit=20)
     MemoryTools->>Store: get_recent_messages(...)
     Store->>MongoDB: Query with sort & limit
@@ -279,7 +281,7 @@ async def search_knowledge_base(
             def __init__(self, deps):
                 self.deps = deps
         wrapper = DepsWrapper(deps)
-        
+
         results = await hybrid_search(ctx=wrapper, query=query, match_count=match_count)
         # Format results...
     finally:
@@ -399,6 +401,54 @@ curl -X POST http://lambda-server:8000/api/v1/rag/memory/record \
 - `ingestion/pipeline.py`: Document conversion and ingestion pipeline
 - `ingestion/chunker.py`: Docling HybridChunker wrapper
 - See MongoDB-RAG-Agent for reference implementation patterns
+
+## Row-Level Security (RLS) & User-Based Authentication
+
+**Overview:**
+MongoDB RAG implements Row-Level Security (RLS) for multi-tenant data isolation. Documents are filtered based on user ownership, public sharing, direct sharing, and group-based sharing. This ensures users only see documents they have access to.
+
+**RLS Filter Logic:**
+- **Own Documents**: Users can access documents where `user_id` or `user_email` matches
+- **Public Documents**: Users can access documents where `is_public = true`
+- **Shared Documents**: Users can access documents where their `user_id` or `email` is in `shared_with` array
+- **Group Documents**: Users can access documents where any of their `user_groups` matches `group_ids` array
+- **Admin Bypass**: Admin users (`is_admin = true`) bypass all filtering and see all documents
+
+**Implementation:**
+- **RLS Filter Builder**: `rls.py` - `build_access_filter()` creates MongoDB query filters
+- **Document Access Check**: `can_access_document()` for application-level validation
+- **Sharing Management**: `add_sharing_to_document()` and `remove_sharing_from_document()` for managing access
+- **Search Integration**: All search functions (`semantic_search`, `text_search`, `hybrid_search`) automatically apply RLS filters
+- **Document Ingestion**: Pipeline automatically sets `user_id` and `user_email` on ingested documents
+
+**MongoDB User Provisioning:**
+- **JIT Provisioning**: Users are automatically provisioned in MongoDB on first authentication
+- **RBAC Roles**: Each user gets a `rag_user` role with read/write access to RAG collections
+- **Service**: `server/projects/auth/services/mongodb_service.py` handles user creation and management
+- **Credentials Storage**: MongoDB username/password stored in Supabase `profiles` table
+
+**User Context in Dependencies:**
+```python
+deps = AgentDependencies.from_settings(
+    user_id="user-uuid",
+    user_email="user@example.com",
+    is_admin=False,
+    user_groups=["team-alpha"]
+)
+```
+
+**Constraints:**
+- RLS filtering is applied at the application level (not database-level like PostgreSQL RLS)
+- MongoDB RBAC provides connection-level security, but document-level access is enforced via query filters
+- Sharing fields (`is_public`, `shared_with`, `group_ids`) must be set on documents for sharing to work
+- Admin users bypass all RLS filtering (empty filter = see all documents)
+- User-based MongoDB connections require credentials stored in Supabase (not yet fully implemented in all scenarios)
+
+**Testing:**
+- Unit tests: `tests/test_mongo_rag/test_rls.py` - RLS filter builder functions
+- Integration tests: `tests/test_mongo_rag/test_search_rls.py` - Search with RLS filtering
+- Provisioning tests: `tests/test_mongo_rag/test_mongodb_provisioning.py` - User provisioning
+- Samples: `sample/mongo_rag/rls_sharing_example.py` and `sample/mongo_rag/user_auth_example.py`
 
 ## Configuration
 

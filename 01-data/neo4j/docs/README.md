@@ -126,4 +126,3 @@ User → Cloudflare Access (Google OAuth) → Neo4j Browser UI → Neo4j Native 
 - [Neo4j Operations Manual](https://neo4j.com/docs/operations-manual/current/)
 - [Neo4j Python Driver](https://neo4j.com/docs/python-manual/current/)
 - [Cloudflare Access Documentation](https://developers.cloudflare.com/cloudflare-one/policies/access/)
-

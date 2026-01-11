@@ -157,19 +157,57 @@ Returns the current user's profile.
 }
 ```
 
-#### `GET /test/my-data`
+#### `GET /api/me/data`
 
-Test endpoint to verify Supabase data isolation. Returns HTML table showing user's items.
+Get summary of data across all services the user has access to.
 
-- Regular users see only their own items
-- Admin users see all items
+**Response:**
+```json
+{
+  "rag": {
+    "mongodb_documents": 150,
+    "mongodb_chunks": 1200,
+    "mongodb_sources": 25,
+    "supabase_items": 50,
+    "supabase_workflows": 10,
+    "total_data_points": 1435
+  },
+  "immich": {
+    "total_photos": 0,
+    "total_videos": 0,
+    "total_albums": 0,
+    "total_size_bytes": 0,
+    "message": "Immich API integration not yet implemented"
+  },
+  "loras": {
+    "total_models": 5,
+    "total_size_bytes": 52428800,
+    "models": [...]
+  }
+}
+```
 
-#### `GET /test/my-images`
+#### `GET /api/me/data/rag`
 
-Test endpoint to verify MinIO data isolation. Returns HTML gallery showing user's images.
+Get RAG data summary across MongoDB and Supabase.
 
-- Regular users see only their own images
-- Admin users see all images
+- Returns document counts, chunk counts, and source information
+- Regular users see only their own data
+- Admin users see all data
+
+#### `GET /api/me/data/immich`
+
+Get Immich data summary (placeholder - API integration pending).
+
+- Returns photo/video counts and storage information
+
+#### `GET /api/me/data/loras`
+
+Get LoRA models summary.
+
+- Returns count and metadata for all LoRA models
+- Regular users see only their own models
+- Admin users see all models
 
 ## JIT Provisioning
 
@@ -261,10 +299,12 @@ server/projects/auth/
 
 3. **Test data isolation**: Create test data for different users and verify isolation
 
-### Test Endpoints
+### Data Summary Endpoints
 
-- `/test/my-data`: Verify Supabase isolation
-- `/test/my-images`: Verify MinIO isolation
+- `/api/me/data`: Get complete data summary across all services
+- `/api/me/data/rag`: Get RAG data summary (MongoDB + Supabase)
+- `/api/me/data/immich`: Get Immich data summary (placeholder)
+- `/api/me/data/loras`: Get LoRA models summary
 
 ## Troubleshooting
 

@@ -19,7 +19,6 @@ Prerequisites:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add server to path so we can import from the project
@@ -27,15 +26,15 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-from pydantic_ai import RunContext
+import logging
+
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
 from server.projects.graphiti_rag.tools import parse_github_repository
-import logging
+from server.projects.shared.context_helpers import create_run_context
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,10 @@ async def main():
     """Parse a GitHub repository into Neo4j knowledge graph."""
     # Example repository (you can change this to any public GitHub repo)
     repo_url = "https://github.com/pydantic/pydantic-ai.git"
-    
-    print("="*80)
+
+    print("=" * 80)
     print("Graphiti RAG - Repository Parsing Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example parses a GitHub repository into Neo4j knowledge graph.")
     print("The parser extracts:")
@@ -61,29 +60,26 @@ async def main():
     print()
     print(f"Repository: {repo_url}")
     print()
-    
+
     # Initialize dependencies
     deps = GraphitiRAGDeps.from_settings()
     await deps.initialize()
-    
+
     try:
-        # Create run context
-        ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        
+        # Create run context for tools
+        ctx = create_run_context(deps)
+
         # Parse repository
         print("🚀 Starting repository parsing...")
         logger.info(f"Parsing repository: {repo_url}")
-        
-        result = await parse_github_repository(
-            ctx=ctx,
-            repo_url=repo_url
-        )
-        
+
+        result = await parse_github_repository(ctx=ctx, repo_url=repo_url)
+
         # Display results
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PARSING RESULTS")
-        print("="*80)
-        
+        print("=" * 80)
+
         if result.get("success"):
             print("✅ Repository parsed successfully!")
             print(f"   Repository: {result.get('repo_url')}")
@@ -96,16 +92,16 @@ async def main():
         else:
             print("❌ Repository parsing failed!")
             print(f"   Error: {result.get('message', 'Unknown error')}")
-            if result.get('error'):
+            if result.get("error"):
                 print(f"   Details: {result['error']}")
-        
-        print("="*80)
-        
+
+        print("=" * 80)
+
     except ValueError as e:
         # Handle validation errors (e.g., missing .git suffix)
         print(f"\n❌ Validation error: {e}")
         print("\nNote: Repository URL must end with .git")
-        print(f"      Example: https://github.com/user/repo.git")
+        print("      Example: https://github.com/user/repo.git")
         sys.exit(1)
     except Exception as e:
         logger.exception(f"❌ Error during repository parsing: {e}")

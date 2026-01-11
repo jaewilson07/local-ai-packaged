@@ -136,7 +136,7 @@ async def admin_endpoint(
    ```python
    # In main.py, uncomment and add:
    from server.projects.auth.middleware import AuthMiddleware
-   
+
    app.add_middleware(
        AuthMiddleware,
        exclude_paths=["/health", "/docs", "/openapi.json", "/mcp", "/mcp-info", "/"]

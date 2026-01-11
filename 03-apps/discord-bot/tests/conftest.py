@@ -1,14 +1,11 @@
 """Shared pytest fixtures for Discord bot tests."""
 
 import os
-import sys
-from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
-from typing import List, Dict
+from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
 import discord
+import pytest
 from discord import app_commands
 
 # Set minimal environment variables before any imports
@@ -119,7 +116,7 @@ def mock_immich_response():
 def mock_immich_client(mock_immich_response):
     """Mock ImmichClient with aiohttp responses."""
     client = ImmichClient(base_url="http://test-immich:2283", api_key="test-key")
-    
+
     # Mock aiohttp ClientSession
     mock_session = AsyncMock()
     mock_context = AsyncMock()
@@ -128,8 +125,8 @@ def mock_immich_client(mock_immich_response):
     mock_context.post = AsyncMock(return_value=mock_immich_response)
     mock_context.get = AsyncMock(return_value=mock_immich_response)
     mock_session.return_value = mock_context
-    
-    with patch('aiohttp.ClientSession', return_value=mock_context):
+
+    with patch("aiohttp.ClientSession", return_value=mock_context):
         yield client
 
 
@@ -203,7 +200,7 @@ def sample_video_data():
 def mock_notification_task(mock_discord_client, mock_immich_client, test_database):
     """Mock NotificationTask."""
     from bot.handlers.notification_task import NotificationTask
-    
+
     task = NotificationTask(
         client=mock_discord_client,
         immich_client=mock_immich_client,
@@ -232,10 +229,12 @@ def mock_config(monkeypatch):
     monkeypatch.setenv("BOT_DB_PATH", "/tmp/test_bot.sqlite")
     monkeypatch.setenv("NOTIFICATION_POLL_INTERVAL", "120")
     monkeypatch.setenv("MCP_ENABLED", "false")
-    
+
     # Reload config after env changes
-    from bot import config
     import importlib
+
+    from bot import config
+
     importlib.reload(config)
     yield config
 
@@ -245,15 +244,15 @@ def mock_config(monkeypatch):
 def mock_time(monkeypatch):
     """Mock datetime for time-dependent tests."""
     fixed_time = datetime(2024, 1, 1, 12, 0, 0)
-    
+
     class MockDatetime:
         @staticmethod
         def utcnow():
             return fixed_time
-        
+
         @staticmethod
         def now():
             return fixed_time
-    
+
     monkeypatch.setattr("datetime.datetime", MockDatetime)
     return fixed_time

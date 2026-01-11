@@ -104,7 +104,7 @@ class EventExtractionTool(KnowledgeTool):
     def should_run(self, state, query):
         # Check for trigger keywords and crawled content
         return has_keyword and has_crawled_content
-    
+
     async def execute(self, state):
         # Extract events from crawled content
         events = []
@@ -115,7 +115,7 @@ class EventExtractionTool(KnowledgeTool):
             )
             if event_info:
                 events.append(event_info)
-        
+
         # Store in memory
         for event in events:
             memory.remember_fact(
@@ -124,7 +124,7 @@ class EventExtractionTool(KnowledgeTool):
                 fact=f"Event: {event['title']} at {event['location']} on {event['date']}",
                 tags=["event", "calendar"],
             )
-        
+
         return state
 
 # Event parsing (simplified - use LLM in production)

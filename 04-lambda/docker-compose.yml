@@ -22,36 +22,36 @@ services:
       # Using directConnection for single-node replica set (mongodb-atlas-local uses container ID as replica set name)
       MONGODB_URI: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/?directConnection=true
       MONGODB_DATABASE: ${MONGODB_DATABASE:-rag_db}
-      
+
       # LLM (Ollama by default)
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LLM_MODEL: ${LLM_MODEL:-llama3.2}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
       LLM_API_KEY: ${LLM_API_KEY:-not-needed}
-      
+
       # Embeddings (Ollama by default)
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-ollama}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://ollama:11434/v1}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-not-needed}
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
-      
+
       # Server
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      
+
       # Cloudflare Access Authentication
       CLOUDFLARE_AUTH_DOMAIN: ${CLOUDFLARE_AUTH_DOMAIN:-https://datacrew-space.cloudflareaccess.com}
       CLOUDFLARE_AUD_TAG: ${CLOUDFLARE_AUD_TAG:-e869f0dbb027893e1c9ded98f81e6c85420c574098c895a51f79a1e9930c948c}
-      
+
       # Supabase (for auth and data)
       SUPABASE_DB_URL: ${SUPABASE_DB_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@supabase-db:5432/postgres}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
-      
+
       # MinIO (Supabase Storage)
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://supabase-minio:9020}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-${SUPABASE_MINIO_ROOT_USER:-supa-storage}}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-${SUPABASE_MINIO_ROOT_PASSWORD:-secret1234}}
-      
+
     volumes:
       - ./uploads:/app/uploads
       - ./server:/app/server  # Writable mount (app needs to generate MCP server code)
@@ -64,4 +64,3 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-

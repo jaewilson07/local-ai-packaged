@@ -227,8 +227,3 @@ ComfyUI-Distributed is the **best solution** for using both GPUs simultaneously.
 - ✅ Works out of the box for your setup
 
 **Install it now**: `./setup/install_comfyui_distributed.sh`
-
-
-
-
-

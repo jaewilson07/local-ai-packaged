@@ -35,6 +35,46 @@ Future phases:
 - **Dependencies**: SearXNG (03-apps), Crawl4AI, Docling, MongoDB (01-data), Neo4j (01-data)
 - **Status**: Phase 2 - Memory layer complete
 
+## Testing Status
+
+**Last Updated**: 2025-01-XX (Run tests to update)
+**Test Coverage**: TBD (Run with --coverage to calculate)
+**Total Tests**: TBD
+**Passing**: TBD
+**Failing**: TBD
+**Errors**: TBD
+**Skipped**: TBD
+**Success Rate**: TBD%
+
+### Test Files
+- `test_tools.py`: TBD tests - Status TBD (run tests to update)
+- `test_linear_agent.py`: TBD tests - Status TBD (run tests to update)
+- `test_orchestrator_nodes.py`: TBD tests - Status TBD (run tests to update)
+- `test_storm_workflow.py`: TBD tests - Status TBD (run tests to update)
+- `test_graph_enhanced.py`: TBD tests - Status TBD (run tests to update)
+- `test_state_models.py`: TBD tests - Status TBD (run tests to update)
+
+### Known Issues
+- None (run tests to identify issues)
+
+### Test Execution
+Run tests using:
+```bash
+# Full workflow (recommended)
+bash .cursor/scripts/test_workflow.sh
+
+# Direct test execution
+python .cursor/scripts/run_deep_research_tests.py
+
+# With coverage
+python .cursor/scripts/run_deep_research_tests.py --coverage
+```
+
+### Debugging & Tracking
+- **Scratchpad**: `.cursor/scratchpad.md` - Test run history and notes
+- **Test Results**: `.cursor/test_results/` - JSON reports and issue tracking
+- **Issue Tracker**: `python .cursor/scripts/track_issues.py --list`
+
 ## Architecture & Patterns
 
 ### Phase 1-2 Architecture

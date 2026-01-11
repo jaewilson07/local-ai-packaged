@@ -136,8 +136,3 @@ If you've verified all the above:
 ❌ **Adding API key**: Ollama doesn't need one for local use  
 
 ✅ **Correct**: `http://ollama:11434` with empty API key field
-
-
-
-
-

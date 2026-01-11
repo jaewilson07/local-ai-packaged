@@ -1,20 +1,19 @@
 """Code example search tools for MongoDB RAG Agent."""
 
 import logging
-from typing import Optional, List
-from pydantic_ai import RunContext
+
 from pydantic import BaseModel, Field
+from pydantic_ai import RunContext
 from pymongo.errors import OperationFailure
 
 from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.tools import SearchResult
 
 logger = logging.getLogger(__name__)
 
 
 class CodeExampleResult(BaseModel):
     """Model for code example search results."""
-    
+
     code_example_id: str = Field(..., description="MongoDB ObjectId of code example as string")
     document_id: str = Field(..., description="Parent document ObjectId as string")
     code: str = Field(..., description="Code example content")
@@ -26,34 +25,32 @@ class CodeExampleResult(BaseModel):
 
 
 async def search_code_examples(
-    ctx: RunContext[AgentDependencies],
-    query: str,
-    match_count: Optional[int] = None
-) -> List[CodeExampleResult]:
+    ctx: RunContext[AgentDependencies], query: str, match_count: int | None = None
+) -> list[CodeExampleResult]:
     """
     Search for code examples using MongoDB vector similarity.
-    
+
     Args:
         ctx: Agent runtime context with dependencies
         query: Search query text
         match_count: Number of results to return (default: 10)
-    
+
     Returns:
         List of code example results ordered by similarity
     """
     try:
         deps = ctx.deps
-        
+
         # Use default if not specified
         if match_count is None:
             match_count = deps.settings.default_match_count
-        
+
         # Validate match count
         match_count = min(match_count, deps.settings.max_match_count)
-        
+
         # Generate embedding for query
         query_embedding = await deps.get_embedding(query)
-        
+
         # Build MongoDB aggregation pipeline for code examples
         pipeline = [
             {
@@ -62,7 +59,7 @@ async def search_code_examples(
                     "queryVector": query_embedding,
                     "path": "embedding",
                     "numCandidates": 100,
-                    "limit": match_count
+                    "limit": match_count,
                 }
             },
             {
@@ -70,15 +67,10 @@ async def search_code_examples(
                     "from": deps.settings.mongodb_collection_documents,
                     "localField": "document_id",
                     "foreignField": "_id",
-                    "as": "document_info"
+                    "as": "document_info",
                 }
             },
-            {
-                "$unwind": {
-                    "path": "$document_info",
-                    "preserveNullAndEmptyArrays": True
-                }
-            },
+            {"$unwind": {"path": "$document_info", "preserveNullAndEmptyArrays": True}},
             {
                 "$project": {
                     "code_example_id": "$_id",
@@ -88,45 +80,42 @@ async def search_code_examples(
                     "language": 1,
                     "similarity": {"$meta": "vectorSearchScore"},
                     "metadata": 1,
-                    "source": {"$ifNull": ["$source", "$document_info.source"]}
+                    "source": {"$ifNull": ["$source", "$document_info.source"]},
                 }
-            }
+            },
         ]
-        
+
         # Execute aggregation
         collection = deps.db["code_examples"]
         cursor = await collection.aggregate(pipeline)
         results = [doc async for doc in cursor][:match_count]
-        
+
         # Convert to CodeExampleResult objects
         code_results = [
             CodeExampleResult(
-                code_example_id=str(doc['code_example_id']),
-                document_id=str(doc['document_id']),
-                code=doc['code'],
-                summary=doc.get('summary', ''),
-                language=doc.get('language', ''),
-                similarity=doc['similarity'],
-                metadata=doc.get('metadata', {}),
-                source=doc.get('source', 'Unknown')
+                code_example_id=str(doc["code_example_id"]),
+                document_id=str(doc["document_id"]),
+                code=doc["code"],
+                summary=doc.get("summary", ""),
+                language=doc.get("language", ""),
+                similarity=doc["similarity"],
+                metadata=doc.get("metadata", {}),
+                source=doc.get("source", "Unknown"),
             )
             for doc in results
         ]
-        
+
         logger.info(
             f"code_example_search_completed: query={query}, "
             f"results={len(code_results)}, match_count={match_count}"
         )
-        
+
         return code_results
-        
+
     except OperationFailure as e:
-        error_code = e.code if hasattr(e, 'code') else None
-        logger.error(
-            f"code_example_search_failed: query={query}, error={str(e)}, code={error_code}"
-        )
+        error_code = e.code if hasattr(e, "code") else None
+        logger.exception(f"code_example_search_failed: query={query}, error={e!s}, code={error_code}")
         return []
     except Exception as e:
-        logger.exception(f"code_example_search_error: query={query}, error={str(e)}")
+        logger.exception(f"code_example_search_error: query={query}, error={e!s}")
         return []
-

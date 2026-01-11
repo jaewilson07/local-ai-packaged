@@ -10,12 +10,11 @@ This script manages Infisical services:
 All services use the Docker Compose project name ("localai") and external network ("ai-network").
 """
 
+import argparse
 import os
 import subprocess
 import sys
-import argparse
 import time
-from pathlib import Path
 
 
 def run_command(cmd, cwd=None, check=True):
@@ -48,10 +47,10 @@ def load_env_file(env_path=None):
                 break
         else:
             return {}
-    
+
     env_vars = {}
     if os.path.exists(env_path):
-        with open(env_path, "r", encoding="utf-8") as f:
+        with open(env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -70,19 +69,19 @@ def check_required_env_vars():
         "INFISICAL_AUTH_SECRET",
         "INFISICAL_POSTGRES_PASSWORD",
     ]
-    
+
     missing = []
     for var in required_vars:
         if not env_vars.get(var) and not os.environ.get(var):
             missing.append(var)
-    
+
     if missing:
         print("❌ Error: Missing required environment variables:")
         for var in missing:
             print(f"   - {var}")
         print("\nPlease set these variables in your .env file.")
         return False
-    
+
     return True
 
 
@@ -121,7 +120,7 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
             print(f"Error checking Infisical health: {e}")
 
         if i < max_retries - 1:
-            print(f"Infisical not ready yet, waiting {retry_interval}s... ({i+1}/{max_retries})")
+            print(f"Infisical not ready yet, waiting {retry_interval}s... ({i + 1}/{max_retries})")
             time.sleep(retry_interval)
 
     print("⚠️  Warning: Infisical did not become ready within the expected time.")
@@ -131,24 +130,24 @@ def wait_for_infisical(max_retries=30, retry_interval=2):
 
 def manage_infisical(action="start", environment="private"):
     """Start or stop Infisical services."""
-    
+
     # Use standalone Infisical directory
     infisical_dir = "/home/jaewilson07/GitHub/infisical-standalone"
     compose_file = os.path.join(infisical_dir, "docker-compose.yml")
     override_file = os.path.join(infisical_dir, f"docker-compose.override.{environment}.yml")
-    
+
     if not os.path.exists(compose_file):
         print(f"❌ Error: Docker Compose file not found at {compose_file}")
         print(f"   Please ensure Infisical is set up in {infisical_dir}")
         return False
-    
+
     # Build docker compose command
     cmd = ["docker", "compose", "-p", "infisical"]
     cmd.extend(["-f", compose_file])
-    
+
     if os.path.exists(override_file):
         cmd.extend(["-f", override_file])
-    
+
     # Try to use .env from local-ai-packaged project, or from infisical-standalone
     # Use absolute paths to avoid issues when running from different directories
     current_dir = os.getcwd()
@@ -156,25 +155,25 @@ def manage_infisical(action="start", environment="private"):
         os.path.join(current_dir, ".env"),  # Current directory (local-ai-packaged)
         os.path.join(infisical_dir, ".env"),  # Standalone directory
     ]
-    
+
     env_file_path = None
     for path in env_file_paths:
         if os.path.exists(path):
             env_file_path = os.path.abspath(path)
             break
-    
+
     if env_file_path:
         cmd.extend(["--env-file", env_file_path])
     else:
         print("⚠️  Warning: No .env file found. Using environment variables from shell.")
-    
+
     if action == "stop":
         cmd.append("down")
-        print(f"Stopping Infisical services...")
+        print("Stopping Infisical services...")
     else:
         cmd.extend(["up", "-d"])
-        print(f"Starting Infisical services...")
-    
+        print("Starting Infisical services...")
+
     try:
         # Run from the infisical directory
         run_command(cmd, cwd=infisical_dir)
@@ -197,7 +196,7 @@ Examples:
   python start_infisical.py                    # Start Infisical services
   python start_infisical.py --action stop       # Stop Infisical services
   python start_infisical.py --environment public # Start with public environment overrides
-        """
+        """,
     )
     parser.add_argument(
         "--action",
@@ -217,7 +216,7 @@ Examples:
         help="Skip waiting for Infisical to become ready after starting",
     )
     args = parser.parse_args()
-    
+
     # Stop logic is simpler - just stop services
     if args.action == "stop":
         success = manage_infisical(action="stop", environment=args.environment)
@@ -226,32 +225,32 @@ Examples:
         else:
             sys.exit(1)
         return
-    
+
     # Start logic (includes pre-flight checks)
     print("=" * 70)
     print("Infisical Service Manager")
     print("=" * 70)
     print()
-    
+
     # Check required environment variables
     if not check_required_env_vars():
         sys.exit(1)
-    
+
     print("✓ Required environment variables are set")
     print()
-    
+
     # Start services
     success = manage_infisical(action="start", environment=args.environment)
-    
+
     if not success:
         print("❌ Error: Failed to start Infisical services. Check the error messages above.")
         sys.exit(1)
-    
+
     # Wait for Infisical to be ready
     if not args.skip_wait:
         print()
         wait_for_infisical()
-    
+
     print()
     print("=" * 70)
     print("✓ Infisical services started successfully!")
@@ -273,4 +272,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

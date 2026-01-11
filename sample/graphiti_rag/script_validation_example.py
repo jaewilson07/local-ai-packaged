@@ -19,7 +19,6 @@ Prerequisites:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add server to path so we can import from the project
@@ -27,15 +26,15 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-from pydantic_ai import RunContext
+import logging
+
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
 from server.projects.graphiti_rag.tools import validate_ai_script
-import logging
+from server.projects.shared.context_helpers import create_run_context
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ async def main():
     # Create a test script to validate
     # In practice, this would be an AI-generated script
     test_script_path = Path("test_script_to_validate.py")
-    
+
     # Example script with potential issues
     test_script_content = """# Example AI-generated script
 from pydantic_ai import Agent, RunContext
@@ -64,10 +63,10 @@ async def my_tool(ctx: RunContext, query: str) -> str:
 # Call a method that might not exist
 result = await agent.run("test query")
 """
-    
-    print("="*80)
+
+    print("=" * 80)
     print("Graphiti RAG - Script Validation Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example validates an AI-generated Python script against")
     print("the knowledge graph to detect hallucinations.")
@@ -78,66 +77,63 @@ result = await agent.run("test query")
     print("  - Class instantiations (correct usage?)")
     print("  - Function calls (correct signatures?)")
     print()
-    
+
     # Write test script
     print(f"📝 Creating test script: {test_script_path}")
     test_script_path.write_text(test_script_content)
-    print(f"✅ Test script created")
+    print("✅ Test script created")
     print()
-    
+
     # Initialize dependencies
     deps = GraphitiRAGDeps.from_settings()
     await deps.initialize()
-    
+
     try:
-        # Create run context
-        ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        
+        # Create run context for tools
+        ctx = create_run_context(deps)
+
         # Validate script
         print("🔍 Validating script against knowledge graph...")
         logger.info(f"Validating script: {test_script_path}")
-        
+
         # Use absolute path
         abs_script_path = str(test_script_path.absolute())
-        
-        result = await validate_ai_script(
-            ctx=ctx,
-            script_path=abs_script_path
-        )
-        
+
+        result = await validate_ai_script(ctx=ctx, script_path=abs_script_path)
+
         # Display results
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("VALIDATION RESULTS")
-        print("="*80)
-        
+        print("=" * 80)
+
         if result.get("success"):
             print("✅ Script validation completed!")
             print()
-            
+
             validation = result.get("validation", {})
-            
+
             # Display import validation
             imports = validation.get("imports", {})
             print(f"Imports checked: {imports.get('total', 0)}")
             print(f"  Valid: {imports.get('valid', 0)}")
             print(f"  Invalid: {imports.get('invalid', 0)}")
-            if imports.get('invalid_imports'):
+            if imports.get("invalid_imports"):
                 print("  Invalid imports:")
-                for imp in imports['invalid_imports']:
+                for imp in imports["invalid_imports"]:
                     print(f"    - {imp}")
             print()
-            
+
             # Display method validation
             methods = validation.get("methods", {})
             print(f"Methods checked: {methods.get('total', 0)}")
             print(f"  Valid: {methods.get('valid', 0)}")
             print(f"  Invalid: {methods.get('invalid', 0)}")
-            if methods.get('invalid_methods'):
+            if methods.get("invalid_methods"):
                 print("  Invalid methods:")
-                for method in methods['invalid_methods']:
+                for method in methods["invalid_methods"]:
                     print(f"    - {method}")
             print()
-            
+
             # Display hallucination report
             report = result.get("report", "")
             if report:
@@ -146,11 +142,11 @@ result = await agent.run("test query")
         else:
             print("❌ Script validation failed!")
             print(f"   Error: {result.get('message', 'Unknown error')}")
-            if result.get('error'):
+            if result.get("error"):
                 print(f"   Details: {result['error']}")
-        
-        print("="*80)
-        
+
+        print("=" * 80)
+
     except Exception as e:
         logger.exception(f"❌ Error during script validation: {e}")
         print(f"\n❌ Fatal error: {e}")

@@ -1,0 +1,72 @@
+---
+# YAML linting configuration
+# See https://yamllint.readthedocs.io/ for documentation
+
+extends: default
+
+rules:
+  # Line length (matching Python style)
+  line-length:
+    max: 100
+    level: warning
+
+  # Indentation (2 spaces for Docker Compose)
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Allow document start (for multi-doc YAML files)
+  document-start: disable
+
+  # Allow comments
+  comments: disable
+
+  # Allow empty values (useful for Docker Compose)
+  empty-values: disable
+
+  # Allow truthy values (yes/no, on/off)
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+    check-keys: false
+
+  # Allow trailing spaces in multi-line strings
+  trailing-spaces:
+    level: error
+
+  # Allow brackets in unquoted strings (Docker Compose uses this)
+  brackets:
+    max-spaces-inside: 1
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Allow colons in unquoted strings
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: 1
+
+  # Allow hyphens in unquoted strings
+  hyphens:
+    max-spaces-after: 1
+
+  # Allow commas in unquoted strings
+  commas:
+    max-spaces-before: 0
+    max-spaces-after: 1
+
+  # Allow braces in unquoted strings
+  braces:
+    max-spaces-inside: 1
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Allow anchors and aliases (Docker Compose uses these)
+  # anchors rule is enabled by default, no need to configure
+
+  # Allow key ordering
+  key-ordering: disable
+
+  # Allow octal values
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: false

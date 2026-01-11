@@ -53,3 +53,7 @@ build-backend = "setuptools.build_meta"
 packages = []
 py-modules = []
 
+[dependency-groups]
+dev = [
+    "pytest-json-report>=1.5.0",
+]

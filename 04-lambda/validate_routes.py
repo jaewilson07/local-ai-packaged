@@ -10,12 +10,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     # Try to import app - this will fail if there are syntax errors
     from server.main import app
-    
+
     print("✓ Server imports successfully")
-    
+
     # Check that routes are registered
     routes = [route.path for route in app.routes]
-    
+
     expected_routes = [
         "/health",
         "/",
@@ -27,20 +27,20 @@ try:
         "/api/v1/persona",
         "/api/v1/conversation",
     ]
-    
+
     print(f"\n✓ Found {len(routes)} total routes")
-    
+
     # Check for key route prefixes
     route_prefixes = set()
     for route in routes:
         if route.startswith("/api/v1/"):
             prefix = "/".join(route.split("/")[:3])
             route_prefixes.add(prefix)
-    
-    print(f"\n✓ Registered API route prefixes:")
+
+    print("\n✓ Registered API route prefixes:")
     for prefix in sorted(route_prefixes):
         print(f"  - {prefix}")
-    
+
     # Check for specific endpoints
     key_endpoints = [
         "/health",
@@ -48,8 +48,8 @@ try:
         "/api/v1/rag/search",
         "/api/v1/rag/ingest",
     ]
-    
-    print(f"\n✓ Checking key endpoints:")
+
+    print("\n✓ Checking key endpoints:")
     for endpoint in key_endpoints:
         # Check if any route matches this path
         matching = [r for r in routes if r.startswith(endpoint) or endpoint.startswith(r)]
@@ -57,10 +57,10 @@ try:
             print(f"  ✓ {endpoint} - found")
         else:
             print(f"  ⚠ {endpoint} - not found (may be a prefix)")
-    
+
     print("\n✓ All routes validated successfully!")
     sys.exit(0)
-    
+
 except SyntaxError as e:
     print(f"✗ Syntax error: {e}")
     sys.exit(1)
@@ -70,5 +70,6 @@ except ImportError as e:
 except Exception as e:
     print(f"✗ Error: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)

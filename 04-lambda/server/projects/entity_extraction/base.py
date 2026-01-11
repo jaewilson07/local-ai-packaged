@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
-from .models import EntityExtractionResult, EntityType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import EntityExtractionResult, EntityType
 
 
 class EntityExtractor(ABC):
@@ -26,7 +28,7 @@ class EntityExtractor(ABC):
         """
 
     @abstractmethod
-    def get_supported_types(self) -> List[EntityType]:
+    def get_supported_types(self) -> list[EntityType]:
         """Return the entity types supported by this extractor."""
 
 

@@ -279,4 +279,3 @@ If issues persist:
 2. Check logs: `docker logs comfyui-supervisor-1 > comfyui_logs.txt`
 3. Check ComfyUI logs: `docker exec comfyui-supervisor-1 cat /var/log/supervisor/comfyui.log > comfyui_service_logs.txt`
 4. Include system info: `./verify_pytorch_cuda.sh > pytorch_info.txt`
-

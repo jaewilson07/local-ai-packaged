@@ -4,15 +4,15 @@ This module provides the foundation for a multi-agent system where specialized
 agents can coordinate via Discord channels and expose their capabilities through MCP tools.
 """
 
-from .manager import AgentManager, get_agent_manager
-from .base import BaseAgent, AgentStatus, AgentMessage
+from .base import AgentMessage, AgentStatus, BaseAgent
 from .discord_comm import DiscordCommunicationLayer
+from .manager import AgentManager, get_agent_manager
 
 __all__ = [
     "AgentManager",
-    "get_agent_manager",
-    "BaseAgent",
-    "AgentStatus",
     "AgentMessage",
+    "AgentStatus",
+    "BaseAgent",
     "DiscordCommunicationLayer",
+    "get_agent_manager",
 ]

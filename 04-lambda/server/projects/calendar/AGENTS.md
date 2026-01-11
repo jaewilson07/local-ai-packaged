@@ -38,31 +38,31 @@ graph TB
         REST[ REST API<br/>/api/v1/calendar/* ]
         MCP[ MCP Tools<br/>create_event, list_events, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ calendar_agent<br/>Pydantic AI Agent ]
         TOOLS[ Calendar Tools<br/>create, update, delete, list ]
     end
-    
+
     subgraph "Service Layer"
         SYNC[ GoogleCalendarSyncService<br/>Core Sync Logic ]
         CALAPI[ Google Calendar API<br/>OAuth2 Client ]
     end
-    
+
     subgraph "State Management"
         SYNCSTORE[ SyncStateStore<br/>Protocol Interface ]
         MONGOSTORE[ MongoSyncStore<br/>Implementation ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ CalendarDeps<br/>Calendar Service, Sync Store ]
         MONGO[ MongoDB<br/>Sync State Storage ]
     end
-    
+
     subgraph "External Services"
         GOOGLE[ Google Calendar API<br/>OAuth2 ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -74,7 +74,7 @@ graph TB
     MONGOSTORE --> DEPS
     CALAPI --> GOOGLE
     DEPS --> MONGO
-    
+
     style AGENT fill:#e1f5ff
     style SYNC fill:#fff4e1
     style SYNCSTORE fill:#e1ffe1
@@ -93,7 +93,7 @@ sequenceDiagram
     participant SyncStore as SyncStateStore
     participant CalAPI as Google Calendar API
     participant MongoDB
-    
+
     Client->>Agent: Create event (title, start, end, etc.)
     Agent->>Tool: create_event(event_data)
     Tool->>SyncStore: Check sync state (event_id)
@@ -218,7 +218,7 @@ async def create_event(self, event_data: Dict[str, Any], source_system: str) -> 
     # Check for existing sync state
     external_id = f"{source_system}:{event_data.get('id')}"
     existing = await self.sync_store.get_by_external_id(external_id)
-    
+
     if existing:
         # Update existing
         google_event = await self._update_event(existing.google_event_id, event_data)
@@ -230,7 +230,7 @@ async def create_event(self, event_data: Dict[str, Any], source_system: str) -> 
             google_event_id=google_event['id'],
             source_system=source_system
         )
-    
+
     return google_event
 ```
 

@@ -8,7 +8,7 @@
 
 #### 1. Core Implementation ✅
 - **Location**: `04-lambda/server/projects/deep_research/tools.py`
-- **Function**: `search_web()` 
+- **Function**: `search_web()`
 - **Status**: Fully implemented
 - **Implementation**: Calls `server.api.searxng.search()` REST API
 - **Validation**: Tested and working (32+ results for "blues muse")

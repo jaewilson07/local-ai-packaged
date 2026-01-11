@@ -32,11 +32,11 @@ elif 'control_all_x_embedder.2-1.weight' in sd: # alipai z image fun controlnet
         if k.startswith('control_layers.') and '.adaLN_modulation.0.weight' in k:
             layer_idx = int(k.split('.')[1])
             n_control_layers = max(n_control_layers, layer_idx + 1)
-    
+
     # Fallback to 2.0 detection if dynamic count fails
     if n_control_layers == 0 and 'control_layers.14.adaLN_modulation.0.weight' in sd:
         n_control_layers = 15
-    
+
     if n_control_layers > 0:
         config['n_control_layers'] = n_control_layers
         config['additional_in_dim'] = 17
@@ -98,6 +98,3 @@ Then restart ComfyUI.
 - ✅ Works with models that have different numbers of control layers
 - ✅ More robust detection logic
 - ✅ Maintains backward compatibility with existing models
-
-
-

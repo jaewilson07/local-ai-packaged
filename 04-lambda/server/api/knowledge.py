@@ -1,8 +1,8 @@
 """Knowledge project REST API for event extraction."""
 
-from fastapi import APIRouter, HTTPException
 import logging
-from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from server.projects.knowledge.event_extractor import EventExtractor, ExtractedEvent
@@ -13,21 +13,26 @@ logger = logging.getLogger(__name__)
 
 class ExtractEventsRequest(BaseModel):
     """Request to extract events from content."""
+
     content: str = Field(..., description="Web content (HTML, markdown, or plain text)")
-    url: Optional[str] = Field(None, description="Source URL")
+    url: str | None = Field(None, description="Source URL")
     use_llm: bool = Field(False, description="Use LLM for extraction (more accurate but slower)")
 
 
 class ExtractEventsResponse(BaseModel):
     """Response from event extraction."""
+
     success: bool = Field(..., description="Whether extraction was successful")
-    events: List[ExtractedEvent] = Field(default_factory=list, description="List of extracted events")
+    events: list[ExtractedEvent] = Field(
+        default_factory=list, description="List of extracted events"
+    )
     count: int = Field(0, description="Number of events extracted")
 
 
 class ExtractEventsFromCrawledRequest(BaseModel):
     """Request to extract events from crawled pages."""
-    crawled_pages: List[dict] = Field(..., description="List of crawled page dictionaries")
+
+    crawled_pages: list[dict] = Field(..., description="List of crawled page dictionaries")
     use_llm: bool = Field(False, description="Use LLM for extraction")
 
 
@@ -35,15 +40,15 @@ class ExtractEventsFromCrawledRequest(BaseModel):
 async def extract_events_endpoint(request: ExtractEventsRequest):
     """
     Extract event information from web content.
-    
+
     This endpoint extracts event details (title, date, time, location, instructor)
     from web content using regex patterns or LLM-based extraction.
-    
+
     **Use Cases:**
     - Extract events from crawled web pages
     - Parse event information from HTML content
     - Prepare events for calendar sync
-    
+
     **Request Body:**
     ```json
     {
@@ -52,7 +57,7 @@ async def extract_events_endpoint(request: ExtractEventsRequest):
         "use_llm": false
     }
     ```
-    
+
     **Response:**
     ```json
     {
@@ -75,29 +80,22 @@ async def extract_events_endpoint(request: ExtractEventsRequest):
     """
     try:
         extractor = EventExtractor(use_llm=request.use_llm)
-        events = extractor.extract_events_from_content(
-            content=request.content,
-            url=request.url
-        )
-        
-        return ExtractEventsResponse(
-            success=True,
-            events=events,
-            count=len(events)
-        )
+        events = extractor.extract_events_from_content(content=request.content, url=request.url)
+
+        return ExtractEventsResponse(success=True, events=events, count=len(events))
     except Exception as e:
         logger.exception(f"Error extracting events: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract events: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract events: {e!s}")
 
 
 @router.post("/extract-events-from-crawled", response_model=ExtractEventsResponse)
 async def extract_events_from_crawled_endpoint(request: ExtractEventsFromCrawledRequest):
     """
     Extract events from multiple crawled pages.
-    
+
     This endpoint processes multiple crawled pages and extracts event information
     from each one.
-    
+
     **Request Body:**
     ```json
     {
@@ -114,12 +112,8 @@ async def extract_events_from_crawled_endpoint(request: ExtractEventsFromCrawled
     try:
         extractor = EventExtractor(use_llm=request.use_llm)
         events = extractor.extract_events_from_crawled_pages(request.crawled_pages)
-        
-        return ExtractEventsResponse(
-            success=True,
-            events=events,
-            count=len(events)
-        )
+
+        return ExtractEventsResponse(success=True, events=events, count=len(events))
     except Exception as e:
         logger.exception(f"Error extracting events from crawled pages: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract events: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract events: {e!s}")

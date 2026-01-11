@@ -150,8 +150,3 @@ docker exec -it <container_name> ls -lh /opt/ComfyUI/models/model_patches/
 **Estimated total:** ~30-35 GB (including all variants)
 
 Ensure sufficient disk space before downloading!
-
-
-
-
-

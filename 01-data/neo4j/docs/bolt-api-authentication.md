@@ -55,7 +55,7 @@ class Neo4jService:
             "bolt://neo4j:7687",
             auth=("neo4j", "shared-password")
         )
-    
+
     def get_user_data(self, user_email):
         """Get data for specific user."""
         with self.driver.session() as session:
@@ -67,7 +67,7 @@ class Neo4jService:
                 userEmail=user_email
             )
             return [record["n"] for record in result]
-    
+
     def create_user_data(self, user_email, data):
         """Create data for specific user."""
         with self.driver.session() as session:
@@ -100,7 +100,7 @@ class Neo4jUserService:
             auth=(admin_user, admin_password)
         )
         self.user_credentials = {}  # Cache user credentials
-    
+
     def get_user_driver(self, user_email):
         """Get driver for specific user."""
         username, password = self.get_user_credentials(user_email)
@@ -108,7 +108,7 @@ class Neo4jUserService:
             "bolt://neo4j:7687",
             auth=(username, password)
         )
-    
+
     def get_user_credentials(self, user_email):
         """Get or create Neo4j credentials for user."""
         # Implementation from user-management.md
@@ -136,19 +136,19 @@ def get_user_email():
 def get_data():
     """Get user's data."""
     user_email = get_user_email()
-    
+
     driver = GraphDatabase.driver(
         "bolt://neo4j:7687",
         auth=("neo4j", "shared-password")
     )
-    
+
     with driver.session() as session:
         result = session.run(
             "MATCH (n:UserData {userId: $userEmail}) RETURN n",
             userEmail=user_email
         )
         data = [record["n"] for record in result]
-    
+
     driver.close()
     return {"data": data}
 ```
@@ -208,7 +208,7 @@ def get_nodes():
     """Get all nodes for authenticated user."""
     try:
         user_email = get_user_email()
-        
+
         with driver.session() as session:
             result = session.run(
                 """
@@ -218,7 +218,7 @@ def get_nodes():
                 userEmail=user_email
             )
             nodes = [dict(record["n"]) for record in result]
-        
+
         return jsonify({"nodes": nodes})
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
@@ -229,7 +229,7 @@ def create_node():
     try:
         user_email = get_user_email()
         data = request.json
-        
+
         with driver.session() as session:
             result = session.run(
                 """
@@ -244,7 +244,7 @@ def create_node():
                 data=data
             )
             node = dict(result.single()["n"])
-        
+
         return jsonify({"node": node}), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
@@ -254,7 +254,7 @@ def delete_node(node_id):
     """Delete node for authenticated user."""
     try:
         user_email = get_user_email()
-        
+
         with driver.session() as session:
             session.run(
                 """
@@ -264,7 +264,7 @@ def delete_node(node_id):
                 userEmail=user_email,
                 nodeId=node_id
             )
-        
+
         return jsonify({"message": "Node deleted"}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
@@ -302,16 +302,16 @@ app.get('/api/nodes', async (req, res) => {
     try {
         const userEmail = getUserEmail(req);
         const session = driver.session();
-        
+
         const result = await session.run(
             `MATCH (n:UserData {userId: $userEmail})
              RETURN n`,
             { userEmail }
         );
-        
+
         const nodes = result.records.map(record => record.get('n').properties);
         await session.close();
-        
+
         res.json({ nodes });
     } catch (error) {
         res.status(401).json({ error: error.message });
@@ -357,10 +357,10 @@ def execute_user_query(user_email, query, params):
     # Ensure userId is in params
     if "userEmail" not in params:
         params["userEmail"] = user_email
-    
+
     # Verify query includes user filter
     assert "userId" in query.lower() or "userEmail" in query.lower()
-    
+
     return session.run(query, params)
 ```
 
@@ -415,7 +415,7 @@ class TestNeo4jService(unittest.TestCase):
             auth=("neo4j", "password")
         )
         self.service = Neo4jService()
-    
+
     def test_get_user_data(self):
         """Test getting user data."""
         user_email = "test@example.com"
@@ -424,7 +424,7 @@ class TestNeo4jService(unittest.TestCase):
         # Verify all data belongs to user
         for item in data:
             self.assertEqual(item["userId"], user_email)
-    
+
     def tearDown(self):
         self.driver.close()
 ```
@@ -434,4 +434,3 @@ class TestNeo4jService(unittest.TestCase):
 - [Authentication Flow](authentication-flow.md) - How users authenticate
 - [Data Isolation](data-isolation.md) - User-specific data access patterns
 - [User Management](user-management.md) - Managing Neo4j user accounts
-

@@ -8,35 +8,37 @@ to 01-data/supabase/docker-compose.yml, preserving network configuration and vol
 """
 
 import os
-import shutil
 import sys
+
 
 def update_supabase_compose():
     """Update 01-data/supabase/docker-compose.yml from upstream Supabase files."""
-    
+
     source_main = "01-data/supabase/upstream/docker/docker-compose.yml"
     source_s3 = "01-data/supabase/upstream/docker/docker-compose.s3.yml"
     target = "01-data/supabase/docker-compose.yml"
-    
+
     if not os.path.exists(source_main):
         print(f"Error: Source file not found: {source_main}")
-        print("Please ensure Supabase repository is cloned in the 01-data/supabase/upstream/ directory.")
+        print(
+            "Please ensure Supabase repository is cloned in the 01-data/supabase/upstream/ directory."
+        )
         sys.exit(1)
-    
+
     if not os.path.exists(source_s3):
         print(f"Warning: S3 compose file not found: {source_s3}")
         print("Continuing without S3 configuration...")
-    
+
     print(f"Copying {source_main} to {target}...")
-    
+
     # Read the source file
-    with open(source_main, "r", encoding="utf-8") as f:
+    with open(source_main, encoding="utf-8") as f:
         content = f.read()
-    
+
     # Remove the name field if present
     content = content.replace("name: supabase\n", "")
     content = content.replace("name: supabase", "")
-    
+
     # Add network configuration at the top (after comments)
     network_config = """
 networks:
@@ -49,7 +51,7 @@ volumes:
   supabase_minio_data:
 
 """
-    
+
     # Find where services: starts and insert network config before it
     if "services:" in content:
         # Insert network config before services
@@ -57,17 +59,17 @@ volumes:
         # Find the last newline before services
         insert_index = content.rfind("\n", 0, services_index) + 1
         content = content[:insert_index] + network_config + content[insert_index:]
-    
+
     # Update volume paths to be relative to 01-data/supabase/
     # Replace ./volumes/ with ../../upstream/docker/volumes/
     content = content.replace("./volumes/", "../../upstream/docker/volumes/")
-    
+
     # If S3 file exists, merge its storage configuration
     if os.path.exists(source_s3):
         print(f"Merging S3 configuration from {source_s3}...")
-        with open(source_s3, "r", encoding="utf-8") as f:
+        with open(source_s3, encoding="utf-8") as f:
             s3_content = f.read()
-        
+
         # Extract supabase-minio and supabase-minio-createbucket services
         if "supabase-minio:" in s3_content:
             # Find the storage service in the main content and replace it with S3 version
@@ -75,7 +77,7 @@ volumes:
             print("Note: S3 storage configuration detected. Updating storage service...")
             # The storage service replacement is already handled in the compose file
             # We just need to ensure supabase-minio services are included
-        
+
         # Add supabase-minio services before storage service
         if "  storage:" in content and "  supabase-minio:" not in content:
             # Extract minio services from S3 file
@@ -92,14 +94,11 @@ volumes:
                 minio_services = s3_content[minio_start:minio_end]
                 # Insert before storage
                 content = content[:insert_point] + minio_services + "\n" + content[insert_point:]
-    
+
     # Update storage service to use S3 backend (if S3 file was merged)
     if "supabase-minio:" in content and "STORAGE_BACKEND: file" in content:
         # Replace file backend with S3 backend
-        content = content.replace(
-            "STORAGE_BACKEND: file",
-            "STORAGE_BACKEND: s3"
-        )
+        content = content.replace("STORAGE_BACKEND: file", "STORAGE_BACKEND: s3")
         # Update storage depends_on to include supabase-minio
         if "      imgproxy:" in content and "      supabase-minio:" not in content:
             # Find depends_on section of storage
@@ -113,12 +112,12 @@ volumes:
                     # Insert supabase-minio dependency
                     insert_text = "      supabase-minio:\n        condition: service_healthy\n"
                     content = content[:depends_end] + insert_text + content[depends_end:]
-    
+
     # Write the updated content
     os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(content)
-    
+
     print(f"Successfully updated {target}")
     print("\nNote: Please review the file and ensure:")
     print("  1. Network configuration is correct (external: ai-network)")
@@ -129,4 +128,3 @@ volumes:
 
 if __name__ == "__main__":
     update_supabase_compose()
-

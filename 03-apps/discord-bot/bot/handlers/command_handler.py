@@ -1,11 +1,11 @@
 """Handler for Discord slash commands."""
 
 import discord
-from discord import app_commands, Interaction
-from discord.ui import View, Button, Select
-from typing import List
-from bot.immich_client import ImmichClient
+from discord import Interaction, app_commands
+from discord.ui import Select, View
+
 from bot.database import Database
+from bot.immich_client import ImmichClient
 
 
 class PersonSelectView(View):
@@ -13,7 +13,7 @@ class PersonSelectView(View):
 
     def __init__(
         self,
-        people: List[dict],
+        people: list[dict],
         immich_client: ImmichClient,
         database: Database,
         user_id: str,
@@ -81,7 +81,9 @@ async def setup_claim_face_command(
 ) -> None:
     """Register the /claim_face command."""
 
-    @tree.command(name="claim_face", description="Link your Discord account to your Immich person profile")
+    @tree.command(
+        name="claim_face", description="Link your Discord account to your Immich person profile"
+    )
     @app_commands.describe(search_name="Name to search for in Immich")
     async def claim_face(interaction: Interaction, search_name: str):
         """Handle /claim_face command."""

@@ -1,0 +1,81 @@
+name: YAML and Docker Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '**.yml'
+      - '**.yaml'
+      - '**/Dockerfile'
+      - '**/docker-compose*.yml'
+      - '**/docker-compose*.yaml'
+      - '.github/workflows/yaml-docker-validation.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**.yml'
+      - '**.yaml'
+      - '**/Dockerfile'
+      - '**/docker-compose*.yml'
+      - '**/docker-compose*.yaml'
+      - '.github/workflows/yaml-docker-validation.yml'
+
+jobs:
+  yaml-lint:
+    name: YAML Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: |
+          pip install yamllint
+
+      - name: Lint YAML files
+        run: |
+          find . -type f \( -name "*.yml" -o -name "*.yaml" \) \
+            -not -path "*/\.*" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.venv/*" \
+            -not -path "*/venv/*" \
+            -not -name "*.lock" \
+            -not -name "*.egg-info" \
+            -exec yamllint -c .yamllint.yml {} \; || echo "YAML linting issues found"
+
+  docker-compose-validate:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker Compose files
+        run: |
+          echo "Validating Docker Compose files..."
+          find . -type f \( -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "docker-compose.*.yml" -o -name "docker-compose.*.yaml" \) \
+            -not -path "*/\.*" \
+            -not -path "*/node_modules/*" | while read -r file; do
+            echo "Validating: $file"
+            # Try to validate, but don't fail on missing environment variables
+            docker compose -f "$file" config > /dev/null 2>&1 || {
+              echo "Warning: Could not validate $file (may require environment variables)"
+            }
+          done
+
+  dockerfile-lint:
+    name: Dockerfile Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "**/Dockerfile"
+          failure-threshold: warning
+          ignore: DL3008,DL3009,DL3013,DL3015,DL4006

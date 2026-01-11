@@ -1,10 +1,10 @@
 """Shared fixtures for sample validation tests."""
 
-import pytest
-import sys
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
 import os
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 # Set up environment variables to prevent validation errors during import
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017/test")
@@ -61,11 +61,11 @@ def mock_openai_client():
     mock_embedding_response = Mock()
     mock_embedding_response.data = [Mock(embedding=[0.1] * 384)]
     mock_client.embeddings.create = AsyncMock(return_value=mock_embedding_response)
-    
+
     mock_chat_response = Mock()
     mock_chat_response.choices = [Mock(message=Mock(content="Test response"))]
     mock_client.chat.completions.create = AsyncMock(return_value=mock_chat_response)
-    
+
     return mock_client
 
 

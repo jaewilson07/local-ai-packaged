@@ -10,7 +10,7 @@ The Lambda server now supports **multiple transport methods** simultaneously:
 
 1. **Streamable HTTP** (FastMCP native): `/mcp/`
    - For clients that support FastMCP (Cursor, Claude Desktop, etc.)
-   
+
 2. **REST API** (Wrapper): `/api/v1/mcp/tools/call`
    - For clients that need standard REST APIs (Open WebUI, etc.)
 

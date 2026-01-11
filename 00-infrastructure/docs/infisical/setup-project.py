@@ -8,8 +8,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from urllib.request import urlopen
 from urllib.error import URLError
+from urllib.request import urlopen
 
 PROJECT_NAME = "local-aipackaged"
 INFISICAL_URL = os.getenv("INFISICAL_SITE_URL", "http://localhost:8010")
@@ -67,7 +67,7 @@ def print_setup_steps():
     print("   - Name it (e.g., 'DataCrew' or 'Personal')")
     print("")
     print("3. Create Project:")
-    print(f"   - Click 'Create Project'")
+    print("   - Click 'Create Project'")
     print(f"   - Name: {PROJECT_NAME}")
     print("   - Select or create environments:")
     print("     * development (for local dev)")
@@ -137,4 +137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

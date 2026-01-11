@@ -1,0 +1,57 @@
+[
+  {
+    "content": "Deep research is a comprehensive methodology for investigating complex topics through systematic investigation and analysis.",
+    "index": 0,
+    "start_char": 0,
+    "end_char": 120,
+    "metadata": {
+      "section": "introduction",
+      "source": "sample_documents.md"
+    },
+    "token_count": 20
+  },
+  {
+    "content": "It involves gathering information from multiple sources, verifying facts, and synthesizing findings into coherent reports.",
+    "index": 1,
+    "start_char": 121,
+    "end_char": 240,
+    "metadata": {
+      "section": "introduction",
+      "source": "sample_documents.md"
+    },
+    "token_count": 18
+  },
+  {
+    "content": "Systematic Investigation: Follow a structured approach to research. Multiple Source Verification: Cross-reference information from multiple sources.",
+    "index": 2,
+    "start_char": 241,
+    "end_char": 400,
+    "metadata": {
+      "section": "key_principles",
+      "source": "sample_documents.md"
+    },
+    "token_count": 25
+  },
+  {
+    "content": "The deep research process involves several key steps: Question Formulation, Source Identification, Data Collection, Analysis and Synthesis, and Report Generation.",
+    "index": 3,
+    "start_char": 401,
+    "end_char": 550,
+    "metadata": {
+      "section": "research_process",
+      "source": "sample_documents.md"
+    },
+    "token_count": 30
+  },
+  {
+    "content": "Deep research provides a structured approach to understanding complex topics through thorough investigation and systematic analysis.",
+    "index": 4,
+    "start_char": 551,
+    "end_char": 680,
+    "metadata": {
+      "section": "conclusion",
+      "source": "sample_documents.md"
+    },
+    "token_count": 18
+  }
+]

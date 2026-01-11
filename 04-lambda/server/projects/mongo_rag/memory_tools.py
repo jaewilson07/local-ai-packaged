@@ -1,11 +1,11 @@
 """MemoryTools interface for MongoDB RAG."""
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any
 
-from server.projects.mongo_rag.memory_models import MemoryMessage, MemoryFact
-from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
 from server.projects.mongo_rag.dependencies import AgentDependencies
+from server.projects.mongo_rag.memory_models import MemoryFact, MemoryMessage
+from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -13,20 +13,20 @@ logger = logging.getLogger(__name__)
 class MemoryTools:
     """
     MemoryTools interface for MongoDB RAG.
-    
+
     Provides high-level memory operations for messages, facts, and web content.
     """
-    
-    def __init__(self, deps: Optional[AgentDependencies] = None):
+
+    def __init__(self, deps: AgentDependencies | None = None):
         """
         Initialize MemoryTools.
-        
+
         Args:
             deps: Optional AgentDependencies instance. If None, creates new one.
         """
         self.deps = deps
-        self._store: Optional[MongoMemoryStore] = None
-    
+        self._store: MongoMemoryStore | None = None
+
     def _get_store(self) -> MongoMemoryStore:
         """Get or create memory store."""
         if self._store is None:
@@ -35,7 +35,7 @@ class MemoryTools:
             else:
                 raise ValueError("MemoryTools requires initialized dependencies with database")
         return self._store
-    
+
     def record_message(
         self, user_id: str, persona_id: str, content: str, role: str = "user"
     ) -> None:
@@ -49,21 +49,21 @@ class MemoryTools:
             )
             self._get_store().add_message(message)
         except Exception as e:
-            logger.error(f"Error recording message: {e}")
+            logger.exception(f"Error recording message: {e}")
             raise
-    
+
     def get_context_window(
         self, user_id: str, persona_id: str, limit: int = 20
-    ) -> List[MemoryMessage]:
+    ) -> list[MemoryMessage]:
         """Get recent messages for context window."""
         try:
             return self._get_store().get_recent_messages(user_id, persona_id, limit)
         except Exception as e:
-            logger.error(f"Error getting context window: {e}")
+            logger.exception(f"Error getting context window: {e}")
             return []
-    
+
     def store_fact(
-        self, user_id: str, persona_id: str, fact: str, tags: Optional[List[str]] = None
+        self, user_id: str, persona_id: str, fact: str, tags: list[str] | None = None
     ) -> None:
         """Store a fact in memory."""
         try:
@@ -75,19 +75,19 @@ class MemoryTools:
             )
             self._get_store().add_fact(memory_fact)
         except Exception as e:
-            logger.error(f"Error storing fact: {e}")
+            logger.exception(f"Error storing fact: {e}")
             raise
-    
+
     def search_facts(
         self, user_id: str, persona_id: str, query: str, limit: int = 10
-    ) -> List[MemoryFact]:
+    ) -> list[MemoryFact]:
         """Search for facts in memory."""
         try:
             return self._get_store().search_facts(user_id, persona_id, query, limit)
         except Exception as e:
-            logger.error(f"Error searching facts: {e}")
+            logger.exception(f"Error searching facts: {e}")
             return []
-    
+
     def store_web_content(
         self,
         user_id: str,
@@ -96,9 +96,9 @@ class MemoryTools:
         source_url: str,
         source_title: str = "",
         source_description: str = "",
-        source_domain: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        source_domain: str | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int:
         """Store web content in memory."""
         try:
@@ -114,15 +114,15 @@ class MemoryTools:
                 metadata=metadata,
             )
         except Exception as e:
-            logger.error(f"Error storing web content: {e}")
+            logger.exception(f"Error storing web content: {e}")
             return 0
-    
+
     def get_web_content_by_url(
         self, user_id: str, persona_id: str, url: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get web content by URL if it exists."""
         try:
             return self._get_store().get_web_content_by_url(user_id, persona_id, url)
         except Exception as e:
-            logger.error(f"Error getting web content: {e}")
+            logger.exception(f"Error getting web content: {e}")
             return None

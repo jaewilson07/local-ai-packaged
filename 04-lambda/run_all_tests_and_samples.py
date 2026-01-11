@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
 import httpx
 
 # Project root
@@ -38,7 +39,7 @@ def wait_for_server(max_wait=300, check_interval=5):
     """Wait for the server to be ready."""
     print(f"⏳ Waiting for server at {SERVER_URL}...")
     start_time = time.time()
-    
+
     while time.time() - start_time < max_wait:
         try:
             response = httpx.get(HEALTH_ENDPOINT, timeout=2)
@@ -47,10 +48,10 @@ def wait_for_server(max_wait=300, check_interval=5):
                 return True
         except (httpx.RequestError, httpx.TimeoutException):
             pass
-        
+
         time.sleep(check_interval)
         print(f"  Still waiting... ({int(time.time() - start_time)}s)")
-    
+
     print(f"✗ Server did not become ready within {max_wait}s")
     return False
 
@@ -72,35 +73,36 @@ def find_sample_files():
             sample_files.extend(sample_dir.rglob("*.py"))
     # Exclude __pycache__ and __init__.py
     sample_files = [
-        f for f in sample_files
-        if "__pycache__" not in str(f) and f.name != "__init__.py"
+        f for f in sample_files if "__pycache__" not in str(f) and f.name != "__init__.py"
     ]
     return sorted(sample_files)
 
 
 def run_pytest_tests():
     """Run all pytest tests."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("RUNNING PYTEST TESTS")
-    print("="*80)
-    
+    print("=" * 80)
+
     test_files = find_test_files()
     if not test_files:
         print("⚠️  No test files found")
         return False
-    
+
     print(f"Found {len(test_files)} test files")
-    
+
     # Run pytest
     cmd = [
-        sys.executable, "-m", "pytest",
+        sys.executable,
+        "-m",
+        "pytest",
         "-v",
         "--tb=short",
         str(LAMBDA_DIR / "tests"),
     ]
-    
+
     print(f"\nRunning: {' '.join(cmd)}\n")
-    result = subprocess.run(cmd, cwd=LAMBDA_DIR)
+    result = subprocess.run(cmd, cwd=LAMBDA_DIR, check=False)
     return result.returncode == 0
 
 
@@ -114,14 +116,15 @@ def run_sample_file(sample_file: Path):
             timeout=300,  # 5 minute timeout per sample
             capture_output=True,
             text=True,
+            check=False,
         )
         if result.returncode == 0:
-            print(f"    ✓ Success")
+            print("    ✓ Success")
             if result.stdout:
                 # Print last few lines of output
-                lines = result.stdout.strip().split('\n')
+                lines = result.stdout.strip().split("\n")
                 if len(lines) > 5:
-                    print(f"    Output (last 5 lines):")
+                    print("    Output (last 5 lines):")
                     for line in lines[-5:]:
                         print(f"      {line}")
                 else:
@@ -133,7 +136,7 @@ def run_sample_file(sample_file: Path):
                 print(f"    Error: {result.stderr[:500]}")
             return False
     except subprocess.TimeoutExpired:
-        print(f"    ✗ Timeout (exceeded 5 minutes)")
+        print("    ✗ Timeout (exceeded 5 minutes)")
         return False
     except Exception as e:
         print(f"    ✗ Error: {e}")
@@ -142,64 +145,64 @@ def run_sample_file(sample_file: Path):
 
 def run_sample_files():
     """Run all sample files."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("RUNNING SAMPLE FILES")
-    print("="*80)
-    
+    print("=" * 80)
+
     sample_files = find_sample_files()
     if not sample_files:
         print("⚠️  No sample files found")
         return False
-    
+
     print(f"Found {len(sample_files)} sample files")
-    
+
     results = []
     for sample_file in sample_files:
         success = run_sample_file(sample_file)
         results.append((sample_file, success))
-    
+
     # Summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SAMPLE FILES SUMMARY")
-    print("="*80)
+    print("=" * 80)
     passed = sum(1 for _, success in results if success)
     failed = len(results) - passed
     print(f"✓ Passed: {passed}")
     print(f"✗ Failed: {failed}")
-    
+
     if failed > 0:
         print("\nFailed samples:")
         for sample_file, success in results:
             if not success:
                 print(f"  - {sample_file.relative_to(PROJECT_ROOT)}")
-    
+
     return failed == 0
 
 
 def main():
     """Main entry point."""
-    print("="*80)
+    print("=" * 80)
     print("LAMBDA SERVER TEST AND SAMPLE RUNNER")
-    print("="*80)
-    
+    print("=" * 80)
+
     # Wait for server
     if not wait_for_server():
         print("\n✗ Cannot proceed without server")
         sys.exit(1)
-    
+
     # Run tests
     tests_passed = run_pytest_tests()
-    
+
     # Run samples
     samples_passed = run_sample_files()
-    
+
     # Final summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("FINAL SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"Tests: {'✓ PASSED' if tests_passed else '✗ FAILED'}")
     print(f"Samples: {'✓ PASSED' if samples_passed else '✗ FAILED'}")
-    
+
     if tests_passed and samples_passed:
         print("\n🎉 All tests and samples passed!")
         sys.exit(0)

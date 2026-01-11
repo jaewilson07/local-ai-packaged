@@ -47,4 +47,3 @@ done
 
 echo "Note: Some endpoints require authentication and will return 401/403"
 echo "The issue is likely with an endpoint that returns null/undefined when it should return an object"
-

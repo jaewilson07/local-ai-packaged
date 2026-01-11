@@ -307,6 +307,6 @@ curl http://clickhouse:8123/ping
 
 ---
 
-**See Also**: 
+**See Also**:
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [start_services.py](../start_services.py) for SearXNG secret generation

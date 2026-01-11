@@ -16,6 +16,7 @@ dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
+    "pre-commit>=3.6.0",
 ]
 
 # This is not an installable package - just for dependency management
@@ -28,6 +29,51 @@ dev-dependencies = []
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".eggs",
+    "*.egg-info",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "dist",
+    "node_modules",
+    "uv.lock",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "PIE", # flake8-pie
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate (commented-out code)
+    "PD",  # pandas-vet
+    "PL",  # Pylint
+    "TRY", # tryceratops
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "PLR0913", # Too many arguments
+    "PLR0912", # Too many branches
+    "TRY003", # Avoid specifying long messages outside exception class
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["server", "tests"]
 
 [tool.black]
 line-length = 100

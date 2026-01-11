@@ -68,7 +68,7 @@ if "@twingate_trusted" not in content:
     trusted_matcher = f"""    @twingate_trusted {{
         remote_ip {ip_list}
     }}
-    
+
 """
     content = content.replace("@authorized {", trusted_matcher + "    @authorized {")
 
@@ -99,5 +99,3 @@ PYTHON_SCRIPT
 echo "Caddy base_config updated with Twingate bypass"
 echo "Restart Caddy service for changes to take effect:"
 echo "  docker exec comfyui-supervisor-1 supervisorctl restart caddy"
-
-

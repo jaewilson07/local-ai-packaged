@@ -1,13 +1,16 @@
 """Tests for JWT validation service."""
 
-import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
-from datetime import datetime, timedelta
-import jwt
-from jwt.exceptions import ExpiredSignatureError, InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
+from unittest.mock import AsyncMock, Mock, patch
 
-from server.projects.auth.services.jwt_service import JWTService
+import pytest
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidSignatureError,
+)
+
 from server.projects.auth.config import AuthConfig
+from server.projects.auth.services.jwt_service import JWTService
 
 
 @pytest.fixture
@@ -30,13 +33,7 @@ def mock_public_keys_response():
     """Mock Cloudflare public keys response."""
     return {
         "keys": [
-            {
-                "kid": "test-key-1",
-                "kty": "RSA",
-                "use": "sig",
-                "n": "test-n-value",
-                "e": "AQAB"
-            }
+            {"kid": "test-key-1", "kty": "RSA", "use": "sig", "n": "test-n-value", "e": "AQAB"}
         ]
     }
 
@@ -48,19 +45,19 @@ async def test_fetch_public_keys_success(jwt_service, mock_public_keys_response)
         mock_response = Mock()
         mock_response.json = Mock(return_value=mock_public_keys_response)
         mock_response.raise_for_status = Mock()
-        
+
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client_class.return_value = mock_client
-        
+
         with patch("jwt.algorithms.RSAAlgorithm.from_jwk") as mock_from_jwk:
             mock_key = Mock()
             mock_from_jwk.return_value = mock_key
-            
+
             keys = await jwt_service._get_public_keys()
-            
+
             assert len(keys) == 1
             assert keys[0] == mock_key
             mock_client.get.assert_called_once()
@@ -73,21 +70,21 @@ async def test_fetch_public_keys_caching(jwt_service, mock_public_keys_response)
         mock_response = Mock()
         mock_response.json = Mock(return_value=mock_public_keys_response)
         mock_response.raise_for_status = Mock()
-        
+
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client_class.return_value = mock_client
-        
+
         with patch("jwt.algorithms.RSAAlgorithm.from_jwk") as mock_from_jwk:
             mock_key = Mock()
             mock_from_jwk.return_value = mock_key
-            
+
             # First call - should fetch
             keys1 = await jwt_service._get_public_keys()
             assert mock_client.get.call_count == 1
-            
+
             # Second call within TTL - should use cache
             keys2 = await jwt_service._get_public_keys()
             assert mock_client.get.call_count == 1  # Still 1, not 2
@@ -103,7 +100,7 @@ async def test_fetch_public_keys_failure(jwt_service):
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(side_effect=Exception("Network error"))
         mock_client_class.return_value = mock_client
-        
+
         # No cached keys - should raise
         with pytest.raises(Exception):
             await jwt_service._get_public_keys()
@@ -115,21 +112,21 @@ async def test_validate_jwt_success(jwt_service):
     # Create a mock token (we'll mock jwt.decode to avoid needing real keys)
     mock_token = "valid.jwt.token"
     mock_email = "test@example.com"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.return_value = {
                 "email": mock_email,
                 "aud": "test-aud-tag",
                 "iss": "https://test.cloudflareaccess.com",
-                "exp": 9999999999
+                "exp": 9999999999,
             }
-            
+
             email = await jwt_service.validate_and_extract_email(mock_token)
-            
+
             assert email == mock_email
             mock_decode.assert_called_once()
             # Verify audience and issuer are checked
@@ -142,14 +139,14 @@ async def test_validate_jwt_success(jwt_service):
 async def test_validate_jwt_invalid_signature(jwt_service):
     """Test JWT with invalid signature."""
     mock_token = "invalid.jwt.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.side_effect = InvalidSignatureError("Invalid signature")
-            
+
             with pytest.raises(ValueError, match="Token validation failed"):
                 await jwt_service.validate_and_extract_email(mock_token)
 
@@ -158,14 +155,14 @@ async def test_validate_jwt_invalid_signature(jwt_service):
 async def test_validate_jwt_wrong_audience(jwt_service):
     """Test JWT with wrong audience tag."""
     mock_token = "wrong.audience.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.side_effect = InvalidAudienceError("Wrong audience")
-            
+
             with pytest.raises(ValueError, match="Token audience does not match"):
                 await jwt_service.validate_and_extract_email(mock_token)
 
@@ -174,14 +171,14 @@ async def test_validate_jwt_wrong_audience(jwt_service):
 async def test_validate_jwt_expired(jwt_service):
     """Test expired JWT token."""
     mock_token = "expired.jwt.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.side_effect = ExpiredSignatureError("Token expired")
-            
+
             with pytest.raises(ValueError, match="Token has expired"):
                 await jwt_service.validate_and_extract_email(mock_token)
 
@@ -190,18 +187,18 @@ async def test_validate_jwt_expired(jwt_service):
 async def test_validate_jwt_missing_email(jwt_service):
     """Test JWT without email claim."""
     mock_token = "no.email.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.return_value = {
                 "aud": "test-aud-tag",
                 "iss": "https://test.cloudflareaccess.com",
                 # Missing email
             }
-            
+
             with pytest.raises(ValueError, match="missing 'email' claim"):
                 await jwt_service.validate_and_extract_email(mock_token)
 
@@ -210,18 +207,18 @@ async def test_validate_jwt_missing_email(jwt_service):
 async def test_audience_validation_success(jwt_service):
     """Test correct audience accepted."""
     mock_token = "valid.jwt.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.return_value = {
                 "email": "test@example.com",
                 "aud": "test-aud-tag",  # Matches config
-                "iss": "https://test.cloudflareaccess.com"
+                "iss": "https://test.cloudflareaccess.com",
             }
-            
+
             email = await jwt_service.validate_and_extract_email(mock_token)
             assert email == "test@example.com"
 
@@ -230,14 +227,14 @@ async def test_audience_validation_success(jwt_service):
 async def test_audience_validation_failure(jwt_service):
     """Test wrong audience rejected."""
     mock_token = "wrong.audience.token"
-    
+
     with patch.object(jwt_service, "_get_public_keys") as mock_get_keys:
         mock_key = Mock()
         mock_get_keys.return_value = [mock_key]
-        
+
         with patch("jwt.decode") as mock_decode:
             mock_decode.side_effect = InvalidAudienceError("Wrong audience")
-            
+
             with pytest.raises(ValueError, match="Token audience does not match"):
                 await jwt_service.validate_and_extract_email(mock_token)
 
@@ -246,7 +243,7 @@ async def test_audience_validation_failure(jwt_service):
 async def test_missing_audience_config(jwt_service):
     """Test error when audience not configured."""
     jwt_service.audience = ""
-    
+
     with pytest.raises(ValueError, match="Missing required audience"):
         await jwt_service.validate_and_extract_email("token")
 
@@ -255,6 +252,6 @@ async def test_missing_audience_config(jwt_service):
 async def test_missing_team_domain_config(jwt_service):
     """Test error when team domain not configured."""
     jwt_service.team_domain = ""
-    
+
     with pytest.raises(ValueError, match="Missing required team domain"):
         await jwt_service.validate_and_extract_email("token")

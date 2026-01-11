@@ -145,10 +145,10 @@ from neo4j import GraphDatabase
 class Neo4jUserData:
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-    
+
     def close(self):
         self.driver.close()
-    
+
     def get_user_data(self, user_email):
         """Get all data for a specific user."""
         with self.driver.session() as session:
@@ -160,7 +160,7 @@ class Neo4jUserData:
                 userEmail=user_email
             )
             return [record["n"] for record in result]
-    
+
     def create_user_data(self, user_email, data):
         """Create data for a specific user."""
         with self.driver.session() as session:
@@ -177,7 +177,7 @@ class Neo4jUserData:
                 data=data
             )
             return result.single()["n"]
-    
+
     def delete_user_data(self, user_email, data_id):
         """Delete specific data for a user."""
         with self.driver.session() as session:
@@ -200,11 +200,11 @@ class Neo4jUserData {
     constructor(uri, user, password) {
         this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
     }
-    
+
     async close() {
         await this.driver.close();
     }
-    
+
     async getUserData(userEmail) {
         const session = this.driver.session();
         try {
@@ -218,7 +218,7 @@ class Neo4jUserData {
             await session.close();
         }
     }
-    
+
     async createUserData(userEmail, data) {
         const session = this.driver.session();
         try {
@@ -337,15 +337,15 @@ def test_data_isolation():
     # Create test data for user1
     create_user_data("user1@example.com", "data1")
     create_user_data("user1@example.com", "data2")
-    
+
     # Create test data for user2
     create_user_data("user2@example.com", "data3")
-    
+
     # Query as user1
     user1_data = get_user_data("user1@example.com")
     assert len(user1_data) == 2
     assert all(d["userId"] == "user1@example.com" for d in user1_data)
-    
+
     # Query as user2
     user2_data = get_user_data("user2@example.com")
     assert len(user2_data) == 1
@@ -357,4 +357,3 @@ def test_data_isolation():
 - [Authentication Flow](authentication-flow.md) - How users authenticate
 - [User Management](user-management.md) - Managing Neo4j user accounts
 - [Bolt API Authentication](bolt-api-authentication.md) - Programmatic access
-

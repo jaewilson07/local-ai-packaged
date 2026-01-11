@@ -78,9 +78,15 @@ The system is organized into numbered stacks with explicit dependencies:
 **Purpose**: FastAPI server with MCP and REST APIs  
 **Project**: `localai-lambda`  
 **Services**:
-- `lambda-server` - FastAPI application with 40+ MCP tools
+- `lambda-server` - FastAPI application with 40+ MCP tools, authentication system, and data viewing APIs
 
-**Dependencies**: Requires `00-infrastructure`, `01-data` (MongoDB, Neo4j), `02-compute` (Ollama)
+**Dependencies**: Requires `00-infrastructure`, `01-data` (MongoDB, Neo4j, Supabase, MinIO), `02-compute` (Ollama)
+
+**Features**:
+- Cloudflare Access JWT validation
+- Just-In-Time (JIT) user provisioning
+- Data isolation across all storage layers
+- REST APIs for viewing data (Supabase, Neo4j, MongoDB, MinIO)
 
 ## Network Architecture
 
@@ -90,24 +96,24 @@ graph TB
         User[User Browser]
         Cloudflare[Cloudflare Tunnel]
     end
-    
+
     subgraph Infrastructure["00-infrastructure"]
         Caddy[Caddy Reverse Proxy]
         Redis[Redis Cache]
     end
-    
+
     subgraph Data["01-data"]
         Supabase[(Supabase PostgreSQL)]
         Qdrant[(Qdrant Vector DB)]
         Neo4j[(Neo4j Graph DB)]
         MongoDB[(MongoDB Document DB)]
     end
-    
+
     subgraph Compute["02-compute"]
         Ollama[Ollama LLM]
         ComfyUI[ComfyUI]
     end
-    
+
     subgraph Apps["03-apps"]
         N8N[n8n]
         OpenWebUI[Open WebUI]
@@ -118,11 +124,11 @@ graph TB
         DiscordBot[Discord Bot]
         DiscordCharBot[Discord Character Bot]
     end
-    
+
     subgraph Lambda["04-lambda"]
         LambdaServer[Lambda Server]
     end
-    
+
     User -->|HTTPS| Cloudflare
     Cloudflare -->|Tunnel| Caddy
     Caddy -->|Route| N8N
@@ -132,29 +138,31 @@ graph TB
     Caddy -->|Route| Langfuse
     Caddy -->|Route| Immich
     Caddy -->|Route| LambdaServer
-    
+
     N8N -->|PostgreSQL| Supabase
     N8N -->|Vector Search| Qdrant
     N8N -->|LLM| Ollama
     N8N -->|MCP Tools| LambdaServer
-    
+
     OpenWebUI -->|PostgreSQL| Supabase
     OpenWebUI -->|LLM| Ollama
     OpenWebUI -->|MCP| LambdaServer
-    
+
     LambdaServer -->|RAG| MongoDB
     LambdaServer -->|Knowledge Graph| Neo4j
+    LambdaServer -->|User Data| Supabase
+    LambdaServer -->|Blob Storage| MinIO
     LambdaServer -->|LLM| Ollama
     LambdaServer -->|Embeddings| Ollama
     LambdaServer -->|Web Search| SearXNG
     LambdaServer -->|Workflows| N8N
-    
+
     DiscordBot -->|Upload| Immich
     Immich -->|PostgreSQL| Supabase
-    
+
     DiscordCharBot -->|Character API| LambdaServer
     LambdaServer -->|Persona| MongoDB
-    
+
     Langfuse -->|Analytics| ClickHouse
     Langfuse -->|Storage| MinIO
 ```
@@ -169,14 +177,14 @@ graph TD
     Infra -->|Creates Network| Compute[02-compute]
     Infra -->|Creates Network| Apps[03-apps]
     Infra -->|Creates Network| Lambda[04-lambda]
-    
+
     Data -->|Provides DB| Compute
     Data -->|Provides DB| Apps
     Data -->|Provides DB| Lambda
-    
+
     Compute -->|Provides LLM| Apps
     Compute -->|Provides LLM| Lambda
-    
+
     Apps -->|Uses MCP| Lambda
     Apps -->|Uses DB| Data
     Apps -->|Uses LLM| Compute
@@ -185,8 +193,8 @@ graph TD
 ### Critical Dependencies
 
 **Lambda Server**:
-- Requires: MongoDB (RAG), Neo4j (Graphiti), Ollama (LLM + embeddings)
-- Provides: MCP tools, REST APIs
+- Requires: MongoDB (RAG), Neo4j (Graphiti), Supabase (user profiles), MinIO (blob storage), Ollama (LLM + embeddings)
+- Provides: MCP tools, REST APIs, authentication system, data viewing APIs
 
 **Open WebUI**:
 - Requires: PostgreSQL (Supabase), Ollama, Lambda Server (MCP)
@@ -210,7 +218,7 @@ sequenceDiagram
     participant Lambda
     participant MongoDB
     participant Ollama
-    
+
     User->>Lambda: POST /api/v1/rag/ingest (file)
     Lambda->>Lambda: Process document (Docling)
     Lambda->>Lambda: Chunk document
@@ -230,7 +238,7 @@ sequenceDiagram
     participant Lambda
     participant MongoDB
     participant Ollama
-    
+
     User->>OpenWebUI: Ask question
     OpenWebUI->>Lambda: MCP: agent_query(query)
     Lambda->>Ollama: Generate query embedding
@@ -252,7 +260,7 @@ sequenceDiagram
     participant Lambda
     participant PostgreSQL
     participant MongoDB
-    
+
     User->>OpenWebUI: Chat conversation
     OpenWebUI->>PostgreSQL: Store messages
     User->>OpenWebUI: Export conversation
@@ -275,7 +283,7 @@ sequenceDiagram
     participant Bot
     participant Immich
     participant ML
-    
+
     User->>Discord: Upload photo to #event-uploads
     Discord->>Bot: Message event
     Bot->>Bot: Download file
@@ -297,7 +305,7 @@ sequenceDiagram
     participant Lambda
     participant MongoDB
     participant Ollama
-    
+
     Trigger->>N8N: Webhook/Schedule/File
     N8N->>Lambda: HTTP: MCP tool call
     Lambda->>MongoDB: Search knowledge base
@@ -309,6 +317,57 @@ sequenceDiagram
     N8N-->>Trigger: Response/Webhook
 ```
 
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Cloudflare
+    participant Caddy
+    participant Lambda
+    participant Supabase
+    participant Neo4j
+    participant MinIO
+
+    User->>Cloudflare: Access application
+    Cloudflare->>Cloudflare: Authenticate via Google OAuth
+    Cloudflare->>Caddy: Request with JWT header
+    Note over Cloudflare,Caddy: Cf-Access-Jwt-Assertion
+    Caddy->>Lambda: Forward request
+    Lambda->>Lambda: Validate JWT (signature, audience, issuer)
+    Lambda->>Supabase: Check if user exists
+    alt User doesn't exist
+        Lambda->>Supabase: Create user profile
+        Lambda->>Neo4j: Create User node
+        Lambda->>MinIO: Create user folder
+    end
+    Lambda->>Lambda: Enforce data isolation
+    Lambda-->>User: Authenticated response
+```
+
+### Data Viewing Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Cloudflare
+    participant Lambda
+    participant AuthService
+    participant DataStore[Data Store]
+
+    User->>Cloudflare: Authenticated request
+    Cloudflare->>Lambda: Request with JWT
+    Lambda->>AuthService: Validate JWT & get user
+    AuthService->>AuthService: Check admin status
+    Lambda->>DataStore: Query with user filter
+    alt Admin user
+        DataStore-->>Lambda: All data
+    else Regular user
+        DataStore-->>Lambda: User-scoped data only
+    end
+    Lambda-->>User: Filtered results
+```
+
 ## API Gateway Architecture
 
 Caddy acts as the reverse proxy for all services:
@@ -318,7 +377,7 @@ graph LR
     subgraph Caddy["Caddy Reverse Proxy"]
         Router[Request Router]
     end
-    
+
     subgraph Services
         N8N[n8n:5678]
         WebUI[Open WebUI:8080]
@@ -328,14 +387,14 @@ graph LR
         Immich[Immich:2283]
         Lambda[Lambda:8000]
     end
-    
+
     Router -->|n8n.datacrew.space| N8N
     Router -->|webui.datacrew.space| WebUI
     Router -->|flowise.datacrew.space| Flowise
     Router -->|searxng.datacrew.space| SearXNG
     Router -->|langfuse.datacrew.space| Langfuse
     Router -->|immich.datacrew.space| Immich
-    Router -->|lambda.datacrew.space| Lambda
+    Router -->|api.datacrew.space| Lambda
 ```
 
 ### Routing Rules
@@ -343,28 +402,56 @@ graph LR
 - **Private Mode**: Services exposed on ports (e.g., `localhost:5678`)
 - **Public Mode**: All traffic via Caddy on ports 80/443
 - **Cloudflare Tunnel**: Optional, routes through Cloudflare before Caddy
+- **Authentication**: Lambda server endpoints protected by Cloudflare Access (JWT validation)
+
+### Lambda Server API Endpoints
+
+**Public Endpoints** (no authentication):
+- `GET /health` - Health check
+- `GET /docs` - API documentation
+- `GET /openapi.json` - OpenAPI schema
+
+**Authenticated Endpoints** (require Cloudflare Access JWT):
+- `GET /api/me` - Current user profile
+- `GET /api/v1/data/storage` - View MinIO/blob storage files
+- `GET /api/v1/data/supabase` - View Supabase table data
+- `GET /api/v1/data/neo4j` - View Neo4j graph data
+- `GET /api/v1/data/mongodb` - View MongoDB collection data
+- `POST /mcp/tools/*` - MCP tool endpoints (internal network only)
+- All other `/api/*` endpoints
+
+**Internal Endpoints** (Docker network only):
+- MCP endpoints accessible via `http://lambda-server:8000/mcp`
+- No authentication required (network isolation provides security)
 
 ## Database Architecture
 
 ### PostgreSQL (Supabase)
 - **Purpose**: Primary relational database
-- **Used by**: n8n, Open WebUI, Supabase services
+- **Used by**: n8n, Open WebUI, Supabase services, Lambda server (user profiles)
 - **Schema**: Multiple schemas for different services
+- **User Management**: `profiles` table stores user identity (email, role, tier)
+- **Data Isolation**: Application-level filtering by `owner_email` field
 
 ### MongoDB
 - **Purpose**: Document database for RAG
-- **Used by**: Lambda server (MongoDB RAG project)
+- **Used by**: Lambda server (MongoDB RAG project, persona management, conversation history)
 - **Features**: Vector search, full-text search, Atlas Local
+- **Data Isolation**: Filtered by `user_id` or `user_email` fields in documents
 
 ### Neo4j
 - **Purpose**: Graph database for knowledge graphs
-- **Used by**: Lambda server (Graphiti RAG, knowledge graph)
+- **Used by**: Lambda server (Graphiti RAG, knowledge graph, user provisioning)
 - **Protocol**: Bolt protocol
+- **Data Isolation**: User anchoring pattern (`MATCH (u:User {email: $email})`)
+- **User Management**: `:User` nodes created via JIT provisioning
 
-### Qdrant
-- **Purpose**: High-performance vector database
-- **Used by**: n8n (optional, for vector operations)
-- **Features**: Fast vector similarity search
+### MinIO (Supabase Storage)
+- **Purpose**: S3-compatible object storage
+- **Used by**: Supabase, Lambda server (user blob storage)
+- **Features**: S3-compatible API, bucket management
+- **Data Isolation**: User folders organized by `user-{uuid}/` prefix
+- **Bucket**: `user-data` (shared bucket with prefix-based organization)
 
 ### ClickHouse
 - **Purpose**: Analytics database
@@ -377,8 +464,36 @@ graph LR
 - All services on `ai-network` (Docker network)
 - Services communicate via container names
 - No direct external access (except via Caddy/Cloudflare)
+- Caddy configured to trust Cloudflare IP ranges (when using Tunnel)
 
-### Authentication
+### Authentication & Authorization
+
+#### Cloudflare Access (Lambda Server)
+- **Method**: Header-based JWT validation
+- **IdP**: Google OAuth (via Cloudflare Access)
+- **Flow**: User authenticates at Cloudflare edge → JWT injected → Lambda validates
+- **JWT Header**: `Cf-Access-Jwt-Assertion`
+- **Validation**: Signature, audience (AUD tag), issuer
+- **Location**: `04-lambda/server/projects/auth/`
+- **Documentation**: See [Auth Project README](../04-lambda/server/projects/auth/README.md)
+
+#### Just-In-Time (JIT) User Provisioning
+- **Supabase**: Auto-creates user profile on first access
+- **Neo4j**: Auto-creates `:User` node on first access
+- **MinIO**: Auto-creates user folder (`user-{uuid}/`) on first access
+- **MongoDB**: User filtering via field matching (no explicit provisioning)
+
+#### Data Isolation
+- **Regular Users**: See only their own data (filtered by email/UUID)
+- **Admin Users**: Can view all data (bypasses filtering)
+- **Enforcement**: Application-level filtering in all data viewing endpoints
+- **Storage Layers**:
+  - **Supabase**: Filtered by `owner_email` field
+  - **Neo4j**: User anchoring pattern (`MATCH (u:User {email: $email})`)
+  - **MinIO**: Filtered by `user-{uuid}/` prefix
+  - **MongoDB**: Filtered by `user_id` or `user_email` fields
+
+#### Other Services
 - **Open WebUI**: Google OAuth (optional), local accounts
 - **n8n**: Local accounts, Google OIDC (optional)
 - **Infisical**: Admin account, machine identity
@@ -388,6 +503,7 @@ graph LR
 - **Primary**: Infisical (optional, can use `.env` files)
 - **Fallback**: `.env` files in repository root
 - **Best Practice**: Use Infisical for production, `.env` for development
+- **Auth Secrets**: Cloudflare AUD tag, Supabase credentials, MinIO keys stored in environment variables
 
 ## Scaling Considerations
 
@@ -442,4 +558,6 @@ graph LR
 - [Workflows Documentation](WORKFLOWS.md) - Detailed workflow documentation
 - [Services Documentation](SERVICES.md) - Complete service catalog
 - [MCP Integration](MCP_INTEGRATION.md) - MCP server and tools guide
+- [Cloudflare Access Setup](CLOUDFLARE_ACCESS_CLI_SETUP.md) - Cloudflare Access configuration
+- [Auth Project README](../04-lambda/server/projects/auth/README.md) - Authentication system documentation
 - [Main README](../README.md) - Project overview

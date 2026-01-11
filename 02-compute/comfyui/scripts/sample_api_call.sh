@@ -124,29 +124,29 @@ if [ "$HTTP_CODE" = "202" ]; then
     REQUEST_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
     echo "   Request ID: $REQUEST_ID"
     echo ""
-    
+
     echo -e "${BLUE}2. Polling for job result...${NC}"
     echo ""
-    
+
     # Poll for result (max 5 minutes)
     MAX_WAIT=300
     ELAPSED=0
     CHECK_INTERVAL=2
-    
+
     while [ $ELAPSED -lt $MAX_WAIT ]; do
         RESULT_RESPONSE=$(curl -s -w "\n%{http_code}" \
             -u "${WEB_USER}:${WEB_PASSWORD}" \
             "${API_RESULT}/${REQUEST_ID}")
-        
+
         RESULT_HTTP_CODE=$(echo "$RESULT_RESPONSE" | tail -n1)
         RESULT_BODY=$(echo "$RESULT_RESPONSE" | sed '$d')
-        
+
         if [ "$RESULT_HTTP_CODE" = "200" ]; then
             STATUS=$(echo "$RESULT_BODY" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
             MESSAGE=$(echo "$RESULT_BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-            
+
             echo -e "   Status: ${YELLOW}${STATUS}${NC} - ${MESSAGE}"
-            
+
             if [ "$STATUS" = "completed" ]; then
                 echo ""
                 echo -e "${GREEN}✅ Job completed successfully!${NC}"
@@ -163,16 +163,16 @@ if [ "$HTTP_CODE" = "202" ]; then
                 exit 1
             fi
         fi
-        
+
         sleep $CHECK_INTERVAL
         ELAPSED=$((ELAPSED + CHECK_INTERVAL))
     done
-    
+
     echo ""
     echo -e "${YELLOW}⏱️  Timeout waiting for result${NC}"
     rm -f "$PAYLOAD_FILE"
     exit 1
-    
+
 elif [ "$HTTP_CODE" = "401" ]; then
     echo -e "${RED}❌ Authentication failed!${NC}"
     echo "   Please check your WEB_USER and WEB_PASSWORD credentials"
@@ -184,5 +184,3 @@ else
     rm -f "$PAYLOAD_FILE"
     exit 1
 fi
-
-

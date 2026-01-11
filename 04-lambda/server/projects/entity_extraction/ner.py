@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import List
 from datetime import datetime
 
-from .models import Entity, EntityType, EntityExtractionResult
 from .base import EntityExtractor
+from .models import Entity, EntityExtractionResult, EntityType
 
 
 class NERExtractor(EntityExtractor):
@@ -23,10 +22,10 @@ class NERExtractor(EntityExtractor):
     """
 
     def __init__(
-        self, 
-        model_name: str = "Jean-Baptiste/roberta-large-ner-english", 
+        self,
+        model_name: str = "Jean-Baptiste/roberta-large-ner-english",
         max_workers: int = 4,
-        aggregation_strategy: str = "simple"
+        aggregation_strategy: str = "simple",
     ) -> None:
         """Initialize the NER extractor.
 
@@ -61,7 +60,7 @@ class NERExtractor(EntityExtractor):
         """
         # Remove B-, I- prefixes from BIO tagging if present
         label_clean = label.replace("B-", "").replace("I-", "")
-        
+
         mapping = {
             "PER": EntityType.PERSON,
             "PERSON": EntityType.PERSON,
@@ -77,7 +76,7 @@ class NERExtractor(EntityExtractor):
         }
         return mapping.get(label_clean.upper(), EntityType.CONCEPT)
 
-    def _run_inference(self, text: str) -> List[dict]:
+    def _run_inference(self, text: str) -> list[dict]:
         """Run NER inference in the thread pool."""
         pipeline = self._ensure_model()
         # Truncate long texts to avoid model limits (512 tokens for BERT)
@@ -100,7 +99,7 @@ class NERExtractor(EntityExtractor):
         loop = asyncio.get_event_loop()
         ner_results = await loop.run_in_executor(self._executor, self._run_inference, text)
 
-        entities: List[Entity] = []
+        entities: list[Entity] = []
         for result in ner_results:
             entities.append(
                 Entity(
@@ -122,7 +121,7 @@ class NERExtractor(EntityExtractor):
             extractor_type="ner",
         )
 
-    def get_supported_types(self) -> List[EntityType]:
+    def get_supported_types(self) -> list[EntityType]:
         """Return list of entity types this extractor can detect."""
         return [
             EntityType.PERSON,

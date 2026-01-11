@@ -1,15 +1,17 @@
 """Open WebUI topic classification REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Annotated, AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic_ai import RunContext
 
+from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
 from server.projects.openwebui_topics.models import (
     TopicClassificationRequest,
-    TopicClassificationResponse
+    TopicClassificationResponse,
 )
-from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
 from server.projects.openwebui_topics.tools import classify_topics
 
 router = APIRouter()
@@ -30,19 +32,19 @@ async def get_openwebui_topics_deps() -> AsyncGenerator[OpenWebUITopicsDeps, Non
 @router.post("/classify", response_model=TopicClassificationResponse)
 async def classify_topics_endpoint(
     request: TopicClassificationRequest,
-    deps: Annotated[OpenWebUITopicsDeps, Depends(get_openwebui_topics_deps)]
+    deps: Annotated[OpenWebUITopicsDeps, Depends(get_openwebui_topics_deps)],
 ):
     """
     Classify topics for a conversation using LLM.
-    
+
     This endpoint analyzes a conversation and suggests 3-5 topics that best describe
     the conversation's main themes. Topics can be used for organization and filtering.
-    
+
     **Use Cases:**
     - Automatically tag conversations with topics
     - Organize conversations by theme
     - Filter conversations by topic
-    
+
     **Request Body:**
     ```json
     {
@@ -55,7 +57,7 @@ async def classify_topics_endpoint(
         "existing_topics": ["authentication"]
     }
     ```
-    
+
     **Response:**
     ```json
     {
@@ -72,5 +74,4 @@ async def classify_topics_endpoint(
         return result
     except Exception as e:
         logger.exception(f"Failed to classify topics: {e}")
-        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Classification failed: {e!s}")

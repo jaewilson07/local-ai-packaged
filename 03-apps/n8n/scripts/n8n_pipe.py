@@ -7,13 +7,14 @@ version: 0.1.0
 This module defines a Pipe class that utilizes N8N for an Agent
 """
 
-from typing import Optional, Callable, Awaitable
-from pydantic import BaseModel, Field
-import os
 import time
-import requests
+from collections.abc import Awaitable, Callable
 
-def extract_event_info(event_emitter) -> tuple[Optional[str], Optional[str]]:
+import requests
+from pydantic import BaseModel, Field
+
+
+def extract_event_info(event_emitter) -> tuple[str | None, str | None]:
     if not event_emitter or not event_emitter.__closure__:
         return None, None
     for cell in event_emitter.__closure__:
@@ -23,11 +24,10 @@ def extract_event_info(event_emitter) -> tuple[Optional[str], Optional[str]]:
             return chat_id, message_id
     return None, None
 
+
 class Pipe:
     class Valves(BaseModel):
-        n8n_url: str = Field(
-            default="https://n8n.[your domain].com/webhook/[your webhook URL]"
-        )
+        n8n_url: str = Field(default="https://n8n.[your domain].com/webhook/[your webhook URL]")
         n8n_bearer_token: str = Field(default="...")
         input_field: str = Field(default="chatInput")
         response_field: str = Field(default="output")
@@ -44,7 +44,6 @@ class Pipe:
         self.name = "N8N Pipe"
         self.valves = self.Valves()
         self.last_emit_time = 0
-        pass
 
     async def emit_status(
         self,
@@ -57,9 +56,7 @@ class Pipe:
         if (
             __event_emitter__
             and self.valves.enable_status_indicator
-            and (
-                current_time - self.last_emit_time >= self.valves.emit_interval or done
-            )
+            and (current_time - self.last_emit_time >= self.valves.emit_interval or done)
         ):
             await __event_emitter__(
                 {
@@ -77,13 +74,11 @@ class Pipe:
     async def pipe(
         self,
         body: dict,
-        __user__: Optional[dict] = None,
-        __event_emitter__: Callable[[dict], Awaitable[None]] = None,
-        __event_call__: Callable[[dict], Awaitable[dict]] = None,
-    ) -> Optional[dict]:
-        await self.emit_status(
-            __event_emitter__, "info", "/Calling N8N Workflow...", False
-        )
+        __user__: dict | None = None,
+        __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
+        __event_call__: Callable[[dict], Awaitable[dict]] | None = None,
+    ) -> dict | None:
+        await self.emit_status(__event_emitter__, "info", "/Calling N8N Workflow...", False)
         chat_id, _ = extract_event_info(__event_emitter__)
         messages = body.get("messages", [])
 
@@ -98,9 +93,7 @@ class Pipe:
                 }
                 payload = {"sessionId": f"{chat_id}"}
                 payload[self.valves.input_field] = question
-                response = requests.post(
-                    self.valves.n8n_url, json=payload, headers=headers
-                )
+                response = requests.post(self.valves.n8n_url, json=payload, headers=headers)
                 if response.status_code == 200:
                     n8n_response = response.json()[self.valves.response_field]
                 else:
@@ -112,7 +105,7 @@ class Pipe:
                 await self.emit_status(
                     __event_emitter__,
                     "error",
-                    f"Error during sequence execution: {str(e)}",
+                    f"Error during sequence execution: {e!s}",
                     True,
                 )
                 return {"error": str(e)}

@@ -19,4 +19,3 @@ services:
       # This ensures cookies/sessions work correctly for the configured access method
       # Note: For dual access (localhost + Cloudflare), set INFISICAL_HTTPS_ENABLED=true in .env
       - HTTPS_ENABLED=${INFISICAL_HTTPS_ENABLED:-false}
-

@@ -291,4 +291,3 @@ bash 02-compute/comfyui/scripts/get_auth_token.sh
 - [ComfyUI Access Implementation](../00-infrastructure/docs/cloudflare/comfyui-access-implementation.md)
 - [Caddy Integration](../00-infrastructure/docs/cloudflare/caddy-integration.md)
 - [Environment Variables](../00-infrastructure/docs/cloudflare/ENV_VARIABLES.md)
-

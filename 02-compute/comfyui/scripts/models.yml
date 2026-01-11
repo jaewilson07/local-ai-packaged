@@ -31,6 +31,3 @@ vae:
 #   - name: example-upscaler.pth
 #     url: https://example.com/path/to/upscaler.pth
 #     description: Example upscaler model
-
-
-

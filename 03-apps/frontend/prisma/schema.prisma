@@ -14,7 +14,7 @@ model Post {
   immichAssetId String   @id @map("immich_asset_id")
   caption       String?
   createdAt     DateTime  @default(now()) @map("created_at")
-  
+
   comments      Comment[]
   reactions     Reaction[]
 
@@ -27,7 +27,7 @@ model Comment {
   userId        String   @map("user_id")
   text          String
   createdAt     DateTime  @default(now()) @map("created_at")
-  
+
   post          Post     @relation(fields: [immichAssetId], references: [immichAssetId], onDelete: Cascade)
 
   @@index([immichAssetId])
@@ -40,7 +40,7 @@ model Reaction {
   userId        String   @map("user_id")
   type          ReactionType
   createdAt     DateTime  @default(now()) @map("created_at")
-  
+
   post          Post     @relation(fields: [immichAssetId], references: [immichAssetId], onDelete: Cascade)
 
   @@id([immichAssetId, userId])

@@ -1,22 +1,23 @@
 """Open WebUI export REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional, Annotated, AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic_ai import RunContext
 
+from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
 from server.projects.openwebui_export.models import (
     ConversationExportRequest,
     ConversationExportResponse,
-    ConversationListRequest,
-    ConversationListResponse
+    ConversationListResponse,
 )
-from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
 from server.projects.openwebui_export.tools import (
     export_conversation,
-    get_conversations,
+    export_conversations_batch,
     get_conversation,
-    export_conversations_batch
+    get_conversations,
 )
 
 router = APIRouter()
@@ -37,19 +38,19 @@ async def get_openwebui_export_deps() -> AsyncGenerator[OpenWebUIExportDeps, Non
 @router.post("/export", response_model=ConversationExportResponse)
 async def export_conversation_endpoint(
     request: ConversationExportRequest,
-    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)],
 ):
     """
     Export a conversation from Open WebUI to MongoDB RAG system.
-    
+
     This endpoint takes a conversation (messages, metadata, topics) and exports it
     to the MongoDB RAG system where it becomes searchable via vector search.
-    
+
     **Use Cases:**
     - Export conversations for RAG searchability
     - Make conversation history searchable
     - Integrate conversations with knowledge base
-    
+
     **Request Body:**
     ```json
     {
@@ -64,7 +65,7 @@ async def export_conversation_endpoint(
         "metadata": {"custom_field": "value"}
     }
     ```
-    
+
     **Response:**
     ```json
     {
@@ -83,17 +84,17 @@ async def export_conversation_endpoint(
         return ConversationExportResponse(**result)
     except Exception as e:
         logger.exception(f"Failed to export conversation: {e}")
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {e!s}")
 
 
-@router.post("/export/batch", response_model=List[ConversationExportResponse])
+@router.post("/export/batch", response_model=list[ConversationExportResponse])
 async def export_conversations_batch_endpoint(
-    requests: List[ConversationExportRequest],
-    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+    requests: list[ConversationExportRequest],
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)],
 ):
     """
     Export multiple conversations in batch.
-    
+
     This endpoint exports multiple conversations at once, which is more efficient
     than calling the single export endpoint multiple times.
     """
@@ -103,63 +104,61 @@ async def export_conversations_batch_endpoint(
         return [ConversationExportResponse(**result) for result in results]
     except Exception as e:
         logger.exception(f"Batch export failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Batch export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Batch export failed: {e!s}")
 
 
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations_endpoint(
     deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)],
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
 ):
     """
     List conversations from Open WebUI.
-    
+
     This endpoint fetches conversations from Open WebUI API. Useful for
     discovering conversations that need to be exported.
     """
     try:
         tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await get_conversations(tool_ctx, user_id, limit, offset)
-        
+
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
-        
+
         return ConversationListResponse(
             conversations=result["conversations"],
             total=result["total"],
             limit=result["limit"],
-            offset=result["offset"]
+            offset=result["offset"],
         )
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Failed to list conversations: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list conversations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list conversations: {e!s}")
 
 
 @router.get("/conversations/{conversation_id}")
 async def get_conversation_endpoint(
-    conversation_id: str,
-    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+    conversation_id: str, deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
 ):
     """
     Get a specific conversation from Open WebUI.
-    
+
     This endpoint fetches a single conversation by ID from Open WebUI API.
     """
     try:
         tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await get_conversation(tool_ctx, conversation_id)
-        
+
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
-        
+
         return result
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Failed to get conversation {conversation_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get conversation: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Failed to get conversation: {e!s}")

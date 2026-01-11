@@ -385,4 +385,3 @@ echo $POSTGRES_PASSWORD
 - [Diceware Word List](https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt)
 - [xkcdpass Python Package](https://github.com/redacted/XKCD-password-generator)
 - [OpenSSL Documentation](https://www.openssl.org/docs/)
-

@@ -123,12 +123,12 @@ Basic Crawl Test: PASSED ✅
    curl -X POST http://localhost:8000/api/v1/crawl/single \
      -H "Content-Type: application/json" \
      -d '{"url": "https://example.com", "chunk_size": 1000, "chunk_overlap": 200}'
-   
+
    # Deep crawl
    curl -X POST http://localhost:8000/api/v1/crawl/deep \
      -H "Content-Type: application/json" \
      -d '{"url": "https://example.com", "max_depth": 2, "chunk_size": 1000}'
-   
+
    # Graphiti search
    curl -X POST http://localhost:8000/api/v1/graphiti/search \
      -H "Content-Type: application/json" \

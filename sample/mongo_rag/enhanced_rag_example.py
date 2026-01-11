@@ -16,8 +16,8 @@ Prerequisites:
 """
 
 import asyncio
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Set environment variables for host execution (not Docker)
@@ -25,22 +25,24 @@ from pathlib import Path
 os.environ.setdefault("LLM_BASE_URL", "http://localhost:11434/v1")
 os.environ.setdefault("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
 # MongoDB with authentication (default credentials: admin/admin123)
-os.environ.setdefault("MONGODB_URI", "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin")
+os.environ.setdefault(
+    "MONGODB_URI",
+    "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin",
+)
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-from pydantic_ai import RunContext
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.agent import rag_agent
 import logging
+
+from server.projects.mongo_rag.agent import rag_agent
+from server.projects.mongo_rag.dependencies import AgentDependencies
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -49,11 +51,13 @@ async def main():
     """Demonstrate enhanced RAG capabilities."""
     # Example queries of varying complexity
     simple_query = "What is authentication?"
-    complex_query = "What is authentication and how does it differ from authorization? Also explain OAuth2."
-    
-    print("="*80)
+    complex_query = (
+        "What is authentication and how does it differ from authorization? Also explain OAuth2."
+    )
+
+    print("=" * 80)
     print("MongoDB RAG - Enhanced RAG Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example demonstrates advanced RAG features:")
     print("  - Query decomposition: Breaks complex queries into sub-queries")
@@ -61,33 +65,40 @@ async def main():
     print("  - Citation extraction: Identifies sources for answers")
     print("  - Result synthesis: Combines results from multiple queries")
     print()
+
+    # Initialize dependencies with user context (for RLS)
+    # In production, these would come from authenticated user session
+    from uuid import uuid4
+    user_id = str(uuid4())  # Simulated user ID
+    user_email = "demo@example.com"  # Simulated user email
     
-    # Initialize dependencies
-    deps = AgentDependencies()
+    deps = AgentDependencies.from_settings(
+        user_id=user_id,
+        user_email=user_email,
+        is_admin=False,
+        user_groups=[]
+    )
     await deps.initialize()
-    
+
     try:
         # 1. Simple query (no decomposition needed)
-        print("="*80)
+        print("=" * 80)
         print("1. SIMPLE QUERY (No Decomposition)")
-        print("="*80)
+        print("=" * 80)
         print(f"Query: {simple_query}")
         print()
-        
-        logger.info(f"🔍 Performing enhanced search for simple query...")
-        simple_result = await rag_agent.run(
-            simple_query,
-            deps=deps
-        )
-        
+
+        logger.info("🔍 Performing enhanced search for simple query...")
+        simple_result = await rag_agent.run(simple_query, deps=deps)
+
         print("Result:")
         print(simple_result.data)
         print()
-        
+
         # 2. Complex query (will be decomposed)
-        print("="*80)
+        print("=" * 80)
         print("2. COMPLEX QUERY (With Decomposition)")
-        print("="*80)
+        print("=" * 80)
         print(f"Query: {complex_query}")
         print()
         print("This query will be decomposed into multiple sub-queries:")
@@ -95,46 +106,40 @@ async def main():
         print("  - How does authentication differ from authorization?")
         print("  - Explain OAuth2")
         print()
-        
-        logger.info(f"🔍 Performing enhanced search for complex query...")
-        complex_result = await rag_agent.run(
-            complex_query,
-            deps=deps
-        )
-        
+
+        logger.info("🔍 Performing enhanced search for complex query...")
+        complex_result = await rag_agent.run(complex_query, deps=deps)
+
         print("Result:")
         print(complex_result.data)
         print()
-        
+
         # 3. Enhanced search with query rewriting
-        print("="*80)
+        print("=" * 80)
         print("3. ENHANCED SEARCH WITH QUERY REWRITING")
-        print("="*80)
+        print("=" * 80)
         print("Query: 'auth stuff'")
         print("(This will be rewritten to a better query)")
         print()
-        
-        logger.info(f"🔍 Performing enhanced search with query rewriting...")
-        rewritten_result = await rag_agent.run(
-            "auth stuff",
-            deps=deps
-        )
-        
+
+        logger.info("🔍 Performing enhanced search with query rewriting...")
+        rewritten_result = await rag_agent.run("auth stuff", deps=deps)
+
         print("Result:")
         print(rewritten_result.data)
         print()
-        
-        print("="*80)
+
+        print("=" * 80)
         print("✅ Enhanced RAG demonstration completed!")
-        print("="*80)
+        print("=" * 80)
         print()
         print("Key benefits of enhanced RAG:")
         print("  - Better handling of complex, multi-part questions")
         print("  - Automatic filtering of irrelevant documents")
         print("  - Clear citations for source tracking")
         print("  - Synthesized answers from multiple sources")
-        print("="*80)
-        
+        print("=" * 80)
+
     except Exception as e:
         logger.exception(f"❌ Error during enhanced RAG demo: {e}")
         print(f"\n❌ Fatal error: {e}")

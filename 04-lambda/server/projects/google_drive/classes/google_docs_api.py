@@ -16,7 +16,7 @@ from .google_drive_authenticator import GoogleAuth
 
 class GoogleDoc(GoogleDrive):
     """Low-level wrapper for Google Docs API operations with integrated tab export.
-    
+
     Inherits from GoogleDrive to access Drive API methods and file operations.
     Provides access to document structure and tabs metadata when available.
     """
@@ -67,7 +67,7 @@ class GoogleDoc(GoogleDrive):
             normalized.append(
                 {
                     "tabId": t.get("tabId") or str(i),
-                    "title": t.get("title") or f"Tab {i+1}",
+                    "title": t.get("title") or f"Tab {i + 1}",
                     "index": t.get("index", i),
                     "parentTabId": t.get("parentTabId"),
                 }
@@ -120,7 +120,7 @@ class GoogleDoc(GoogleDrive):
             tabs.append(
                 GoogleDocumentTab(
                     tab_id=str(tab_id),
-                    title=title or f"Tab {idx+1}",
+                    title=title or f"Tab {idx + 1}",
                     index=idx,
                     parent_tab_id=str(parent_tab_id) if parent_tab_id else None,
                     markdown_content=markdown,
@@ -133,7 +133,7 @@ class GoogleDoc(GoogleDrive):
     def _download_html(self, document_id: str) -> str:
         """Download document as HTML (returns ZIP for large docs)."""
         import zipfile
-        
+
         # Use application/zip as per Google docs - returns a .zip for HTML export
         request = self.export_as_media(document_id, "application/zip")
         buf = io.BytesIO()
@@ -141,12 +141,12 @@ class GoogleDoc(GoogleDrive):
         done = False
         while not done:
             _, done = downloader.next_chunk()
-        
+
         # Extract HTML from the zip file
         buf.seek(0)
-        with zipfile.ZipFile(buf, 'r') as zip_file:
+        with zipfile.ZipFile(buf, "r") as zip_file:
             # Find the main HTML file (usually the first .html file)
-            html_files = [name for name in zip_file.namelist() if name.endswith('.html')]
+            html_files = [name for name in zip_file.namelist() if name.endswith(".html")]
             if not html_files:
                 raise ValueError("No HTML file found in exported ZIP")
             # Read the first HTML file

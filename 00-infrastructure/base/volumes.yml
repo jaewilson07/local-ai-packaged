@@ -28,4 +28,3 @@
 #    - Config files always use bind mounts (read-only where possible)
 #
 # This mixed approach is INTENTIONAL and follows best practices for each use case.
-

@@ -695,7 +695,7 @@ from pymongo.errors import ConnectionFailure, OperationFailure
 elif tool == "crawl_single_page":
     from server.api.crawl4ai_rag import crawl_single
     from server.projects.crawl4ai_rag.models import CrawlSinglePageRequest
-    
+
     try:
         result = await crawl_single(CrawlSinglePageRequest(**args))
         # Use JSON type for structured data
@@ -961,15 +961,15 @@ async def search_knowledge_base(
 ) -> dict:
     """
     Search the MongoDB RAG knowledge base.
-    
+
     Searches across all ingested documents including crawled web pages.
     Results are ranked by relevance and include metadata for filtering and context.
-    
+
     Args:
         query: Search query text. Can be a question, phrase, or keywords.
         match_count: Number of results to return. Range: 1-50. Default: 5.
         search_type: Type of search to perform. Default: "hybrid".
-    
+
     Returns:
         SearchResponse with query, results, and count.
     """

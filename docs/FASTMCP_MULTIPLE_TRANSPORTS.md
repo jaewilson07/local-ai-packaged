@@ -176,4 +176,3 @@ curl -X POST http://lambda-server:8000/api/v1/mcp/tools/call \
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp)
 - [Open WebUI MCP Integration](./MCP_INTEGRATION.md)
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
-

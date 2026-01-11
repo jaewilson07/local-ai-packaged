@@ -1,7 +1,7 @@
 """Configuration management for Discord bot."""
 
 import os
-from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,23 +28,23 @@ class Config:
     MCP_ENABLED: bool = os.getenv("MCP_ENABLED", "true").lower() == "true"
     MCP_PORT: int = int(os.getenv("MCP_PORT", "8001"))
     MCP_HOST: str = os.getenv("MCP_HOST", "0.0.0.0")
-    
+
     # Bluesky configuration
-    BLUESKY_HANDLE: Optional[str] = os.getenv("BLUESKY_HANDLE")
-    BLUESKY_PASSWORD: Optional[str] = os.getenv("BLUESKY_PASSWORD")
-    
+    BLUESKY_HANDLE: str | None = os.getenv("BLUESKY_HANDLE")
+    BLUESKY_PASSWORD: str | None = os.getenv("BLUESKY_PASSWORD")
+
     # Tumblr configuration
-    TUMBLR_CONSUMER_KEY: Optional[str] = os.getenv("TUMBLR_CONSUMER_KEY")
-    TUMBLR_CONSUMER_SECRET: Optional[str] = os.getenv("TUMBLR_CONSUMER_SECRET")
-    TUMBLR_OAUTH_TOKEN: Optional[str] = os.getenv("TUMBLR_OAUTH_TOKEN")
-    TUMBLR_OAUTH_SECRET: Optional[str] = os.getenv("TUMBLR_OAUTH_SECRET")
-    
+    TUMBLR_CONSUMER_KEY: str | None = os.getenv("TUMBLR_CONSUMER_KEY")
+    TUMBLR_CONSUMER_SECRET: str | None = os.getenv("TUMBLR_CONSUMER_SECRET")
+    TUMBLR_OAUTH_TOKEN: str | None = os.getenv("TUMBLR_OAUTH_TOKEN")
+    TUMBLR_OAUTH_SECRET: str | None = os.getenv("TUMBLR_OAUTH_SECRET")
+
     # Supabase configuration (for event agent)
-    SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
-    SUPABASE_SERVICE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_KEY")
-    SUPABASE_DB_URL: Optional[str] = os.getenv(
+    SUPABASE_URL: str | None = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
+    SUPABASE_SERVICE_KEY: str | None = os.getenv("SUPABASE_SERVICE_KEY")
+    SUPABASE_DB_URL: str | None = os.getenv(
         "SUPABASE_DB_URL",
-        f"postgresql://postgres:{os.getenv('POSTGRES_PASSWORD', '')}@supabase-db:5432/postgres"
+        f"postgresql://postgres:{os.getenv('POSTGRES_PASSWORD', '')}@supabase-db:5432/postgres",
     )
 
     @classmethod

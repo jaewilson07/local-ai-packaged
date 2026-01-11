@@ -195,5 +195,3 @@ Each stack uses its own Docker Compose project name:
 - `localai-lambda` - Lambda API server
 
 All stacks share the external `ai-network` for inter-service communication.
-
-

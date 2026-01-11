@@ -1,8 +1,9 @@
 """ComfyUI API service wrapper."""
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 from uuid import UUID
+
 import httpx
 
 from server.projects.comfyui_workflow.services.lora_sync_service import LoRASyncService
@@ -12,16 +13,16 @@ logger = logging.getLogger(__name__)
 
 class ComfyUIService:
     """Service for interacting with ComfyUI API."""
-    
+
     def __init__(
         self,
         http_client: httpx.AsyncClient,
         base_url: str,
-        lora_sync_service: Optional[LoRASyncService] = None
+        lora_sync_service: LoRASyncService | None = None,
     ):
         """
         Initialize ComfyUI service.
-        
+
         Args:
             http_client: HTTP client for ComfyUI API
             base_url: ComfyUI base URL
@@ -32,44 +33,36 @@ class ComfyUIService:
         self.lora_sync_service = lora_sync_service
         self.api_endpoint = "/ai-dock/api/payload"
         self.result_endpoint = "/ai-dock/api/result"
-    
-    async def submit_workflow(
-        self,
-        workflow_json: Dict[str, Any],
-        user_id: UUID
-    ) -> Optional[str]:
+
+    async def submit_workflow(self, workflow_json: dict[str, Any], user_id: UUID) -> str | None:
         """
         Submit a workflow to ComfyUI.
-        
+
         Automatically syncs user LoRA models if needed.
-        
+
         Args:
             workflow_json: ComfyUI workflow JSON
             user_id: User UUID (for LoRA sync)
-        
+
         Returns:
             Request ID if successful, None otherwise
         """
         # Transform workflow to inject user LoRA paths if needed
         transformed_workflow = await self._transform_workflow(workflow_json, user_id)
-        
+
         # Prepare payload
         payload = {
             "input": {
                 "request_id": "",
                 "modifier": "",
                 "modifications": {},
-                "workflow_json": transformed_workflow
+                "workflow_json": transformed_workflow,
             }
         }
-        
+
         try:
-            response = await self.http_client.post(
-                self.api_endpoint,
-                json=payload,
-                timeout=30.0
-            )
-            
+            response = await self.http_client.post(self.api_endpoint, json=payload, timeout=30.0)
+
             if response.status_code == 202:
                 result = response.json()
                 request_id = result.get("id")
@@ -82,25 +75,24 @@ class ComfyUIService:
                 logger.error(f"Failed to submit workflow: {response.status_code} - {response.text}")
                 return None
         except Exception as e:
-            logger.error(f"Error submitting workflow to ComfyUI: {e}")
+            logger.exception(f"Error submitting workflow to ComfyUI: {e}")
             return None
-    
-    async def get_job_status(self, request_id: str) -> Optional[Dict[str, Any]]:
+
+    async def get_job_status(self, request_id: str) -> dict[str, Any] | None:
         """
         Get job status from ComfyUI.
-        
+
         Args:
             request_id: ComfyUI request ID
-        
+
         Returns:
             Job status dictionary or None if error
         """
         try:
             response = await self.http_client.get(
-                f"{self.result_endpoint}/{request_id}",
-                timeout=30.0
+                f"{self.result_endpoint}/{request_id}", timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 404:
@@ -110,36 +102,34 @@ class ComfyUIService:
                 logger.error(f"Failed to get job status: {response.status_code}")
                 return None
         except Exception as e:
-            logger.error(f"Error getting job status: {e}")
+            logger.exception(f"Error getting job status: {e}")
             return None
-    
+
     async def _transform_workflow(
-        self,
-        workflow_json: Dict[str, Any],
-        user_id: UUID
-    ) -> Dict[str, Any]:
+        self, workflow_json: dict[str, Any], user_id: UUID
+    ) -> dict[str, Any]:
         """
         Transform workflow to inject user-specific LoRA paths.
-        
+
         Args:
             workflow_json: Original workflow JSON
             user_id: User UUID
-        
+
         Returns:
             Transformed workflow JSON
         """
         if not self.lora_sync_service:
             # No sync service, return workflow as-is
             return workflow_json
-        
+
         transformed = workflow_json.copy()
-        
+
         # Find all LoraLoader nodes and transform their lora_name
         for node_id, node_data in transformed.items():
             if isinstance(node_data, dict) and node_data.get("class_type") == "LoraLoader":
                 inputs = node_data.get("inputs", {})
                 lora_name = inputs.get("lora_name")
-                
+
                 if lora_name:
                     # Check if this is a user LoRA (starts with user-{uuid}/)
                     # If not, it's a shared LoRA and we leave it as-is
@@ -147,13 +137,41 @@ class ComfyUIService:
                         # This might be a user LoRA that needs syncing
                         # Try to resolve it
                         synced_path = await self.lora_sync_service.ensure_lora_synced(
-                            user_id=user_id,
-                            lora_filename=lora_name
+                            user_id=user_id, lora_filename=lora_name
                         )
-                        
+
                         if synced_path:
                             # Update the lora_name to use the synced path
                             inputs["lora_name"] = synced_path
-                            logger.info(f"Updated LoRA path for node {node_id}: {lora_name} -> {synced_path}")
-        
+                            logger.info(
+                                f"Updated LoRA path for node {node_id}: {lora_name} -> {synced_path}"
+                            )
+
         return transformed
+
+    async def download_image(self, image_url: str) -> bytes | None:
+        """
+        Download an image from ComfyUI.
+
+        Args:
+            image_url: Full URL or path to image in ComfyUI
+
+        Returns:
+            Image bytes or None if error
+        """
+        try:
+            # If URL is relative, make it absolute
+            if image_url.startswith("/"):
+                image_url = f"{self.base_url}{image_url}"
+            elif not image_url.startswith("http"):
+                image_url = f"{self.base_url}/{image_url}"
+
+            response = await self.http_client.get(image_url, timeout=60.0)
+            if response.status_code == 200:
+                return response.content
+            else:
+                logger.error(f"Failed to download image: {response.status_code}")
+                return None
+        except Exception as e:
+            logger.exception(f"Error downloading image: {e}")
+            return None

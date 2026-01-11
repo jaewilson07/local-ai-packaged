@@ -19,32 +19,32 @@ graph TB
         Graphiti[Graphiti RAG<br/>Knowledge Graph]
         Crawl4AI[Crawl4AI RAG<br/>Web Crawling]
     end
-    
+
     subgraph "Data Stores"
         MongoDB_Store[(MongoDB<br/>Documents & Chunks)]
         Neo4j_Store[(Neo4j<br/>Knowledge Graph)]
     end
-    
+
     subgraph "AI Services"
         Ollama[Ollama<br/>LLM & Embeddings]
     end
-    
+
     subgraph "Interfaces"
         REST[REST API<br/>FastAPI]
         MCP[MCP Tools<br/>FastMCP]
     end
-    
+
     MongoDB --> MongoDB_Store
     MongoDB --> Ollama
     Graphiti --> Neo4j_Store
     Graphiti --> Ollama
     Crawl4AI --> MongoDB_Store
     Crawl4AI --> Ollama
-    
+
     MongoDB --> REST
     Graphiti --> REST
     Crawl4AI --> REST
-    
+
     MongoDB --> MCP
     Graphiti --> MCP
     Crawl4AI --> MCP

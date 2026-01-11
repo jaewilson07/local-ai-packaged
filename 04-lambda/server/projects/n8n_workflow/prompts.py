@@ -59,9 +59,8 @@ N8N_WORKFLOW_SYSTEM_PROMPT = """You are an expert N8n workflow automation assist
 - Search for best practices: "n8n error handling"
 - Search for specific use cases: "send email notification workflow"
 
-Remember: 
+Remember:
 - **ALWAYS search the knowledge base before creating workflows** - don't guess at node configurations
 - Use `discover_n8n_nodes` to see what's available in the API
 - Use `search_node_examples` for specific node configuration help
 - Combine API discovery with knowledge base information for best results"""
-

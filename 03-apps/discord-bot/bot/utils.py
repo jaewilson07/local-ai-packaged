@@ -1,8 +1,5 @@
 """Utility functions."""
 
-import re
-from typing import Optional
-
 
 def is_valid_media_file(filename: str) -> bool:
     """Check if filename is a valid media file extension."""
@@ -23,4 +20,8 @@ def get_immich_gallery_url(asset_id: str, base_url: str) -> str:
     """Generate Immich gallery URL for an asset."""
     # Remove protocol and port for cleaner URL
     clean_url = base_url.replace("http://", "").replace("https://", "").replace(":2283", "")
-    return f"https://{clean_url}/photos/{asset_id}" if "http" not in base_url else f"{base_url}/photos/{asset_id}"
+    return (
+        f"https://{clean_url}/photos/{asset_id}"
+        if "http" not in base_url
+        else f"{base_url}/photos/{asset_id}"
+    )

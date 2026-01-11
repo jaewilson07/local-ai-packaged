@@ -1,7 +1,7 @@
 """Tests for utility functions."""
 
 import pytest
-from bot.utils import is_valid_media_file, format_file_size, get_immich_gallery_url
+from bot.utils import format_file_size, get_immich_gallery_url, is_valid_media_file
 
 
 @pytest.mark.unit

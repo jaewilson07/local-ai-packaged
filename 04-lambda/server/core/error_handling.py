@@ -1,40 +1,38 @@
 """Shared error handling decorators and utilities."""
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Type, Any, Optional
+
 from fastapi import HTTPException
 
 from server.core.exceptions import (
     BaseProjectException,
-    MongoDBException,
+    ConfigurationException,
     LLMException,
-    ValidationException,
+    MongoDBException,
     NotFoundException,
-    ConfigurationException
+    ValidationException,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def handle_project_errors(
-    raise_as_http: bool = True,
-    default_status_code: int = 500
-):
+def handle_project_errors(raise_as_http: bool = True, default_status_code: int = 500):
     """
     Decorator to handle project-specific exceptions and convert them to HTTP exceptions.
-    
+
     This decorator catches project-specific exceptions and converts them to
     appropriate HTTP exceptions for API endpoints.
-    
+
     Args:
         raise_as_http: If True, convert exceptions to HTTPException (default: True)
         default_status_code: Default HTTP status code for unhandled exceptions
-        
+
     Usage:
         ```python
         from server.core.error_handling import handle_project_errors
-        
+
         @router.post("/endpoint")
         @handle_project_errors()
         async def my_endpoint():
@@ -44,6 +42,7 @@ def handle_project_errors(
             pass
         ```
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -73,25 +72,26 @@ def handle_project_errors(
                 logger.exception(f"Unexpected error in {func.__name__}: {e}")
                 if raise_as_http:
                     raise HTTPException(
-                        status_code=default_status_code,
-                        detail=f"Internal server error: {str(e)}"
+                        status_code=default_status_code, detail=f"Internal server error: {e!s}"
                     )
                 raise
+
         return wrapper
+
     return decorator
 
 
 def handle_mongodb_errors(operation: str):
     """
     Decorator to wrap MongoDB operations with consistent error handling.
-    
+
     Args:
         operation: Description of the operation (e.g., "fetching user", "inserting document")
-        
+
     Usage:
         ```python
         from server.core.error_handling import handle_mongodb_errors
-        
+
         @handle_mongodb_errors("fetching user profile")
         async def get_user_profile(user_id: str):
             # MongoDB errors are automatically converted to MongoDBException
@@ -101,6 +101,7 @@ def handle_mongodb_errors(operation: str):
             return result
         ```
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -110,27 +111,29 @@ def handle_mongodb_errors(operation: str):
                 # Convert to MongoDBException if not already a project exception
                 if not isinstance(e, BaseProjectException):
                     raise MongoDBException(
-                        message=f"Failed {operation}: {str(e)}",
+                        message=f"Failed {operation}: {e!s}",
                         operation=operation,
-                        details={"error_type": type(e).__name__}
+                        details={"error_type": type(e).__name__},
                     )
                 raise
+
         return wrapper
+
     return decorator
 
 
-def handle_llm_errors(operation: str, model: Optional[str] = None):
+def handle_llm_errors(operation: str, model: str | None = None):
     """
     Decorator to wrap LLM operations with consistent error handling.
-    
+
     Args:
         operation: Description of the operation (e.g., "generating response", "creating embeddings")
         model: Optional LLM model name
-        
+
     Usage:
         ```python
         from server.core.error_handling import handle_llm_errors
-        
+
         @handle_llm_errors("generating response", model="llama3.2")
         async def generate_response(prompt: str):
             # LLM errors are automatically converted to LLMException
@@ -138,6 +141,7 @@ def handle_llm_errors(operation: str, model: Optional[str] = None):
             return response
         ```
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -147,11 +151,13 @@ def handle_llm_errors(operation: str, model: Optional[str] = None):
                 # Convert to LLMException if not already a project exception
                 if not isinstance(e, BaseProjectException):
                     raise LLMException(
-                        message=f"Failed {operation}: {str(e)}",
+                        message=f"Failed {operation}: {e!s}",
                         model=model,
                         operation=operation,
-                        details={"error_type": type(e).__name__}
+                        details={"error_type": type(e).__name__},
                     )
                 raise
+
         return wrapper
+
     return decorator

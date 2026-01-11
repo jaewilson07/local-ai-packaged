@@ -14,19 +14,22 @@ Complete end-to-end workflow execution example that demonstrates:
 5. Displaying results (output images, errors)
 
 **Prerequisites:**
-- Cloudflare Access JWT token (`CF_ACCESS_JWT` env var)
 - Lambda server running and accessible
 - ComfyUI service running
+- `CLOUDFLARE_EMAIL` in `.env` file (for user identification)
 
 **Usage:**
 ```bash
-# Get your Cloudflare Access JWT token
-export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
-export API_BASE_URL=https://api.datacrew.space
+# For local development (uses internal network, no auth required)
+python sample/comfyui/execute_workflow_sample.py
 
-# Run the sample
+# For external API access (requires JWT token)
+export API_BASE_URL=https://api.datacrew.space
+export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
 python sample/comfyui/execute_workflow_sample.py
 ```
+
+**Note**: The script automatically defaults to internal network URLs (`http://lambda-server:8000`) when running locally, which bypasses Cloudflare Access authentication. For external URLs, you'll need a Cloudflare Access JWT token.
 
 **What it does:**
 - Creates a workflow from the embedded JSON (Alix character image generation)
@@ -97,12 +100,19 @@ The script will:
 Alternatively, you can use the API endpoint directly:
 
 ```bash
-# Get your auth token first (from your auth system)
-export AUTH_TOKEN=your-jwt-token
+# Internal network (no auth required)
+curl -X POST "http://lambda-server:8000/api/v1/comfyui/loras/import-from-google-drive" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "google_drive_file_id": "1qfZLsFG_0vpq1qvf_uHhTU8ObQLMy4I7",
+    "name": "jw_sample_lora",
+    "description": "Sample LoRA imported from Google Drive",
+    "tags": ["sample", "imported"]
+  }'
 
-# Import the LoRA
-curl -X POST "http://localhost:8000/api/v1/comfyui/loras/import-from-google-drive" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
+# External network (requires JWT token)
+curl -X POST "https://api.datacrew.space/api/v1/comfyui/loras/import-from-google-drive" \
+  -H "Cf-Access-Jwt-Assertion: $CF_ACCESS_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "google_drive_file_id": "1qfZLsFG_0vpq1qvf_uHhTU8ObQLMy4I7",
@@ -114,36 +124,39 @@ curl -X POST "http://localhost:8000/api/v1/comfyui/loras/import-from-google-driv
 
 ## List All LoRAs
 
-The ComfyUI LoRA endpoints require **Cloudflare Access authentication** via the `Cf-Access-Jwt-Assertion` header.
+The ComfyUI LoRA endpoints support both internal network (no auth) and external network (JWT required) access.
 
 ### Using the Test Script
 
 ```bash
-# Get your Cloudflare Access JWT token
-# (Access your app through Cloudflare Access and check browser DevTools Network tab)
-export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
-export API_BASE_URL=https://datacrew.space
+# For local development (uses internal network, no auth required)
+python sample/comfyui/test_list_loras.py
 
-# Run the test script
+# For external API access (requires JWT token)
+export API_BASE_URL=https://api.datacrew.space
+export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
 python sample/comfyui/test_list_loras.py
 ```
+
+**Note**: The script automatically defaults to internal network URLs (`http://lambda-server:8000`) when running locally, which bypasses Cloudflare Access authentication. For external URLs, you'll need a Cloudflare Access JWT token.
 
 ### Using curl
 
 ```bash
-# Get your Cloudflare Access JWT from browser DevTools
-# Then use it in the header:
-curl -X GET "https://datacrew.space/api/v1/comfyui/loras" \
+# Internal network (no auth required)
+curl -X GET "http://lambda-server:8000/api/v1/comfyui/loras"
+
+# External network (requires JWT token)
+curl -X GET "https://api.datacrew.space/api/v1/comfyui/loras" \
   -H "Cf-Access-Jwt-Assertion: $CF_ACCESS_JWT"
 ```
 
 ### Important Notes
 
-⚠️ **Redirect Loop Issue**: If you see "redirected too many times" when accessing via browser:
-- The endpoint requires Cloudflare Access JWT authentication
-- Browsers accessing directly won't have the JWT header
-- You must access through Cloudflare Access (which injects the header automatically)
-- Or use API calls with the JWT header manually
+- **Local Development**: Scripts default to internal network URLs, which bypass authentication (network isolation provides security)
+- **External Access**: For external URLs, you need a Cloudflare Access JWT token (obtain from browser DevTools when accessing through Cloudflare Access)
+- **User Identification**: Scripts automatically load `CLOUDFLARE_EMAIL` from `.env` for user identification
+- **Authentication Helpers**: All sample scripts should use helper functions from `sample/shared/auth_helpers.py` for consistent authentication handling. See [sample/README.md](../README.md#authentication) for details.
 
 The endpoint supports query parameters:
 - `limit`: Maximum number of results (default: 100)

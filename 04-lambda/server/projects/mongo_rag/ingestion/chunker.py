@@ -14,15 +14,14 @@ Benefits over custom chunking:
 - Battle-tested (maintained by Docling team)
 """
 
-import os
 import logging
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any
 
-from dotenv import load_dotenv
-from transformers import AutoTokenizer
 from docling.chunking import HybridChunker
 from docling_core.types.doc import DoclingDocument
+from dotenv import load_dotenv
+from transformers import AutoTokenizer
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ChunkingConfig:
     """Configuration for DoclingHybridChunker."""
+
     chunk_size: int = 1000  # Target characters per chunk (used in fallback)
     chunk_overlap: int = 200  # Character overlap between chunks (used in fallback)
     max_chunk_size: int = 2000  # Maximum chunk size (used in fallback)
@@ -50,13 +50,14 @@ class ChunkingConfig:
 @dataclass
 class DocumentChunk:
     """Represents a document chunk with optional embedding."""
+
     content: str
     index: int
     start_char: int
     end_char: int
-    metadata: Dict[str, Any]
-    token_count: Optional[int] = None
-    embedding: Optional[List[float]] = None  # For embedder compatibility
+    metadata: dict[str, Any]
+    token_count: int | None = None
+    embedding: list[float] | None = None  # For embedder compatibility
 
     def __post_init__(self):
         """Calculate token count if not provided."""
@@ -94,7 +95,7 @@ class DoclingHybridChunker:
         self.chunker = HybridChunker(
             tokenizer=self.tokenizer,
             max_tokens=config.max_tokens,
-            merge_peers=True  # Merge small adjacent chunks
+            merge_peers=True,  # Merge small adjacent chunks
         )
 
         logger.info(f"HybridChunker initialized (max_tokens={config.max_tokens})")
@@ -104,9 +105,9 @@ class DoclingHybridChunker:
         content: str,
         title: str,
         source: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        docling_doc: Optional[DoclingDocument] = None
-    ) -> List[DocumentChunk]:
+        metadata: dict[str, Any] | None = None,
+        docling_doc: DoclingDocument | None = None,
+    ) -> list[DocumentChunk]:
         """
         Chunk a document using Docling's HybridChunker.
 
@@ -127,7 +128,7 @@ class DoclingHybridChunker:
             "title": title,
             "source": source,
             "chunk_method": "hybrid",
-            **(metadata or {})
+            **(metadata or {}),
         }
 
         # If we don't have a DoclingDocument, we need to create one from markdown
@@ -159,21 +160,23 @@ class DoclingHybridChunker:
                     **base_metadata,
                     "total_chunks": len(chunks),
                     "token_count": token_count,
-                    "has_context": True  # Flag indicating contextualized chunk
+                    "has_context": True,  # Flag indicating contextualized chunk
                 }
 
                 # Estimate character positions
                 start_char = current_pos
                 end_char = start_char + len(contextualized_text)
 
-                document_chunks.append(DocumentChunk(
-                    content=contextualized_text.strip(),
-                    index=i,
-                    start_char=start_char,
-                    end_char=end_char,
-                    metadata=chunk_metadata,
-                    token_count=token_count
-                ))
+                document_chunks.append(
+                    DocumentChunk(
+                        content=contextualized_text.strip(),
+                        index=i,
+                        start_char=start_char,
+                        end_char=end_char,
+                        metadata=chunk_metadata,
+                        token_count=token_count,
+                    )
+                )
 
                 current_pos = end_char
 
@@ -181,14 +184,12 @@ class DoclingHybridChunker:
             return document_chunks
 
         except Exception as e:
-            logger.error(f"HybridChunker failed: {e}, falling back to simple chunking")
+            logger.exception(f"HybridChunker failed: {e}, falling back to simple chunking")
             return self._simple_fallback_chunk(content, base_metadata)
 
     def _simple_fallback_chunk(
-        self,
-        content: str,
-        base_metadata: Dict[str, Any]
-    ) -> List[DocumentChunk]:
+        self, content: str, base_metadata: dict[str, Any]
+    ) -> list[DocumentChunk]:
         """
         Simple fallback chunking when HybridChunker can't be used.
 
@@ -221,7 +222,7 @@ class DoclingHybridChunker:
                 # Try to end at sentence boundary
                 chunk_end = end
                 for i in range(end, max(start + self.config.min_chunk_size, end - 200), -1):
-                    if i < len(content) and content[i] in '.!?\n':
+                    if i < len(content) and content[i] in ".!?\n":
                         chunk_end = i + 1
                         break
                 chunk_text = content[start:chunk_end]
@@ -230,18 +231,20 @@ class DoclingHybridChunker:
             if chunk_text.strip():
                 token_count = len(self.tokenizer.encode(chunk_text))
 
-                chunks.append(DocumentChunk(
-                    content=chunk_text.strip(),
-                    index=chunk_index,
-                    start_char=start,
-                    end_char=end,
-                    metadata={
-                        **base_metadata,
-                        "chunk_method": "simple_fallback",
-                        "total_chunks": -1  # Will update after
-                    },
-                    token_count=token_count
-                ))
+                chunks.append(
+                    DocumentChunk(
+                        content=chunk_text.strip(),
+                        index=chunk_index,
+                        start_char=start,
+                        end_char=end,
+                        metadata={
+                            **base_metadata,
+                            "chunk_method": "simple_fallback",
+                            "total_chunks": -1,  # Will update after
+                        },
+                        token_count=token_count,
+                    )
+                )
 
                 chunk_index += 1
 

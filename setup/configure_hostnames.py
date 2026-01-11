@@ -5,11 +5,11 @@ configure_tunnel_hostnames.py
 Configure Cloudflare Tunnel public hostnames via API.
 """
 
-import requests
 import os
 import sys
-import json
 from pathlib import Path
+
+import requests
 from dotenv import load_dotenv
 
 # Load .env from project root (3 levels up from this script)
@@ -50,7 +50,12 @@ def get_auth_headers():
             "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json",
         }
-    elif CLOUDFLARE_EMAIL and CLOUDFLARE_EMAIL.strip() and CLOUDFLARE_API_KEY and CLOUDFLARE_API_KEY.strip():
+    elif (
+        CLOUDFLARE_EMAIL
+        and CLOUDFLARE_EMAIL.strip()
+        and CLOUDFLARE_API_KEY
+        and CLOUDFLARE_API_KEY.strip()
+    ):
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
@@ -64,11 +69,11 @@ def get_account_id():
     """Get account ID from zone."""
     url = f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}"
     headers = get_auth_headers()
-    
+
     try:
         response = requests.get(url, headers=headers, timeout=30)
         data = response.json()
-        
+
         if response.status_code == 200 and data.get("success"):
             account_id = data["result"].get("account", {}).get("id")
             return account_id
@@ -83,10 +88,14 @@ def get_account_id():
                 if error_chain:
                     chain_msg = error_chain[0].get("message", "")
                     print(f"[ERROR] Details: {chain_msg}")
-                if "Invalid format for Authorization header" in str(error_msg) or "Invalid format" in str(error_chain):
+                if "Invalid format for Authorization header" in str(
+                    error_msg
+                ) or "Invalid format" in str(error_chain):
                     print("[INFO] Your API token may be incomplete or incorrectly formatted.")
                     print("[INFO] Cloudflare API tokens are usually 40+ characters long.")
-                    print("[INFO] Verify your token at: https://dash.cloudflare.com/profile/api-tokens")
+                    print(
+                        "[INFO] Verify your token at: https://dash.cloudflare.com/profile/api-tokens"
+                    )
                     print(f"[INFO] Current token length: {len(API_TOKEN)} characters")
             return None
     except Exception as e:
@@ -98,11 +107,11 @@ def get_tunnel_config(account_id):
     """Get current tunnel configuration."""
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/cfd_tunnel/{TUNNEL_ID}/configurations"
     headers = get_auth_headers()
-    
+
     try:
         response = requests.get(url, headers=headers, timeout=30)
         data = response.json()
-        
+
         if response.status_code == 200 and data.get("success"):
             return data["result"].get("config", {})
         return {}
@@ -115,11 +124,11 @@ def update_tunnel_config(account_id, config):
     """Update tunnel configuration."""
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/cfd_tunnel/{TUNNEL_ID}/configurations"
     headers = get_auth_headers()
-    
+
     try:
         response = requests.put(url, headers=headers, json={"config": config}, timeout=30)
         data = response.json()
-        
+
         if response.status_code == 200 and data.get("success"):
             return True
         else:
@@ -138,14 +147,14 @@ def main():
     print("Configure Cloudflare Tunnel Public Hostnames")
     print("=" * 60)
     print()
-    
+
     try:
-        headers = get_auth_headers()
+        get_auth_headers()
         print("[OK] Authentication configured")
     except ValueError as e:
         print(f"[ERROR] {e}")
         sys.exit(1)
-    
+
     # Get account ID
     print("Getting account ID...")
     account_id = get_account_id()
@@ -154,40 +163,40 @@ def main():
         sys.exit(1)
     print(f"[OK] Account ID: {account_id}")
     print()
-    
+
     # Get current config
     print("Getting current tunnel configuration...")
     config = get_tunnel_config(account_id)
-    
+
     # Initialize config if None or empty
     if not config:
         print("[INFO] No existing tunnel configuration found, creating new one...")
         config = {}
-    
+
     # Build ingress rules
     ingress = []
-    
+
     # Add service-specific rules
     for service in SERVICES:
-        ingress.append({
-            "hostname": service["hostname"],
-            "service": service["service"],
-            "originRequest": {
-                "httpHostHeader": service["hostname"]
+        ingress.append(
+            {
+                "hostname": service["hostname"],
+                "service": service["service"],
+                "originRequest": {"httpHostHeader": service["hostname"]},
             }
-        })
-    
+        )
+
     # Add catch-all at the end
     ingress.append({"service": "http_status:404"})
-    
+
     config["ingress"] = ingress
-    
+
     # Update config
     print("Updating tunnel configuration...")
     print()
     for service in SERVICES:
         print(f"  [ADD] {service['hostname']} -> {service['service']}")
-    
+
     if update_tunnel_config(account_id, config):
         print()
         print("[OK] Tunnel configuration updated successfully!")
@@ -204,9 +213,10 @@ def main():
         print()
         print("[WARNING] Failed to update tunnel configuration via API.")
         print("   You may need to configure public hostnames manually in the dashboard:")
-        print("   https://one.dash.cloudflare.com/ -> Networks -> Tunnels -> datacrew-services -> Configure")
+        print(
+            "   https://one.dash.cloudflare.com/ -> Networks -> Tunnels -> datacrew-services -> Configure"
+        )
 
 
 if __name__ == "__main__":
     main()
-

@@ -132,4 +132,3 @@ If the Auto Memory extension doesn't fit, we can:
 - [Open WebUI Extensions Documentation](https://docs.openwebui.com/features/plugin/)
 - [Davixk's Auto Memory Extension](https://github.com/Davixk/open-webui-extensions)
 - Open WebUI Functions API documentation
-

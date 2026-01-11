@@ -1,8 +1,7 @@
 """Tests for FastAPI server startup and health check."""
 
-import pytest
-import httpx
 from fastapi.testclient import TestClient
+
 from server.main import app
 
 
@@ -10,6 +9,7 @@ def test_server_imports():
     """Test that server can be imported without errors."""
     # This test validates that all imports work
     from server.main import app
+
     assert app is not None
     assert app.title == "Lambda Server"
 

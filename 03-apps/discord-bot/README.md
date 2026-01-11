@@ -420,10 +420,10 @@ async def test_new_feature(mock_discord_message, mock_immich_client):
     """Test new feature."""
     # Setup
     # ...
-    
+
     # Execute
     result = await new_feature_function(mock_discord_message, mock_immich_client)
-    
+
     # Assert
     assert result is not None
 ```
@@ -437,10 +437,10 @@ async def test_new_workflow(test_database, mock_discord_client):
     """Test complete workflow."""
     # Setup with real database
     # ...
-    
+
     # Execute workflow
     # ...
-    
+
     # Verify results
     # ...
 ```

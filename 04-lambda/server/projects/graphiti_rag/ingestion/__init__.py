@@ -1,2 +1,1 @@
 """Graphiti ingestion module."""
-

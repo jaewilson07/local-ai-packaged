@@ -9,6 +9,8 @@ When Open WebUI (public-facing, users authenticate via Cloudflare Access) makes 
 
 Cloudflare Access is designed for **browser/user authentication**, not server-to-server requests. When Open WebUI (running in a container) tries to connect to `https://api.datacrew.space/mcp`, it won't have a user's Cloudflare Access session.
 
+**Note**: The Lambda server now implements JWT validation for external requests. However, for internal Docker network communication, authentication is not required (network isolation provides security).
+
 ## Solution 1: Use Internal Docker Network (Recommended) ✅
 
 **Best approach**: Use the internal Docker network URL, which bypasses Cloudflare Access entirely.
@@ -59,10 +61,10 @@ If you must use the external URL (`https://api.datacrew.space/mcp`), use **Cloud
 3. **Configure Open WebUI to Use Service Token**:
    - In Open WebUI External Tools → MCP Server
    - **Server URL**: `https://api.datacrew.space/mcp`
-   - **Authentication**: 
+   - **Authentication**:
      - Add header: `CF-Access-Client-Id: <client-id>`
      - Add header: `CF-Access-Client-Secret: <client-secret>`
-   
+
    **Note**: Open WebUI may not support custom headers directly. You may need to:
    - Use a proxy/forwarder service
    - Modify Open WebUI configuration
@@ -99,7 +101,7 @@ If Service Tokens don't work with Open WebUI, implement API key authentication a
    # In 04-lambda/server/core/auth.py
    from fastapi import HTTPException, Security, Header
    from server.config import settings
-   
+
    async def verify_api_key(x_api_key: str = Header(None)):
        if not settings.api_key:
            return None  # No API key required if not configured
@@ -187,6 +189,22 @@ docker network inspect ai-network | grep -A 5 "open-webui\|lambda-server"
 docker exec open-webui env | grep LAMBDA_SERVER_URL
 ```
 
+## Lambda Server Authentication
+
+The Lambda server now implements Cloudflare Access JWT validation for external requests:
+
+- **External Requests** (`https://api.datacrew.space/*`): Require valid `Cf-Access-Jwt-Assertion` header
+- **Internal Requests** (`http://lambda-server:8000/*`): No authentication required (network isolation)
+
+**MCP Endpoints**:
+- Internal network: `http://lambda-server:8000/mcp` - No authentication needed
+- External URL: `https://api.datacrew.space/mcp` - Requires Cloudflare Access JWT
+
+**REST API Endpoints**:
+- All `/api/*` endpoints require authentication (except `/health`, `/docs`, `/openapi.json`)
+- Use `get_current_user` dependency for JWT validation
+- See [Auth Project README](../04-lambda/server/projects/auth/README.md) for details
+
 ## Best Practice Recommendation
 
 **Use Solution 1 (Internal Network)** because:
@@ -195,11 +213,13 @@ docker exec open-webui env | grep LAMBDA_SERVER_URL
 3. ✅ More secure (network isolation)
 4. ✅ Works regardless of Cloudflare Access
 5. ✅ Already configured in your setup
+6. ✅ Lambda server doesn't require JWT validation for internal requests
 
 Only use external URL (`https://api.datacrew.space/mcp`) if:
 - You need external access from outside Docker network
 - You're testing from a different environment
 - You have specific requirements for external routing
+- You can provide Cloudflare Access JWT tokens
 
 ## Troubleshooting
 
@@ -239,4 +259,3 @@ If using external URL and getting auth errors:
 - [MCP Security Setup](./MCP_SECURITY_SETUP.md)
 - [MCP Connection Troubleshooting](./MCP_CONNECTION_TROUBLESHOOTING.md)
 - [Cloudflare Service Tokens Documentation](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
-

@@ -5,14 +5,15 @@ Check and fix Cloudflare configuration for Infisical header/session issues
 
 import os
 import sys
-import requests
-import json
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
+
+import requests
 
 # Load .env file
 try:
     from dotenv import load_dotenv
+
     script_dir = Path(__file__).resolve().parent
     project_root = script_dir.parent.parent
     env_file = project_root / ".env"
@@ -31,18 +32,19 @@ CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "")
 CLOUDFLARE_EMAIL = os.getenv("CLOUDFLARE_EMAIL", "")
 CLOUDFLARE_API_KEY = os.getenv("CLOUDFLARE_API_KEY", "")
 
-def get_auth_headers() -> Dict[str, str]:
+
+def get_auth_headers() -> dict[str, str]:
     """Get authentication headers for Cloudflare API."""
     if CLOUDFLARE_API_TOKEN and CLOUDFLARE_API_TOKEN.strip():
         return {
             "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN.strip()}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
     elif CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
     else:
         raise ValueError(
@@ -52,7 +54,8 @@ def get_auth_headers() -> Dict[str, str]:
             "  - CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY"
         )
 
-def get_zone_id(headers: Dict[str, str]) -> Optional[str]:
+
+def get_zone_id(headers: dict[str, str]) -> str | None:
     """Get zone ID for the domain."""
     url = f"https://api.cloudflare.com/client/v4/zones?name={DOMAIN}"
     try:
@@ -69,12 +72,13 @@ def get_zone_id(headers: Dict[str, str]) -> Optional[str]:
         print(f"❌ Error getting zone ID: {e}")
         return None
 
-def check_ssl_tls_mode(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
+
+def check_ssl_tls_mode(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
     """Check SSL/TLS encryption mode."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("1. Checking SSL/TLS Mode")
-    print("="*60)
-    
+    print("=" * 60)
+
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/ssl"
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -83,7 +87,7 @@ def check_ssl_tls_mode(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
             if data.get("success"):
                 ssl_mode = data["result"]["value"]
                 print(f"   Current SSL/TLS Mode: {ssl_mode}")
-                
+
                 if ssl_mode == "flexible":
                     print("   ❌ PROBLEM: SSL/TLS mode is 'flexible'")
                     print("      This breaks secure cookies and sessions!")
@@ -101,7 +105,8 @@ def check_ssl_tls_mode(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
         print(f"   ❌ Error checking SSL mode: {e}")
         return {"status": "error"}
 
-def fix_ssl_tls_mode(headers: Dict[str, str], zone_id: str, mode: str = "full") -> bool:
+
+def fix_ssl_tls_mode(headers: dict[str, str], zone_id: str, mode: str = "full") -> bool:
     """Fix SSL/TLS mode."""
     print(f"\n   🔧 Fixing SSL/TLS mode to '{mode}'...")
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/ssl"
@@ -120,12 +125,13 @@ def fix_ssl_tls_mode(headers: Dict[str, str], zone_id: str, mode: str = "full") 
         print(f"   ❌ Error updating SSL mode: {e}")
         return False
 
-def check_page_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
+
+def check_page_rules(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
     """Check Page Rules for API caching."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("2. Checking Page Rules (Caching)")
-    print("="*60)
-    
+    print("=" * 60)
+
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/pagerules"
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -134,7 +140,7 @@ def check_page_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
             if data.get("success"):
                 rules = data.get("result", [])
                 print(f"   Found {len(rules)} page rule(s)")
-                
+
                 api_rules = []
                 for rule in rules:
                     targets = rule.get("targets", [])
@@ -142,12 +148,14 @@ def check_page_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
                         if target.get("constraint", {}).get("operator") == "matches":
                             pattern = target.get("constraint", {}).get("value", "")
                             if "/api" in pattern or INFISICAL_HOSTNAME in pattern:
-                                api_rules.append({
-                                    "id": rule.get("id"),
-                                    "pattern": pattern,
-                                    "actions": rule.get("actions", [])
-                                })
-                
+                                api_rules.append(
+                                    {
+                                        "id": rule.get("id"),
+                                        "pattern": pattern,
+                                        "actions": rule.get("actions", []),
+                                    }
+                                )
+
                 if api_rules:
                     print("   ✅ Found API-related page rules:")
                     for rule in api_rules:
@@ -166,7 +174,9 @@ def check_page_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
                     return {"status": "found", "rules": api_rules}
                 else:
                     print("   ⚠️  No page rules found for API endpoints")
-                    print("      → Should create rule: infisical.datacrew.space/api/* → Cache Level: Bypass")
+                    print(
+                        "      → Should create rule: infisical.datacrew.space/api/* → Cache Level: Bypass"
+                    )
                     return {"status": "missing"}
         print(f"   ❌ Failed to get page rules: {response.status_code}")
         return {"status": "error"}
@@ -174,7 +184,8 @@ def check_page_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
         print(f"   ❌ Error checking page rules: {e}")
         return {"status": "error"}
 
-def create_api_bypass_rule(headers: Dict[str, str], zone_id: str) -> bool:
+
+def create_api_bypass_rule(headers: dict[str, str], zone_id: str) -> bool:
     """Create a page rule to bypass cache for API endpoints."""
     print(f"\n   🔧 Creating page rule to bypass cache for {INFISICAL_HOSTNAME}/api/*...")
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/pagerules"
@@ -182,28 +193,16 @@ def create_api_bypass_rule(headers: Dict[str, str], zone_id: str) -> bool:
         "targets": [
             {
                 "target": "url",
-                "constraint": {
-                    "operator": "matches",
-                    "value": f"{INFISICAL_HOSTNAME}/api/*"
-                }
+                "constraint": {"operator": "matches", "value": f"{INFISICAL_HOSTNAME}/api/*"},
             }
         ],
         "actions": [
-            {
-                "id": "cache_level",
-                "value": "bypass"
-            },
-            {
-                "id": "disable_apps",
-                "value": True
-            },
-            {
-                "id": "disable_performance",
-                "value": True
-            }
+            {"id": "cache_level", "value": "bypass"},
+            {"id": "disable_apps", "value": True},
+            {"id": "disable_performance", "value": True},
         ],
         "priority": 1,
-        "status": "active"
+        "status": "active",
     }
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -219,12 +218,13 @@ def create_api_bypass_rule(headers: Dict[str, str], zone_id: str) -> bool:
         print(f"   ❌ Error creating page rule: {e}")
         return False
 
-def check_transform_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
+
+def check_transform_rules(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
     """Check Transform Rules for header modifications."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("3. Checking Transform Rules (Header Modifications)")
-    print("="*60)
-    
+    print("=" * 60)
+
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/rulesets"
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -233,13 +233,16 @@ def check_transform_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, An
             if data.get("success"):
                 rulesets = data.get("result", [])
                 print(f"   Found {len(rulesets)} ruleset(s)")
-                
+
                 header_rules = []
                 for ruleset in rulesets:
-                    if ruleset.get("kind") in ["http_request_header_modification", "http_response_header_modification"]:
+                    if ruleset.get("kind") in [
+                        "http_request_header_modification",
+                        "http_response_header_modification",
+                    ]:
                         ruleset_id = ruleset.get("id")
                         ruleset_name = ruleset.get("name", "unknown")
-                        
+
                         # Get rules in this ruleset
                         rules_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/rulesets/{ruleset_id}"
                         rules_response = requests.get(rules_url, headers=headers, timeout=30)
@@ -249,21 +252,20 @@ def check_transform_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, An
                                 rules = rules_data.get("result", {}).get("rules", [])
                                 for rule in rules:
                                     if INFISICAL_HOSTNAME in str(rule.get("expression", "")):
-                                        header_rules.append({
-                                            "ruleset": ruleset_name,
-                                            "rule": rule
-                                        })
-                
+                                        header_rules.append({"ruleset": ruleset_name, "rule": rule})
+
                 if header_rules:
                     print("   ⚠️  Found Transform Rules affecting Infisical:")
                     for rule_info in header_rules:
                         print(f"      - Ruleset: {rule_info['ruleset']}")
                         print(f"        Expression: {rule_info['rule'].get('expression', 'N/A')}")
-                        actions = rule_info['rule'].get('action_parameters', {})
-                        if 'headers' in actions:
-                            for header in actions['headers']:
-                                print(f"        Header: {header.get('name')} = {header.get('value')}")
-                                if 'content-type' in header.get('name', '').lower():
+                        actions = rule_info["rule"].get("action_parameters", {})
+                        if "headers" in actions:
+                            for header in actions["headers"]:
+                                print(
+                                    f"        Header: {header.get('name')} = {header.get('value')}"
+                                )
+                                if "content-type" in header.get("name", "").lower():
                                     print("        ❌ PROBLEM: This modifies Content-Type header!")
                     return {"status": "found", "rules": header_rules}
                 else:
@@ -275,12 +277,15 @@ def check_transform_rules(headers: Dict[str, str], zone_id: str) -> Dict[str, An
         print(f"   ❌ Error checking transform rules: {e}")
         return {"status": "error"}
 
-def check_access_applications(headers: Dict[str, str], account_id: Optional[str] = None) -> Dict[str, Any]:
+
+def check_access_applications(
+    headers: dict[str, str], account_id: str | None = None
+) -> dict[str, Any]:
     """Check Cloudflare Access applications."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("4. Checking Cloudflare Access Applications")
-    print("="*60)
-    
+    print("=" * 60)
+
     # First, get account ID if not provided
     if not account_id:
         try:
@@ -295,12 +300,12 @@ def check_access_applications(headers: Dict[str, str], account_id: Optional[str]
             print(f"   ⚠️  Could not get account ID: {e}")
             print("   Skipping Access check (requires account-level API)")
             return {"status": "skipped"}
-    
+
     if not account_id:
         print("   ⚠️  Account ID required for Access check")
         print("   → Check manually in Zero Trust dashboard")
         return {"status": "manual_check"}
-    
+
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/access/apps"
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -309,13 +314,13 @@ def check_access_applications(headers: Dict[str, str], account_id: Optional[str]
             if data.get("success"):
                 apps = data.get("result", [])
                 print(f"   Found {len(apps)} Access application(s)")
-                
+
                 infisical_apps = []
                 for app in apps:
                     domain = app.get("domain", "")
                     if INFISICAL_HOSTNAME in domain or INFISICAL_SUBDOMAIN in domain.lower():
                         infisical_apps.append(app)
-                
+
                 if infisical_apps:
                     print("   ⚠️  Found Cloudflare Access application(s) for Infisical:")
                     for app in infisical_apps:
@@ -333,12 +338,13 @@ def check_access_applications(headers: Dict[str, str], account_id: Optional[str]
         print(f"   ❌ Error checking Access applications: {e}")
         return {"status": "error"}
 
-def check_browser_integrity(headers: Dict[str, str], zone_id: str) -> Dict[str, Any]:
+
+def check_browser_integrity(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
     """Check Browser Integrity Check setting."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("5. Checking Browser Integrity Check")
-    print("="*60)
-    
+    print("=" * 60)
+
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/security_level"
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -347,7 +353,7 @@ def check_browser_integrity(headers: Dict[str, str], zone_id: str) -> Dict[str, 
             if data.get("success"):
                 level = data["result"]["value"]
                 print(f"   Current Security Level: {level}")
-                
+
                 if level in ["high", "under_attack"]:
                     print("   ⚠️  Security level is high - might block legitimate requests")
                     print("      → Consider setting to 'medium'")
@@ -361,12 +367,13 @@ def check_browser_integrity(headers: Dict[str, str], zone_id: str) -> Dict[str, 
         print(f"   ❌ Error checking security level: {e}")
         return {"status": "error"}
 
-def purge_cache(headers: Dict[str, str], zone_id: str) -> bool:
+
+def purge_cache(headers: dict[str, str], zone_id: str) -> bool:
     """Purge Cloudflare cache."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("6. Purging Cloudflare Cache")
-    print("="*60)
-    
+    print("=" * 60)
+
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache"
     payload = {"purge_everything": True}
     try:
@@ -382,23 +389,28 @@ def purge_cache(headers: Dict[str, str], zone_id: str) -> bool:
         print(f"   ❌ Error purging cache: {e}")
         return False
 
+
 def main():
     """Main function."""
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Check and fix Cloudflare configuration for Infisical")
+
+    parser = argparse.ArgumentParser(
+        description="Check and fix Cloudflare configuration for Infisical"
+    )
     parser.add_argument("--fix-ssl", action="store_true", help="Fix SSL/TLS mode to 'full'")
-    parser.add_argument("--create-page-rule", action="store_true", help="Create API bypass page rule")
+    parser.add_argument(
+        "--create-page-rule", action="store_true", help="Create API bypass page rule"
+    )
     parser.add_argument("--purge-cache", action="store_true", help="Purge Cloudflare cache")
     parser.add_argument("--fix-all", action="store_true", help="Apply all fixes")
     args = parser.parse_args()
-    
-    print("="*60)
+
+    print("=" * 60)
     print("Cloudflare Configuration Check for Infisical")
-    print("="*60)
+    print("=" * 60)
     print(f"\nChecking configuration for: {INFISICAL_HOSTNAME}")
     print()
-    
+
     # Check credentials
     try:
         headers = get_auth_headers()
@@ -411,75 +423,75 @@ def main():
         print("  CLOUDFLARE_EMAIL=your_email@example.com")
         print("  CLOUDFLARE_API_KEY=your_api_key_here")
         sys.exit(1)
-    
+
     # Get zone ID
     zone_id = get_zone_id(headers)
     if not zone_id:
         print("\n❌ Could not get zone ID. Exiting.")
         sys.exit(1)
-    
+
     # Run checks
     results = {}
-    
+
     # 1. SSL/TLS Mode
     ssl_result = check_ssl_tls_mode(headers, zone_id)
     results["ssl"] = ssl_result
-    
+
     # 2. Page Rules
     page_rules_result = check_page_rules(headers, zone_id)
     results["page_rules"] = page_rules_result
-    
+
     # 3. Transform Rules
     transform_result = check_transform_rules(headers, zone_id)
     results["transform"] = transform_result
-    
+
     # 4. Access Applications
     access_result = check_access_applications(headers)
     results["access"] = access_result
-    
+
     # 5. Browser Integrity
     security_result = check_browser_integrity(headers, zone_id)
     results["security"] = security_result
-    
+
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Summary & Recommendations")
-    print("="*60)
-    
+    print("=" * 60)
+
     issues_found = False
-    
+
     if ssl_result.get("status") == "error":
         print("\n❌ ISSUE: SSL/TLS mode is 'flexible'")
         print("   → This MUST be fixed!")
         issues_found = True
-    
+
     if page_rules_result.get("status") == "missing":
         print("\n⚠️  RECOMMENDATION: Create page rule to bypass cache for /api/*")
         issues_found = True
-    
+
     if transform_result.get("status") == "found":
         print("\n⚠️  WARNING: Transform Rules found that might modify headers")
         print("   → Review and disable if modifying Content-Type")
         issues_found = True
-    
+
     if access_result.get("status") == "found":
         print("\n⚠️  WARNING: Cloudflare Access enabled for Infisical")
         print("   → This might interfere with Infisical's authentication")
         issues_found = True
-    
+
     if not issues_found:
         print("\n✅ No major issues found!")
         print("   Cloudflare configuration looks good.")
-    
+
     # Check API permissions
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("API Permissions Check")
-    print("="*60)
-    
+    print("=" * 60)
+
     # Test token permissions
     test_url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/ssl"
     test_response = requests.get(test_url, headers=headers, timeout=30)
-    
+
     if test_response.status_code == 403:
         print("❌ API token lacks required permissions")
         print("   Required permissions:")
@@ -492,51 +504,49 @@ def main():
         print("   https://dash.cloudflare.com/profile/api-tokens")
         print("\n   Or use Global API Key + Email (less secure)")
         return
-    
+
     # Auto-fix options (non-interactive - show recommendations)
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Recommended Fixes")
-    print("="*60)
-    
+    print("=" * 60)
+
     fixes_needed = []
-    
+
     if ssl_result.get("status") == "error":
         print("\n🔧 SSL/TLS Mode needs fixing")
         print("   Run this command to fix:")
-        print(f"   python3 00-infrastructure/scripts/check-cloudflare-config.py --fix-ssl")
+        print("   python3 00-infrastructure/scripts/check-cloudflare-config.py --fix-ssl")
         fixes_needed.append("ssl")
-    
+
     if page_rules_result.get("status") == "missing":
         print("\n🔧 Page Rule needs to be created")
         print("   Run this command to fix:")
-        print(f"   python3 00-infrastructure/scripts/check-cloudflare-config.py --create-page-rule")
+        print("   python3 00-infrastructure/scripts/check-cloudflare-config.py --create-page-rule")
         fixes_needed.append("page_rule")
-    
+
     if fixes_needed:
         print("\n   Or fix all at once:")
-        print(f"   python3 00-infrastructure/scripts/check-cloudflare-config.py --fix-all")
-    
+        print("   python3 00-infrastructure/scripts/check-cloudflare-config.py --fix-all")
+
     print("\n🔧 To purge cache:")
-    print(f"   python3 00-infrastructure/scripts/check-cloudflare-config.py --purge-cache")
-    
+    print("   python3 00-infrastructure/scripts/check-cloudflare-config.py --purge-cache")
+
     # Apply fixes if requested
-    if args.fix_all or args.fix_ssl:
-        if ssl_result.get("status") == "error":
-            fix_ssl_tls_mode(headers, zone_id, "full")
-    
-    if args.fix_all or args.create_page_rule:
-        if page_rules_result.get("status") == "missing":
-            create_api_bypass_rule(headers, zone_id)
-    
+    if (args.fix_all or args.fix_ssl) and ssl_result.get("status") == "error":
+        fix_ssl_tls_mode(headers, zone_id, "full")
+
+    if (args.fix_all or args.create_page_rule) and page_rules_result.get("status") == "missing":
+        create_api_bypass_rule(headers, zone_id)
+
     if args.fix_all or args.purge_cache:
         purge_cache(headers, zone_id)
-    
+
     print("\n✅ Check complete!")
     print("\nNext steps:")
     print("1. Clear browser cache and cookies")
     print("2. Try logging into Infisical again")
     print("3. Check browser console for any remaining errors")
 
+
 if __name__ == "__main__":
     main()
-

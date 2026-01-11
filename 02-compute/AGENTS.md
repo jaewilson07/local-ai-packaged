@@ -50,7 +50,7 @@
 
 ### Model Provisioning
 - **Init Container**: `ollama-pull-llama-*` (profile-specific)
-- **Default Models**: 
+- **Default Models**:
   - `qwen2.5:7b-instruct-q4_K_M` (instruction-tuned LLM)
   - `nomic-embed-text` (embedding model)
 - **Trigger**: Runs automatically on first start (one-time)
@@ -86,7 +86,7 @@ x-service-ollama: &service-ollama
 
 ### Model Provisioning
 - **Init Container**: `comfyui-provision-*` (profile-specific)
-- **Provision Scripts**: 
+- **Provision Scripts**:
   - `/provision/provision-models.py` (mapped from `./comfyui/scripts/provision-models.py`)
   - `/provision/provision-models.sh` (mapped from `./comfyui/scripts/provision-models.sh`)
 - **Trigger**: Runs on first start if provision script exists
@@ -159,7 +159,7 @@ ls /dev/kfd /dev/dri  # Host system
 ```
 
 ### Common Issues
-1. **GPU Not Detected**: 
+1. **GPU Not Detected**:
    - NVIDIA: Check `nvidia-container-toolkit` installation
    - AMD: Verify `/dev/kfd` and `/dev/dri` exist
 2. **Model Download Fails**: Check network connectivity and disk space
@@ -193,6 +193,6 @@ ls /dev/kfd /dev/dri  # Host system
 
 ---
 
-**See Also**: 
+**See Also**:
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [start_services.py](../start_services.py) for GPU validation logic

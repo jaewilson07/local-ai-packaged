@@ -1,11 +1,10 @@
 """Handler for file uploads to Discord."""
 
-import discord
 from discord import Message
-from typing import Optional
-from bot.immich_client import ImmichClient
-from bot.utils import is_valid_media_file, format_file_size
+
 from bot.config import config
+from bot.immich_client import ImmichClient
+from bot.utils import format_file_size, is_valid_media_file
 
 # Discord file size limit is 25MB
 DISCORD_FILE_SIZE_LIMIT = 25 * 1024 * 1024  # 25MB in bytes

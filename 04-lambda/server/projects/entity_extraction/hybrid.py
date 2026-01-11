@@ -2,23 +2,21 @@
 
 from __future__ import annotations
 
-from typing import List
 from datetime import datetime
+
 from fuzzywuzzy import fuzz
 
-from .models import Entity, EntityExtractionResult
 from .base import EntityExtractor
-from .ner import NERExtractor
 from .llm import LLMExtractor
+from .models import Entity, EntityExtractionResult
+from .ner import NERExtractor
 
 
 class HybridExtractor(EntityExtractor):
     """Two-stage extraction: NER first, LLM when needed, with deduplication."""
 
     def __init__(
-        self, 
-        llm_threshold: float = 0.7, 
-        ner_model: str = "Jean-Baptiste/roberta-large-ner-english"
+        self, llm_threshold: float = 0.7, ner_model: str = "Jean-Baptiste/roberta-large-ner-english"
     ) -> None:
         """Initialize hybrid extractor.
 
@@ -40,7 +38,11 @@ class HybridExtractor(EntityExtractor):
             else 0.0
         )
 
-        needs_llm = avg_conf < self._threshold or len(ner_result.entities) == 0 or self._has_complex_context(text)
+        needs_llm = (
+            avg_conf < self._threshold
+            or len(ner_result.entities) == 0
+            or self._has_complex_context(text)
+        )
 
         if needs_llm:
             llm_result = await self._llm.extract(text)
@@ -62,15 +64,17 @@ class HybridExtractor(EntityExtractor):
             extractor_type=extractor_type,
         )
 
-    def get_supported_types(self) -> List[EntityType]:
+    def get_supported_types(self) -> list[EntityType]:
         # Union of both extractors
         return self._llm.get_supported_types()
 
     def _has_complex_context(self, text: str) -> bool:
         return len(text) > 500 or ":" in text or text.count(",") > 5
 
-    def _merge_entities(self, ner_entities: List[Entity], llm_entities: List[Entity]) -> List[Entity]:
-        merged: List[Entity] = []
+    def _merge_entities(
+        self, ner_entities: list[Entity], llm_entities: list[Entity]
+    ) -> list[Entity]:
+        merged: list[Entity] = []
         used_llm: set[int] = set()
 
         for n in ner_entities:

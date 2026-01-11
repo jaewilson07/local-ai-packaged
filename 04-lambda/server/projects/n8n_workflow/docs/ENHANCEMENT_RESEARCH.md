@@ -187,4 +187,3 @@ N8n Workflow Agent
 - [Toolshed: Tool Knowledge Base](https://arxiv.org/abs/2410.14594)
 - [Proof-of-Use Framework](https://arxiv.org/abs/2510.10931)
 - [RAG-Tool Fusion Techniques](https://arxiv.org/abs/2410.14594)
-

@@ -17,7 +17,6 @@ Prerequisites:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add server to path so we can import from the project
@@ -25,15 +24,15 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-from pydantic_ai import RunContext
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep, crawl_and_ingest_single_page
 import logging
+
+from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
+from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep
+from server.projects.shared.context_helpers import create_run_context
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -59,89 +58,89 @@ async def main():
             "suggested_subdomains": None,
         },
     ]
-    
-    print("="*80)
+
+    print("=" * 80)
     print("Crawl4AI RAG - Adaptive Crawl Example")
-    print("="*80)
+    print("=" * 80)
     print()
     print("This example demonstrates adaptive crawling strategies:")
     print("  - Adjusting depth based on site size")
     print("  - Using domain filtering for focused crawls")
     print("  - Optimizing chunk sizes for different content types")
     print()
-    
+
     # Initialize dependencies
     deps = Crawl4AIDependencies()
     await deps.initialize()
-    
+
     try:
-        # Create run context
-        ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        
+        # Create run context using helper
+        ctx = create_run_context(deps)
+
         # Process each site with adaptive strategies
         for site in sites:
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"Site: {site['name']}")
             print(f"URL: {site['url']}")
-            print("="*80)
+            print("=" * 80)
             print()
-            
+
             # Strategy 1: Start with shallow crawl to assess structure
             print("📊 Strategy 1: Shallow crawl to assess structure")
-            print(f"   Depth: 1 (shallow)")
+            print("   Depth: 1 (shallow)")
             print()
-            
+
             shallow_result = await crawl_and_ingest_deep(
                 ctx=ctx,
-                start_url=site['url'],
+                start_url=site["url"],
                 max_depth=1,  # Shallow crawl first
-                allowed_domains=site['suggested_domains'],
-                allowed_subdomains=site['suggested_subdomains'],
+                allowed_domains=site["suggested_domains"],
+                allowed_subdomains=site["suggested_subdomains"],
                 chunk_size=1000,
                 chunk_overlap=200,
-                max_concurrent=5
+                max_concurrent=5,
             )
-            
+
             print(f"   Pages found: {shallow_result['pages_crawled']}")
             print(f"   Chunks created: {shallow_result['chunks_created']}")
             print()
-            
+
             # Strategy 2: Adjust depth based on initial results
-            if shallow_result['pages_crawled'] > 10:
+            if shallow_result["pages_crawled"] > 10:
                 print("📈 Strategy 2: Site is large, using deeper crawl")
                 print(f"   Depth: {site['suggested_depth']} (adjusted)")
                 print()
-                
+
                 deep_result = await crawl_and_ingest_deep(
                     ctx=ctx,
-                    start_url=site['url'],
-                    max_depth=site['suggested_depth'],
-                    allowed_domains=site['suggested_domains'],
-                    allowed_subdomains=site['suggested_subdomains'],
+                    start_url=site["url"],
+                    max_depth=site["suggested_depth"],
+                    allowed_domains=site["suggested_domains"],
+                    allowed_subdomains=site["suggested_subdomains"],
                     chunk_size=1000,
                     chunk_overlap=200,
-                    max_concurrent=10
+                    max_concurrent=10,
                 )
-                
+
                 print(f"   Total pages crawled: {deep_result['pages_crawled']}")
                 print(f"   Total chunks created: {deep_result['chunks_created']}")
             else:
                 print("📉 Strategy 2: Site is small, shallow crawl sufficient")
-                print(f"   Using results from shallow crawl")
-            
+                print("   Using results from shallow crawl")
+
             print()
-        
-        print("="*80)
+
+        print("=" * 80)
         print("✅ Adaptive crawl examples completed!")
-        print("="*80)
+        print("=" * 80)
         print()
         print("Key adaptive strategies demonstrated:")
         print("  - Start shallow to assess site structure")
         print("  - Adjust depth based on initial results")
         print("  - Use domain filtering for focused crawls")
         print("  - Optimize concurrent sessions based on site size")
-        print("="*80)
-        
+        print("=" * 80)
+
     except Exception as e:
         logger.exception(f"❌ Error during adaptive crawl: {e}")
         print(f"\n❌ Fatal error: {e}")

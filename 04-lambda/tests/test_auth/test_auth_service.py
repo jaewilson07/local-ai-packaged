@@ -1,10 +1,11 @@
 """Tests for authentication helper service."""
 
-import pytest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
-from server.projects.auth.services.auth_service import AuthService
+import pytest
+
 from server.projects.auth.config import AuthConfig
+from server.projects.auth.services.auth_service import AuthService
 
 
 @pytest.fixture
@@ -23,11 +24,13 @@ def auth_service(auth_config):
 @pytest.mark.asyncio
 async def test_is_admin_true(auth_service):
     """Test admin user identified correctly."""
-    with patch.object(auth_service.supabase_service, 'is_admin', new_callable=AsyncMock) as mock_is_admin:
+    with patch.object(
+        auth_service.supabase_service, "is_admin", new_callable=AsyncMock
+    ) as mock_is_admin:
         mock_is_admin.return_value = True
-        
+
         is_admin = await auth_service.is_admin("admin@example.com")
-        
+
         assert is_admin is True
         mock_is_admin.assert_called_once_with("admin@example.com")
 
@@ -35,10 +38,12 @@ async def test_is_admin_true(auth_service):
 @pytest.mark.asyncio
 async def test_is_admin_false(auth_service):
     """Test non-admin user identified correctly."""
-    with patch.object(auth_service.supabase_service, 'is_admin', new_callable=AsyncMock) as mock_is_admin:
+    with patch.object(
+        auth_service.supabase_service, "is_admin", new_callable=AsyncMock
+    ) as mock_is_admin:
         mock_is_admin.return_value = False
-        
+
         is_admin = await auth_service.is_admin("user@example.com")
-        
+
         assert is_admin is False
         mock_is_admin.assert_called_once_with("user@example.com")

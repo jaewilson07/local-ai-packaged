@@ -10,7 +10,7 @@ Typesense is a fast, typo-tolerant search engine that powers Immich's metadata s
 
 - **Service**: `immich-typesense`
 - **Image**: `typesense/typesense:latest`
-- **Ports**: 
+- **Ports**:
   - `8108` - API (HTTP)
   - `8107` - Peer communication
 - **Data Volume**: `03-apps/immich/data/typesense`
