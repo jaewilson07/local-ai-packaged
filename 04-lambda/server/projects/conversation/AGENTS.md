@@ -2,6 +2,24 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The Conversation Orchestration project provides a unified interface for coordinating multiple AI agents and tools to deliver context-aware, personalized responses. It acts as the central orchestrator that plans responses, coordinates memory retrieval, knowledge search, persona voice instructions, and calendar operations to create natural, coherent conversations.
+
+**Key Capabilities:**
+- **Multi-Agent Coordination**: Orchestrates persona, memory, knowledge, and calendar systems
+- **Response Planning**: Uses LLM to plan response strategy and tool selection before execution
+- **Voice Instructions**: Incorporates persona-specific voice and personality into responses
+- **Tool Routing**: Intelligently routes to appropriate tools (search, memory, calendar) based on user intent
+- **Interaction Recording**: Automatically records interactions for persona state updates
+- **Context-Aware Responses**: Generates responses that consider conversation history, persona state, and available knowledge
+
+**Use Cases:**
+- Unified conversation interface that coordinates multiple specialized agents
+- Personalized AI assistant that maintains persona consistency across conversations
+- Context-aware Q&A that combines memory, knowledge search, and calendar information
+- Multi-tool conversations that seamlessly switch between search, memory, and calendar operations
+
 ## Component Identity
 
 - **Project**: `conversation`
@@ -11,6 +29,101 @@
 - **Agent**: `conversation_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/conversation/orchestrate ]
+        MCP[ MCP Tools<br/>orchestrate_conversation ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ conversation_agent<br/>Pydantic AI Agent ]
+        TOOL[ orchestrate_conversation_tool<br/>Main Orchestration Tool ]
+    end
+    
+    subgraph "Orchestration Service"
+        ORCH[ ConversationOrchestrator<br/>Planning & Response Generation ]
+        PLAN[ plan_response<br/>LLM-Based Planning ]
+        GENERATE[ generate_response<br/>Response Generation ]
+    end
+    
+    subgraph "Integrated Systems"
+        PERSONA[ Persona System<br/>Voice Instructions ]
+        MEMORY[ MongoDB RAG<br/>Memory & Knowledge ]
+        CALENDAR[ Calendar System<br/>Event Management ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ PersonaDeps<br/>MongoDB, OpenAI Client ]
+        OLLAMA[ Ollama<br/>LLM ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOL
+    TOOL --> ORCH
+    TOOL --> PERSONA
+    TOOL --> MEMORY
+    TOOL --> CALENDAR
+    ORCH --> PLAN
+    ORCH --> GENERATE
+    PLAN --> DEPS
+    GENERATE --> DEPS
+    DEPS --> OLLAMA
+    PERSONA --> DEPS
+    MEMORY --> DEPS
+    CALENDAR --> DEPS
+    
+    style AGENT fill:#e1f5ff
+    style ORCH fill:#fff4e1
+    style PERSONA fill:#e1ffe1
+    style MEMORY fill:#e1ffe1
+    style CALENDAR fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+```
+
+### Conversation Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as conversation_agent
+    participant Tool as orchestrate_conversation_tool
+    participant Persona as Persona System
+    participant Orchestrator as ConversationOrchestrator
+    participant Plan as plan_response
+    participant Tools as Available Tools
+    participant Generate as generate_response
+    participant Record as record_interaction
+    
+    Client->>Agent: POST /orchestrate (user_id, persona_id, message)
+    Agent->>Tool: orchestrate_conversation_tool()
+    Tool->>Persona: get_voice_instructions(user_id, persona_id)
+    Persona-->>Tool: Voice instructions (personality, style)
+    
+    Tool->>Orchestrator: Create orchestrator with LLM client
+    Tool->>Plan: plan_response(message, voice_instructions, tools)
+    Plan->>Plan: Call LLM to determine action, tools, strategy
+    Plan-->>Tool: Plan {action, tools, strategy}
+    
+    alt Tools needed
+        Tool->>Tools: Execute tools (search, memory, calendar)
+        Tools-->>Tool: Tool results
+    end
+    
+    Tool->>Generate: generate_response(message, voice_instructions, tool_results, plan)
+    Generate->>Generate: Call LLM with context
+    Generate-->>Tool: Final response
+    
+    Tool->>Record: record_interaction(user_id, persona_id, message, response)
+    Record-->>Tool: Success
+    
+    Tool-->>Agent: Response string
+    Agent-->>Client: ConversationResponse
+```
 
 ### File Organization
 

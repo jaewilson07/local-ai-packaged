@@ -7,13 +7,17 @@ repository information. Checks imports, methods, attributes, and parameters.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
-try:
+
+if TYPE_CHECKING:
     from neo4j import AsyncGraphDatabase
-except ImportError:
-    AsyncGraphDatabase = None  # type: ignore
+else:
+    try:
+        from neo4j import AsyncGraphDatabase
+    except ImportError:
+        AsyncGraphDatabase = None  # type: ignore
 
 from .ai_script_analyzer import (
     AnalysisResult, ImportInfo, MethodCall, AttributeAccess, 

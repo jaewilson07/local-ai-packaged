@@ -36,7 +36,7 @@ relationship with the user, and conversation context.
 # Create the Persona agent with AGUI support
 persona_agent = Agent(
     get_llm_model(),
-    deps_type=StateDeps[PersonaAgentState],
+    deps_type=PersonaDeps,
     system_prompt=PERSONA_SYSTEM_PROMPT
 )
 
@@ -44,7 +44,7 @@ persona_agent = Agent(
 # Register tools
 @persona_agent.tool
 async def get_persona_voice_instructions_tool(
-    ctx: RunContext[StateDeps[PersonaAgentState]],
+    ctx: RunContext[PersonaDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
 ) -> str:
@@ -54,18 +54,14 @@ async def get_persona_voice_instructions_tool(
     Returns prompt injection with current emotional state, relationship context,
     and conversation mode to guide persona responses.
     """
-    deps = PersonaDeps.from_settings()
-    await deps.initialize()
-    
-    try:
-        return await get_voice_instructions(deps, user_id, persona_id)
-    finally:
-        await deps.cleanup()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
+    return await get_voice_instructions(deps, user_id, persona_id)
 
 
 @persona_agent.tool
 async def record_persona_interaction_tool(
-    ctx: RunContext[StateDeps[PersonaAgentState]],
+    ctx: RunContext[PersonaDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
     user_message: str = Field(..., description="User's message"),
@@ -79,19 +75,15 @@ async def record_persona_interaction_tool(
     - Relationship state based on sentiment
     - Conversation context based on mode and topic
     """
-    deps = PersonaDeps.from_settings()
-    await deps.initialize()
-    
-    try:
-        result = await record_interaction(deps, user_id, persona_id, user_message, bot_response)
-        return f"Interaction recorded. Mood: {result.get('mood', {}).get('primary_emotion', 'unknown')}, Relationship: {result.get('relationship', {}).get('affection_score', 0):.2f}"
-    finally:
-        await deps.cleanup()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
+    result = await record_interaction(deps, user_id, persona_id, user_message, bot_response)
+    return f"Interaction recorded. Mood: {result.get('mood', {}).get('primary_emotion', 'unknown')}, Relationship: {result.get('relationship', {}).get('affection_score', 0):.2f}"
 
 
 @persona_agent.tool
 async def get_persona_state_tool(
-    ctx: RunContext[StateDeps[PersonaAgentState]],
+    ctx: RunContext[PersonaDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
 ) -> str:
@@ -100,47 +92,44 @@ async def get_persona_state_tool(
     
     Returns formatted persona state information.
     """
-    deps = PersonaDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        if not deps.persona_store:
-            return "Persona store not initialized"
-        
-        # Get all state components
-        personality = deps.persona_store.get_personality(persona_id)
-        mood = deps.persona_store.get_mood(user_id, persona_id)
-        relationship = deps.persona_store.get_relationship(user_id, persona_id)
-        context = deps.persona_store.get_conversation_context(user_id, persona_id)
-        
-        parts = []
-        if personality:
-            parts.append(f"Persona: {personality.name} ({personality.id})")
-            parts.append(f"Byline: {personality.byline}")
-        
-        if mood:
-            parts.append(f"\nMood: {mood.primary_emotion} (intensity: {mood.intensity:.2f})")
-        
-        if relationship:
-            parts.append(f"\nRelationship:")
-            parts.append(f"  - Affection: {relationship.affection_score:.2f}")
-            parts.append(f"  - Trust: {relationship.trust_level:.2f}")
-            parts.append(f"  - Interactions: {relationship.interaction_count}")
-        
-        if context:
-            parts.append(f"\nContext:")
-            parts.append(f"  - Mode: {context.mode}")
-            parts.append(f"  - Topic: {context.topic or 'None'}")
-            parts.append(f"  - Depth: {context.depth_level}/5")
-        
-        return "\n".join(parts) if parts else "No persona state found"
-    finally:
-        await deps.cleanup()
+    if not deps.persona_store:
+        return "Persona store not initialized"
+    
+    # Get all state components
+    personality = deps.persona_store.get_personality(persona_id)
+    mood = deps.persona_store.get_mood(user_id, persona_id)
+    relationship = deps.persona_store.get_relationship(user_id, persona_id)
+    context = deps.persona_store.get_conversation_context(user_id, persona_id)
+    
+    parts = []
+    if personality:
+        parts.append(f"Persona: {personality.name} ({personality.id})")
+        parts.append(f"Byline: {personality.byline}")
+    
+    if mood:
+        parts.append(f"\nMood: {mood.primary_emotion} (intensity: {mood.intensity:.2f})")
+    
+    if relationship:
+        parts.append(f"\nRelationship:")
+        parts.append(f"  - Affection: {relationship.affection_score:.2f}")
+        parts.append(f"  - Trust: {relationship.trust_level:.2f}")
+        parts.append(f"  - Interactions: {relationship.interaction_count}")
+    
+    if context:
+        parts.append(f"\nContext:")
+        parts.append(f"  - Mode: {context.mode}")
+        parts.append(f"  - Topic: {context.topic or 'None'}")
+        parts.append(f"  - Depth: {context.depth_level}/5")
+    
+    return "\n".join(parts) if parts else "No persona state found"
 
 
 @persona_agent.tool
 async def update_persona_mood_tool(
-    ctx: RunContext[StateDeps[PersonaAgentState]],
+    ctx: RunContext[PersonaDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
     primary_emotion: str = Field(..., description="Primary emotion"),
@@ -151,23 +140,20 @@ async def update_persona_mood_tool(
     
     Manually set the persona's current emotional state.
     """
-    deps = PersonaDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        if not deps.persona_store:
-            return "Persona store not initialized"
-        
-        from server.projects.persona.models import MoodState
-        from datetime import datetime
-        
-        mood = MoodState(
-            primary_emotion=primary_emotion,
-            intensity=intensity,
-            timestamp=datetime.now()
-        )
-        
-        deps.persona_store.update_mood(user_id, persona_id, mood)
-        return f"Mood updated: {primary_emotion} (intensity: {intensity:.2f})"
-    finally:
-        await deps.cleanup()
+    if not deps.persona_store:
+        return "Persona store not initialized"
+    
+    from server.projects.persona.models import MoodState
+    from datetime import datetime
+    
+    mood = MoodState(
+        primary_emotion=primary_emotion,
+        intensity=intensity,
+        timestamp=datetime.now()
+    )
+    
+    deps.persona_store.update_mood(user_id, persona_id, mood)
+    return f"Mood updated: {primary_emotion} (intensity: {intensity:.2f})"

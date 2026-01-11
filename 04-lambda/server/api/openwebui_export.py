@@ -1,11 +1,10 @@
 """Open WebUI export REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List, Optional, Annotated, AsyncGenerator
 import logging
 from pydantic_ai import RunContext
 
-from server.core.api_utils import with_dependencies
 from server.projects.openwebui_export.models import (
     ConversationExportRequest,
     ConversationExportResponse,
@@ -24,9 +23,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_openwebui_export_deps() -> AsyncGenerator[OpenWebUIExportDeps, None]:
+    """FastAPI dependency that yields OpenWebUIExportDeps."""
+    deps = OpenWebUIExportDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/export", response_model=ConversationExportResponse)
-@with_dependencies(OpenWebUIExportDeps)
-async def export_conversation_endpoint(request: ConversationExportRequest, deps: OpenWebUIExportDeps):
+async def export_conversation_endpoint(
+    request: ConversationExportRequest,
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+):
     """
     Export a conversation from Open WebUI to MongoDB RAG system.
     
@@ -75,8 +87,10 @@ async def export_conversation_endpoint(request: ConversationExportRequest, deps:
 
 
 @router.post("/export/batch", response_model=List[ConversationExportResponse])
-@with_dependencies(OpenWebUIExportDeps)
-async def export_conversations_batch_endpoint(requests: List[ConversationExportRequest], deps: OpenWebUIExportDeps):
+async def export_conversations_batch_endpoint(
+    requests: List[ConversationExportRequest],
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+):
     """
     Export multiple conversations in batch.
     
@@ -93,9 +107,8 @@ async def export_conversations_batch_endpoint(requests: List[ConversationExportR
 
 
 @router.get("/conversations", response_model=ConversationListResponse)
-@with_dependencies(OpenWebUIExportDeps)
 async def list_conversations_endpoint(
-    deps: OpenWebUIExportDeps,
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)],
     user_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
@@ -127,8 +140,10 @@ async def list_conversations_endpoint(
 
 
 @router.get("/conversations/{conversation_id}")
-@with_dependencies(OpenWebUIExportDeps)
-async def get_conversation_endpoint(conversation_id: str, deps: OpenWebUIExportDeps):
+async def get_conversation_endpoint(
+    conversation_id: str,
+    deps: Annotated[OpenWebUIExportDeps, Depends(get_openwebui_export_deps)]
+):
     """
     Get a specific conversation from Open WebUI.
     

@@ -1,0 +1,21 @@
+# Cursor Rules for local-ai-packaged
+
+## Sample Files
+
+- **Sample files should be created in the `sample/` directory**
+- Sample capability tests and demonstrations should go in `sample/capability/`
+- Sample files are for testing, demonstration, and learning purposes
+- Keep sample files self-contained and well-documented
+
+## Code Style
+
+- Follow the patterns established in `AGENTS.md`
+- Use Python 3.10+ features
+- Follow Black formatting (line-length: 100)
+- Use Ruff for linting (target: py310)
+
+## Project Structure
+
+- See `AGENTS.md` for detailed project structure and conventions
+- Stack-based Docker Compose architecture
+- Monorepo with numbered stacks (00-infrastructure, 01-data, etc.)

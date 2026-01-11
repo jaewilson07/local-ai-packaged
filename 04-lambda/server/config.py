@@ -1,18 +1,31 @@
 """Global server configuration."""
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from typing import Literal, Optional
 
 
 class Settings(BaseSettings):
     """Server configuration from environment variables."""
     
+    model_config = ConfigDict(
+        extra="ignore",  # Ignore extra env vars for sample scripts
+        env_file=".env",
+        case_sensitive=False
+    )
+    
     # Server
     log_level: Literal["debug", "info", "warning", "error"] = "info"
     
     # MongoDB (Docker internal)
-    mongodb_uri: str
+    # Note: Replica set (rs0) is required for Atlas Search
+    # For host connections, use directConnection=true to bypass replica set requirement
+    # For container connections, use mongodb://mongodb:27017/?replicaSet=rs0
+    # Default credentials: admin/admin123 (can be overridden via env vars)
+    mongodb_uri: str = Field(
+        default="mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin",
+        env="MONGODB_URI"
+    )
     mongodb_database: str = "rag_db"
     
     # LLM
@@ -35,7 +48,9 @@ class Settings(BaseSettings):
     neo4j_database: str = Field("neo4j", env="NEO4J_DATABASE")
     
     # Graphiti-specific
-    use_graphiti: bool = Field(False, env="USE_GRAPHITI")
+    # Enabled by default for crawl4ai RAG flow and other RAG operations
+    # Set USE_GRAPHITI=false to disable
+    use_graphiti: bool = Field(True, env="USE_GRAPHITI")
     
     # Advanced RAG Strategies
     use_contextual_embeddings: bool = Field(False, env="USE_CONTEXTUAL_EMBEDDINGS")
@@ -77,9 +92,18 @@ class Settings(BaseSettings):
     # SearXNG Web Search
     searxng_url: str = Field("http://searxng:8080", env="SEARXNG_URL")
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    # Cloudflare Access Authentication
+    cloudflare_auth_domain: str = Field("", env="CLOUDFLARE_AUTH_DOMAIN")
+    cloudflare_aud_tag: str = Field("", env="CLOUDFLARE_AUD_TAG")
+    
+    # Supabase (for auth and data)
+    supabase_db_url: str = Field("", env="SUPABASE_DB_URL")
+    supabase_service_key: Optional[str] = Field(None, env="SUPABASE_SERVICE_KEY")
+    
+    # MinIO (Supabase Storage)
+    minio_endpoint: str = Field("http://supabase-minio:9020", env="MINIO_ENDPOINT")
+    minio_access_key: str = Field("supa-storage", env="MINIO_ACCESS_KEY")
+    minio_secret_key: str = Field("secret1234", env="MINIO_SECRET_KEY")
 
 
 settings = Settings()

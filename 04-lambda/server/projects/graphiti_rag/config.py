@@ -14,6 +14,7 @@ class GraphitiRAGConfig:
     
     # Feature flags
     use_graphiti = global_settings.use_graphiti
+    use_knowledge_graph = global_settings.use_knowledge_graph
     
     # LLM for Graphiti entity extraction (uses same as main LLM)
     llm_provider = global_settings.llm_provider

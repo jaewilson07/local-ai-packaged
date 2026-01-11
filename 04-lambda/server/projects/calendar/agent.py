@@ -45,7 +45,7 @@ Always confirm the operation result to the user.
 # Create the Calendar agent with AGUI support
 calendar_agent = Agent(
     get_llm_model(),
-    deps_type=StateDeps[CalendarState],
+    deps_type=CalendarDeps,
     system_prompt=CALENDAR_SYSTEM_PROMPT
 )
 
@@ -53,7 +53,7 @@ calendar_agent = Agent(
 # Register tools - create wrapper functions that bridge StateDeps to CalendarDeps
 @calendar_agent.tool
 async def create_calendar_event_tool(
-    ctx: RunContext[StateDeps[CalendarState]],
+    ctx: RunContext[CalendarDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
     local_event_id: str = Field(..., description="Unique local event identifier"),
@@ -67,24 +67,20 @@ async def create_calendar_event_tool(
     attendees: Optional[List[str]] = Field(None, description="List of attendee emails"),
 ) -> str:
     """Create a new calendar event in Google Calendar."""
-    deps = CalendarDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     # Create a context wrapper for the calendar tools
-    
     deps_ctx = DepsWrapper(deps)
-    try:
-        return await create_calendar_event(
-            deps_ctx, user_id, persona_id, local_event_id, summary, start, end,
-            description, location, timezone, calendar_id, attendees
-        )
-    finally:
-        await deps.cleanup()
+    return await create_calendar_event(
+        deps_ctx, user_id, persona_id, local_event_id, summary, start, end,
+        description, location, timezone, calendar_id, attendees
+    )
 
 
 @calendar_agent.tool
 async def update_calendar_event_tool(
-    ctx: RunContext[StateDeps[CalendarState]],
+    ctx: RunContext[CalendarDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
     local_event_id: str = Field(..., description="Local event identifier"),
@@ -99,42 +95,34 @@ async def update_calendar_event_tool(
     attendees: Optional[List[str]] = Field(None, description="List of attendee emails"),
 ) -> str:
     """Update an existing calendar event in Google Calendar."""
-    deps = CalendarDeps.from_settings()
-    await deps.initialize()
-    
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     deps_ctx = DepsWrapper(deps)
-    try:
-        return await update_calendar_event(
-            deps_ctx, user_id, persona_id, local_event_id, gcal_event_id,
-            summary, start, end, description, location, timezone, calendar_id, attendees
-        )
-    finally:
-        await deps.cleanup()
+    return await update_calendar_event(
+        deps_ctx, user_id, persona_id, local_event_id, gcal_event_id,
+        summary, start, end, description, location, timezone, calendar_id, attendees
+    )
 
 
 @calendar_agent.tool
 async def delete_calendar_event_tool(
-    ctx: RunContext[StateDeps[CalendarState]],
+    ctx: RunContext[CalendarDeps],
     user_id: str = Field(..., description="User ID"),
     event_id: str = Field(..., description="Google Calendar event ID"),
     calendar_id: Optional[str] = Field("primary", description="Google Calendar ID"),
 ) -> str:
     """Delete a calendar event from Google Calendar."""
-    deps = CalendarDeps.from_settings()
-    await deps.initialize()
-    
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     deps_ctx = DepsWrapper(deps)
-    try:
-        return await delete_calendar_event(deps_ctx, user_id, event_id, calendar_id)
-    finally:
-        await deps.cleanup()
+    return await delete_calendar_event(deps_ctx, user_id, event_id, calendar_id)
 
 
 @calendar_agent.tool
 async def list_calendar_events_tool(
-    ctx: RunContext[StateDeps[CalendarState]],
+    ctx: RunContext[CalendarDeps],
     user_id: str = Field(..., description="User ID"),
     calendar_id: Optional[str] = Field("primary", description="Google Calendar ID"),
     start_time: Optional[str] = Field(None, description="Start time (ISO format)"),
@@ -142,14 +130,10 @@ async def list_calendar_events_tool(
     timezone: str = Field("America/Los_Angeles", description="Timezone string"),
 ) -> str:
     """List calendar events from Google Calendar."""
-    deps = CalendarDeps.from_settings()
-    await deps.initialize()
-    
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     deps_ctx = DepsWrapper(deps)
-    try:
-        return await list_calendar_events(
-            deps_ctx, user_id, calendar_id, start_time, end_time, timezone
-        )
-    finally:
-        await deps.cleanup()
+    return await list_calendar_events(
+        deps_ctx, user_id, calendar_id, start_time, end_time, timezone
+    )

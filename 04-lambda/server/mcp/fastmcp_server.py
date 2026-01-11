@@ -1655,3 +1655,381 @@ async def orchestrate_conversation(
         logger.exception(f"mcp_tool_error: orchestrate_conversation")
         raise RuntimeError(f"Failed to orchestrate conversation: {e}")
 
+
+# ============================================================================
+# Discord Character Management Tools
+# ============================================================================
+
+@mcp.tool
+async def add_discord_character(
+    channel_id: str,
+    character_id: str,
+    persona_id: Optional[str] = None
+) -> dict:
+    """
+    Add a character to a Discord channel.
+    
+    Args:
+        channel_id: Discord channel ID
+        character_id: Character identifier (persona ID)
+        persona_id: Optional persona ID (defaults to character_id)
+    
+    Returns:
+        Dictionary with success status and message.
+    """
+    from server.projects.discord_characters.tools import add_discord_character_tool
+    
+    try:
+        result = await add_discord_character_tool(channel_id, character_id, persona_id)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: add_discord_character")
+        raise RuntimeError(f"Failed to add Discord character: {e}")
+
+
+@mcp.tool
+async def remove_discord_character(
+    channel_id: str,
+    character_id: str
+) -> dict:
+    """
+    Remove a character from a Discord channel.
+    
+    Args:
+        channel_id: Discord channel ID
+        character_id: Character identifier
+    
+    Returns:
+        Dictionary with success status and message.
+    """
+    from server.projects.discord_characters.tools import remove_discord_character_tool
+    
+    try:
+        result = await remove_discord_character_tool(channel_id, character_id)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: remove_discord_character")
+        raise RuntimeError(f"Failed to remove Discord character: {e}")
+
+
+@mcp.tool
+async def list_discord_characters(channel_id: str) -> List[dict]:
+    """
+    List all characters in a Discord channel.
+    
+    Args:
+        channel_id: Discord channel ID
+    
+    Returns:
+        List of character dictionaries with channel_id, character_id, persona_id, etc.
+    """
+    from server.projects.discord_characters.tools import list_discord_characters_tool
+    
+    try:
+        result = await list_discord_characters_tool(channel_id)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: list_discord_characters")
+        raise RuntimeError(f"Failed to list Discord characters: {e}")
+
+
+@mcp.tool
+async def clear_discord_history(
+    channel_id: str,
+    character_id: Optional[str] = None
+) -> dict:
+    """
+    Clear conversation history for a Discord channel.
+    
+    Args:
+        channel_id: Discord channel ID
+        character_id: Optional character ID to clear specific character history
+    
+    Returns:
+        Dictionary with success status and message.
+    """
+    from server.projects.discord_characters.tools import clear_discord_history_tool
+    
+    try:
+        result = await clear_discord_history_tool(channel_id, character_id)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: clear_discord_history")
+        raise RuntimeError(f"Failed to clear Discord history: {e}")
+
+
+@mcp.tool
+async def chat_with_discord_character(
+    channel_id: str,
+    character_id: str,
+    user_id: str,
+    message: str
+) -> dict:
+    """
+    Generate a character response to a message in a Discord channel.
+    
+    Args:
+        channel_id: Discord channel ID
+        character_id: Character identifier
+        user_id: Discord user ID
+        message: User message content
+    
+    Returns:
+        Dictionary with success status, response text, and character_id.
+    """
+    from server.projects.discord_characters.tools import chat_with_discord_character_tool
+    
+    try:
+        result = await chat_with_discord_character_tool(channel_id, character_id, user_id, message)
+        return result
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: chat_with_discord_character")
+        raise RuntimeError(f"Failed to generate character response: {e}")
+
+
+# ============================================================================
+# Deep Research Tools
+# ============================================================================
+
+@mcp.tool
+async def search_web(
+    query: str,
+    engines: Optional[List[str]] = None,
+    result_count: int = 5
+) -> dict:
+    """
+    Search the web using SearXNG metasearch engine.
+    
+    SearXNG aggregates results from multiple search engines and returns
+    ranked, deduplicated results. Use this for current information, real-time
+    data, or information not available in the knowledge base.
+    
+    Args:
+        query: Search query string. Can be a question, phrase, or keywords.
+        engines: Optional list of search engine filters. Optional.
+        result_count: Number of results to return. Range: 1-20. Default: 5.
+    
+    Returns:
+        Dictionary containing search results with query, results array, and count.
+        Each result includes title, url, snippet, engine, and score.
+    """
+    from server.projects.deep_research.tools import search_web as search_web_tool
+    from server.projects.deep_research.models import SearchWebRequest
+    from server.projects.deep_research.dependencies import DeepResearchDeps
+    
+    try:
+        deps = DeepResearchDeps.from_settings()
+        await deps.initialize()
+        
+        try:
+            request = SearchWebRequest(
+                query=query,
+                engines=engines,
+                result_count=result_count
+            )
+            result = await search_web_tool(deps, request)
+            return result.dict()
+        finally:
+            await deps.cleanup()
+    except NotImplementedError as e:
+        # Re-raise NotImplementedError as-is
+        raise
+    except ValidationError as e:
+        logger.warning(f"mcp_validation_error: search_web", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}")
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: search_web")
+        raise RuntimeError(f"Web search failed: {e}")
+
+
+@mcp.tool
+async def fetch_page(url: str) -> dict:
+    """
+    Fetch a single web page using Crawl4AI.
+    
+    Crawls a webpage and extracts its content as markdown along with metadata.
+    The page content can then be parsed and chunked for further processing.
+    
+    Args:
+        url: URL to fetch. Must be a valid HTTP/HTTPS URL.
+    
+    Returns:
+        Dictionary containing url, content (markdown), metadata, and success status.
+    """
+    from server.projects.deep_research.tools import fetch_page as fetch_page_tool
+    from server.projects.deep_research.models import FetchPageRequest
+    from server.projects.deep_research.dependencies import DeepResearchDeps
+    
+    try:
+        deps = DeepResearchDeps.from_settings()
+        await deps.initialize()
+        
+        try:
+            request = FetchPageRequest(url=url)
+            result = await fetch_page_tool(deps, request)
+            return result.dict()
+        finally:
+            await deps.cleanup()
+    except ValidationError as e:
+        logger.warning(f"mcp_validation_error: fetch_page", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}")
+    except HTTPException as e:
+        logger.warning(f"mcp_http_error: fetch_page", extra={"status_code": e.status_code, "detail": e.detail})
+        raise RuntimeError(f"Fetch failed: {e.detail}")
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: fetch_page")
+        raise RuntimeError(f"Page fetch failed: {e}")
+
+
+@mcp.tool
+async def parse_document(
+    content: str,
+    content_type: Literal["html", "markdown", "text"] = "html"
+) -> dict:
+    """
+    Parse a document using Docling and chunk it with HybridChunker.
+    
+    Converts raw content (HTML, markdown, or text) into structured chunks
+    using Docling's document converter and HybridChunker. Preserves document
+    structure and creates token-aware chunks suitable for embedding.
+    
+    Args:
+        content: Raw content to parse (HTML, markdown, or plain text).
+        content_type: Content type hint for parsing. Default: "html".
+    
+    Returns:
+        Dictionary containing chunks (list of structured chunks), metadata, and success status.
+    """
+    from server.projects.deep_research.tools import parse_document as parse_document_tool
+    from server.projects.deep_research.models import ParseDocumentRequest
+    from server.projects.deep_research.dependencies import DeepResearchDeps
+    
+    try:
+        deps = DeepResearchDeps.from_settings()
+        await deps.initialize()
+        
+        try:
+            request = ParseDocumentRequest(
+                content=content,
+                content_type=content_type
+            )
+            result = await parse_document_tool(deps, request)
+            return result.dict()
+        finally:
+            await deps.cleanup()
+    except ValidationError as e:
+        logger.warning(f"mcp_validation_error: parse_document", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}")
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: parse_document")
+        raise RuntimeError(f"Document parsing failed: {e}")
+
+
+@mcp.tool
+async def ingest_knowledge(
+    chunks: List[dict],
+    session_id: str,
+    source_url: str,
+    title: Optional[str] = None
+) -> dict:
+    """
+    Ingest document chunks into MongoDB (for vector search) and Graphiti (for knowledge graph).
+    
+    Takes chunks from parse_document, generates embeddings, and stores them in MongoDB and Neo4j.
+    All data is isolated by session_id for multi-tenant support.
+    
+    Args:
+        chunks: List of document chunks (from parse_document). Each chunk should have:
+                content, index, start_char, end_char, metadata, token_count.
+        session_id: Session ID for data isolation. All chunks will be tagged with this session.
+        source_url: Source URL of the document (for citation).
+        title: Optional document title. If not provided, will use "Untitled".
+    
+    Returns:
+        Dictionary containing document_id, chunks_created, facts_added, success, and errors.
+    """
+    from server.projects.deep_research.tools import ingest_knowledge as ingest_knowledge_tool
+    from server.projects.deep_research.models import IngestKnowledgeRequest, DocumentChunk
+    from server.projects.deep_research.dependencies import DeepResearchDeps
+    
+    try:
+        deps = DeepResearchDeps.from_settings(session_id=session_id)
+        await deps.initialize()
+        
+        try:
+            # Convert dict chunks to DocumentChunk models
+            document_chunks = [
+                DocumentChunk(**chunk) for chunk in chunks
+            ]
+            
+            request = IngestKnowledgeRequest(
+                chunks=document_chunks,
+                session_id=session_id,
+                source_url=source_url,
+                title=title
+            )
+            result = await ingest_knowledge_tool(deps, request)
+            return result.dict()
+        finally:
+            await deps.cleanup()
+    except ValidationError as e:
+        logger.warning(f"mcp_validation_error: ingest_knowledge", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}")
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: ingest_knowledge")
+        raise RuntimeError(f"Knowledge ingestion failed: {e}")
+
+
+@mcp.tool
+async def query_knowledge(
+    question: str,
+    session_id: str,
+    match_count: int = 5,
+    search_type: Literal["semantic", "text", "hybrid"] = "hybrid"
+) -> dict:
+    """
+    Query the knowledge base using hybrid search (vector + text) filtered by session_id.
+    
+    Performs semantic search (vector similarity) and/or text search (keyword matching)
+    on chunks stored in MongoDB, filtered by session_id. Results are ranked by relevance
+    and include citation information.
+    
+    Args:
+        question: Question or query text to search for.
+        session_id: Session ID to filter results. Only returns chunks from this session.
+        match_count: Number of results to return. Range: 1-50. Default: 5.
+        search_type: Type of search to perform:
+                    - "semantic": Vector similarity search only
+                    - "text": Keyword/text search only
+                    - "hybrid": Combines both using Reciprocal Rank Fusion (default)
+    
+    Returns:
+        Dictionary containing results (list of cited chunks), count, and success status.
+        Each result includes: chunk_id, content, document_id, document_source, similarity, metadata.
+    """
+    from server.projects.deep_research.tools import query_knowledge as query_knowledge_tool
+    from server.projects.deep_research.models import QueryKnowledgeRequest
+    from server.projects.deep_research.dependencies import DeepResearchDeps
+    
+    try:
+        deps = DeepResearchDeps.from_settings(session_id=session_id)
+        await deps.initialize()
+        
+        try:
+            request = QueryKnowledgeRequest(
+                question=question,
+                session_id=session_id,
+                match_count=match_count,
+                search_type=search_type
+            )
+            result = await query_knowledge_tool(deps, request)
+            return result.dict()
+        finally:
+            await deps.cleanup()
+    except ValidationError as e:
+        logger.warning(f"mcp_validation_error: query_knowledge", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}")
+    except Exception as e:
+        logger.exception(f"mcp_tool_error: query_knowledge")
+        raise RuntimeError(f"Knowledge query failed: {e}")
+

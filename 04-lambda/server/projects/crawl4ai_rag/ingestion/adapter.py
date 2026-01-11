@@ -60,17 +60,22 @@ class CrawledContentIngester:
     
     async def initialize(self) -> None:
         """
-        Initialize Graphiti integration if enabled.
+        Initialize Graphiti integration.
+        
+        Graphiti is enabled by default for crawl4ai RAG flow to automatically
+        extract entities and relationships from crawled content. This can be
+        disabled by setting USE_GRAPHITI=false in environment variables.
         
         This method should be called before ingesting documents to ensure
-        Graphiti is properly initialized when USE_GRAPHITI=true.
+        Graphiti is properly initialized.
         """
         if self._graphiti_initialized:
             return
         
-        # Initialize Graphiti if enabled
+        # Initialize Graphiti if enabled (enabled by default)
         if graphiti_config.use_graphiti:
             try:
+                logger.info("Initializing Graphiti for crawl4ai-rag (enabled by default)")
                 self.graphiti_deps = GraphitiRAGDeps.from_settings()
                 await self.graphiti_deps.initialize()
                 if self.graphiti_deps.graphiti:
@@ -83,6 +88,8 @@ class CrawledContentIngester:
             except Exception as e:
                 logger.warning(f"Failed to initialize Graphiti: {e}")
                 logger.info("Continuing without Graphiti ingestion")
+        else:
+            logger.info("Graphiti disabled via USE_GRAPHITI=false")
         
         self._graphiti_initialized = True
     

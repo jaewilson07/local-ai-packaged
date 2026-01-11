@@ -1,9 +1,9 @@
 """Conversation orchestration REST API."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 import logging
 
-from server.core.api_utils import with_dependencies
 from server.projects.conversation.models import ConversationRequest, ConversationResponse
 from server.projects.conversation.services.orchestrator import ConversationOrchestrator
 from server.projects.persona.dependencies import PersonaDeps
@@ -13,9 +13,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_persona_deps() -> AsyncGenerator[PersonaDeps, None]:
+    """FastAPI dependency that yields PersonaDeps."""
+    deps = PersonaDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/orchestrate", response_model=ConversationResponse)
-@with_dependencies(PersonaDeps)
-async def orchestrate_conversation_endpoint(request: ConversationRequest, deps: PersonaDeps):
+async def orchestrate_conversation_endpoint(
+    request: ConversationRequest,
+    deps: Annotated[PersonaDeps, Depends(get_persona_deps)]
+):
     """
     Orchestrate a conversation by coordinating multiple agents and tools.
     
@@ -59,6 +72,7 @@ async def orchestrate_conversation_endpoint(request: ConversationRequest, deps: 
         
         # Record interaction (async, don't wait)
         try:
+            from server.projects.persona.tools import record_interaction
             await record_interaction(
                 deps, request.user_id, request.persona_id, request.message, response
             )

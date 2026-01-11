@@ -2,6 +2,25 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The Graphiti RAG project provides graph-based retrieval using Graphiti, a knowledge graph system built on Neo4j. It enables semantic search over knowledge graphs, repository code structure parsing, and AI script validation against real codebases.
+
+**Key Capabilities:**
+- **Knowledge Graph Search**: Search for facts, entities, and relationships in Neo4j knowledge graphs
+- **Repository Parsing**: Parse GitHub repositories into knowledge graphs for code structure analysis
+- **AI Script Validation**: Validate AI-generated scripts against real repository code to detect hallucinations
+- **Graph Querying**: Execute Cypher queries to explore entity relationships
+- **Temporal Facts**: Search facts with temporal information and source metadata
+- **Code Structure Analysis**: Extract classes, methods, functions, and their relationships from codebases
+
+**Use Cases:**
+- Knowledge graph Q&A over structured facts and relationships
+- Code understanding and navigation through repository parsing
+- AI code generation validation to ensure accuracy
+- Entity relationship exploration in knowledge graphs
+- Fact-based reasoning over temporal data
+
 ## Component Identity
 
 - **Project**: `graphiti_rag`
@@ -11,6 +30,98 @@
 - **Agent**: `graphiti_rag_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/graphiti/* ]
+        MCP[ MCP Tools<br/>search_graphiti, parse_repo, etc. ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ graphiti_rag_agent<br/>Pydantic AI Agent ]
+        TOOLS[ Graphiti Tools<br/>search, parse, validate, query ]
+    end
+    
+    subgraph "Graphiti Layer"
+        GRAPHITI[ Graphiti Instance<br/>Knowledge Graph System ]
+        SEARCH[ graph_search<br/>Graph Search Wrapper ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ GraphitiRAGDeps<br/>Neo4j Client, Graphiti ]
+        NEO4J[ Neo4j<br/>Graph Database ]
+    end
+    
+    subgraph "External Services"
+        GITHUB[ GitHub<br/>Repository Access ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOLS
+    TOOLS --> GRAPHITI
+    TOOLS --> SEARCH
+    SEARCH --> GRAPHITI
+    GRAPHITI --> DEPS
+    DEPS --> NEO4J
+    TOOLS --> GITHUB
+    
+    style AGENT fill:#e1f5ff
+    style GRAPHITI fill:#fff4e1
+    style SEARCH fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+    style NEO4J fill:#ffe1e1
+```
+
+### Graph Search Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as graphiti_rag_agent
+    participant Tool as search_graphiti
+    participant Search as graph_search
+    participant Graphiti as Graphiti Instance
+    participant Neo4j
+    
+    Client->>Agent: Search graph (query, match_count)
+    Agent->>Tool: search_graphiti(query)
+    Tool->>Search: graphiti_search(query, match_count)
+    Search->>Graphiti: Search knowledge graph
+    Graphiti->>Neo4j: Execute graph query
+    Neo4j-->>Graphiti: Facts with relationships
+    Graphiti-->>Search: Search results
+    Search-->>Tool: Formatted results
+    Tool-->>Agent: Search results string
+    Agent-->>Client: Graph search response
+```
+
+### Repository Parsing Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as graphiti_rag_agent
+    participant Tool as parse_github_repository
+    participant Graphiti as Graphiti Instance
+    participant GitHub
+    participant Neo4j
+    
+    Client->>Agent: Parse repository (repo_url)
+    Agent->>Tool: parse_github_repository(repo_url)
+    Tool->>GitHub: Clone repository
+    GitHub-->>Tool: Repository code
+    Tool->>Graphiti: Parse repository into graph
+    Graphiti->>Graphiti: Extract classes, methods, functions
+    Graphiti->>Neo4j: Create graph nodes and relationships
+    Neo4j-->>Graphiti: Graph created
+    Graphiti-->>Tool: Parse results
+    Tool-->>Agent: Repository parsed
+    Agent-->>Client: Parse response
+```
 
 ### File Organization
 
@@ -206,10 +317,10 @@ curl -X POST http://lambda-server:8000/api/v1/graphiti/knowledge-graph/query \
 - `NEO4J_USER` - Neo4j username (default: neo4j)
 - `NEO4J_PASSWORD` - Neo4j password
 - `NEO4J_DATABASE` - Neo4j database name (default: neo4j)
-- `USE_GRAPHITI` - Enable Graphiti (default: false)
+- `USE_GRAPHITI` - Enable Graphiti (default: true, set to false to disable)
 - `LLM_MODEL` - LLM model for Graphiti (default: llama3.2)
 - `LLM_BASE_URL` - LLM API base URL (default: http://ollama:11434/v1)
 
 **Feature Flags:**
-- `USE_GRAPHITI` - Must be `true` to enable Graphiti operations
+- `USE_GRAPHITI` - Enable Graphiti operations (default: true, enabled by default for crawl4ai RAG flow)
 - `USE_KNOWLEDGE_GRAPH` - Enable code structure knowledge graph (separate from Graphiti)

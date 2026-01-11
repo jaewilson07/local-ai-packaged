@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Create N8N workflow example using N8N Workflow project.
+
+This example demonstrates how to create an N8N workflow using the
+N8N Workflow project, which includes RAG-enhanced workflow creation
+by searching the knowledge base for best practices and examples.
+
+Prerequisites:
+- N8N running and accessible
+- MongoDB running (for RAG knowledge base)
+- Environment variables configured (N8N_API_URL, N8N_API_KEY, MONGODB_URI, etc.)
+"""
+
+import asyncio
+import sys
+import os
+from pathlib import Path
+
+# Add server to path so we can import from the project
+project_root = Path(__file__).parent.parent.parent
+lambda_path = project_root / "04-lambda"
+sys.path.insert(0, str(lambda_path))
+
+from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
+from server.projects.n8n_workflow.agent import create_workflow_tool
+from server.projects.shared.context_helpers import create_run_context
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+async def main():
+    """Create an N8N workflow."""
+    # Example workflow configuration
+    workflow_name = "Example Webhook Workflow"
+    nodes = [
+        {
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [250, 300],
+            "parameters": {
+                "path": "example-webhook",
+                "httpMethod": "POST"
+            }
+        },
+        {
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [450, 300],
+            "parameters": {
+                "options": {}
+            }
+        }
+    ]
+    connections = {
+        "Webhook": {
+            "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+        }
+    }
+    
+    print("="*80)
+    print("N8N Workflow - Create Workflow Example")
+    print("="*80)
+    print()
+    print("This example demonstrates creating an N8N workflow:")
+    print("  - Creates a workflow with nodes and connections")
+    print("  - Uses RAG-enhanced workflow creation (searches knowledge base)")
+    print("  - Discovers available nodes via N8N API")
+    print()
+    print(f"Workflow Name: {workflow_name}")
+    print(f"Nodes: {len(nodes)}")
+    print()
+    
+    # Initialize dependencies
+    deps = N8nWorkflowDeps.from_settings()
+    await deps.initialize()
+    
+    try:
+        # Create run context for tools
+        ctx = create_run_context(deps)
+        
+        # Create workflow
+        print("🚀 Creating workflow...")
+        logger.info(f"Creating workflow: {workflow_name}")
+        
+        result = await create_workflow_tool(
+            ctx=ctx,
+            name=workflow_name,
+            nodes=nodes,
+            connections=connections,
+            active=False
+        )
+        
+        # Display result
+        print("\n" + "="*80)
+        print("WORKFLOW CREATION RESULT")
+        print("="*80)
+        print(result)
+        print("="*80)
+        print()
+        print("✅ Workflow creation completed!")
+        print()
+        print("Note: The N8N Workflow agent automatically searches the")
+        print("      knowledge base for best practices before creating workflows.")
+        print("="*80)
+        
+    except Exception as e:
+        logger.exception(f"❌ Error creating workflow: {e}")
+        print(f"\n❌ Fatal error: {e}")
+        print("\nNote: Make sure N8N is running and accessible.")
+        sys.exit(1)
+    finally:
+        # Cleanup
+        await deps.cleanup()
+        logger.info("🧹 Dependencies cleaned up")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

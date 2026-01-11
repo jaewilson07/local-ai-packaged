@@ -1,9 +1,9 @@
 """N8n Workflow project REST API."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 import logging
 
-from server.core.api_utils import with_dependencies
 from server.projects.n8n_workflow.models import (
     CreateWorkflowRequest,
     UpdateWorkflowRequest,
@@ -23,7 +23,6 @@ from server.projects.n8n_workflow.tools import (
     list_workflows,
     execute_workflow
 )
-from pydantic_ai.ag_ui import StateDeps
 from pydantic import BaseModel
 from typing import Dict, Any
 
@@ -31,9 +30,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_n8n_workflow_deps() -> AsyncGenerator[N8nWorkflowDeps, None]:
+    """FastAPI dependency that yields N8nWorkflowDeps."""
+    deps = N8nWorkflowDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/create", response_model=WorkflowResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def create_workflow_endpoint(request: CreateWorkflowRequest, deps: N8nWorkflowDeps):
+async def create_workflow_endpoint(
+    request: CreateWorkflowRequest,
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)]
+):
     """
     Create a new N8n workflow.
     
@@ -75,8 +87,10 @@ async def create_workflow_endpoint(request: CreateWorkflowRequest, deps: N8nWork
 
 
 @router.post("/update", response_model=WorkflowResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def update_workflow_endpoint(request: UpdateWorkflowRequest, deps: N8nWorkflowDeps):
+async def update_workflow_endpoint(
+    request: UpdateWorkflowRequest,
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)]
+):
     """
     Update an existing N8n workflow.
     """
@@ -107,8 +121,10 @@ async def update_workflow_endpoint(request: UpdateWorkflowRequest, deps: N8nWork
 
 
 @router.post("/delete", response_model=WorkflowResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def delete_workflow_endpoint(request: DeleteWorkflowRequest, deps: N8nWorkflowDeps):
+async def delete_workflow_endpoint(
+    request: DeleteWorkflowRequest,
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)]
+):
     """
     Delete an N8n workflow.
     """
@@ -129,8 +145,10 @@ async def delete_workflow_endpoint(request: DeleteWorkflowRequest, deps: N8nWork
 
 
 @router.post("/activate", response_model=WorkflowResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def activate_workflow_endpoint(request: ActivateWorkflowRequest, deps: N8nWorkflowDeps):
+async def activate_workflow_endpoint(
+    request: ActivateWorkflowRequest,
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)]
+):
     """
     Activate or deactivate an N8n workflow.
     """
@@ -156,8 +174,10 @@ async def activate_workflow_endpoint(request: ActivateWorkflowRequest, deps: N8n
 
 
 @router.get("/list", response_model=ListWorkflowsResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def list_workflows_endpoint(active_only: bool = False, deps: N8nWorkflowDeps = None):
+async def list_workflows_endpoint(
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)],
+    active_only: bool = False
+):
     """
     List all N8n workflows.
     """
@@ -191,8 +211,10 @@ async def list_workflows_endpoint(active_only: bool = False, deps: N8nWorkflowDe
 
 
 @router.post("/execute", response_model=ExecuteWorkflowResponse)
-@with_dependencies(N8nWorkflowDeps)
-async def execute_workflow_endpoint(request: ExecuteWorkflowRequest, deps: N8nWorkflowDeps):
+async def execute_workflow_endpoint(
+    request: ExecuteWorkflowRequest,
+    deps: Annotated[N8nWorkflowDeps, Depends(get_n8n_workflow_deps)]
+):
     """
     Execute an N8n workflow.
     """

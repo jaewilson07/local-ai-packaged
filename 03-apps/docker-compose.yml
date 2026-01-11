@@ -527,6 +527,28 @@ services:
         condition: service_healthy
     logging: *logging-json
 
+  # Discord Character Bot
+  discord-character-bot:
+    build:
+      context: ./discord-character-bot
+      dockerfile: Dockerfile
+    container_name: discord-character-bot
+    restart: unless-stopped
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_CHARACTER_BOT_TOKEN:-${DISCORD_BOT_TOKEN}}
+      LAMBDA_API_URL: ${LAMBDA_API_URL:-http://lambda-server:8000}
+      LAMBDA_API_KEY: ${LAMBDA_API_KEY:-}
+      MAX_CHARACTERS_PER_CHANNEL: ${MAX_CHARACTERS_PER_CHANNEL:-5}
+      ENGAGEMENT_PROBABILITY: ${ENGAGEMENT_PROBABILITY:-0.15}
+      ENGAGEMENT_CHECK_INTERVAL: ${ENGAGEMENT_CHECK_INTERVAL:-60}
+    volumes:
+      - ../03-apps/discord-character-bot/data:/app/data
+    networks:
+      - default
+    # Note: depends_on removed - lambda-server is in a different Docker Compose project (localai-lambda)
+    # The bot connects via HTTP on the shared ai-network and handles connection failures gracefully
+    logging: *logging-json
+
   # Frontend (Next.js Social Layer)
   frontend:
     build:

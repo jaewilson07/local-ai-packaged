@@ -1,7 +1,7 @@
 """MongoDB RAG project REST API."""
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import List
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from typing import List, Annotated, AsyncGenerator, Optional, Any
 import logging
 from pathlib import Path
 import shutil
@@ -13,17 +13,26 @@ from server.projects.mongo_rag.models import (
 )
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.tools import semantic_search, hybrid_search, text_search
-from server.core.api_utils import with_dependencies
 from server.projects.mongo_rag.tools_code import search_code_examples
 from server.projects.mongo_rag.sources import get_available_sources
 from server.projects.mongo_rag.ingestion.pipeline import DocumentIngestionPipeline, IngestionConfig
-from server.projects.mongo_rag.agent import rag_agent, RAGState
-from pydantic_ai.ag_ui import StateDeps
+from server.projects.mongo_rag.agent import rag_agent
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_agent_deps() -> AsyncGenerator[AgentDependencies, None]:
+    """FastAPI dependency that yields AgentDependencies for Pydantic AI agent."""
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps  # Injected into endpoint, passed to agent.run()
+    finally:
+        await deps.cleanup()  # Cleanup after response
 
 
 def _build_search_filter(request: SearchRequest) -> Dict[str, Any]:
@@ -328,10 +337,9 @@ async def ingest(files: List[UploadFile] = File(...), clean_before: bool = False
 
 
 @router.post("/agent", response_model=AgentResponse)
-@with_dependencies(AgentDependencies)
 async def agent(
     request: AgentRequest,
-    deps: AgentDependencies
+    deps: Annotated[Any, Depends(get_agent_deps)]
 ):
     """
     Query the conversational RAG agent with natural language.
@@ -412,15 +420,22 @@ async def agent(
     - Search results are limited to top matches for efficiency
     """
     
-    result = await rag_agent.run(
-        request.query,
-        deps=StateDeps(state=RAGState(), deps=deps)
-    )
-    
-    return AgentResponse(
-        query=request.query,
-        response=result.data
-    )
+    # Agent now uses AgentDependencies directly, not StateDeps
+    try:
+        result = await rag_agent.run(
+            request.query,
+            deps=deps
+        )
+        
+        return AgentResponse(
+            query=request.query,
+            response=result.data
+        )
+    except Exception as e:
+        # Log error and return 500
+        logger.error(f"Agent execution failed: {e}", exc_info=True)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Agent execution failed: {str(e)}")
 
 
 class CodeExampleSearchRequest(BaseModel):
@@ -438,10 +453,9 @@ class CodeExampleSearchResponse(BaseModel):
 
 
 @router.post("/code-examples/search", response_model=CodeExampleSearchResponse)
-@with_dependencies(AgentDependencies)
 async def search_code_examples_endpoint(
     request: CodeExampleSearchRequest,
-    deps: AgentDependencies
+    deps: Annotated[Any, Depends(get_agent_deps)]
 ):
     """
     Search for code examples in the knowledge base.
@@ -452,37 +466,32 @@ async def search_code_examples_endpoint(
     from server.projects.shared.wrappers import DepsWrapper
     ctx = DepsWrapper(deps)
     results = await search_code_examples(ctx, request.query, request.match_count)
-        
-        formatted_results = [
-            {
-                "code_example_id": r.code_example_id,
-                "document_id": r.document_id,
-                "code": r.code,
-                "summary": r.summary,
-                "language": r.language,
-                "similarity": r.similarity,
-                "source": r.source,
-                "metadata": r.metadata
-            }
-            for r in results
-        ]
-        
-        return CodeExampleSearchResponse(
-            success=True,
-            query=request.query,
-            results=formatted_results,
-            count=len(formatted_results)
-        )
-        
-    except Exception as e:
-        logger.exception(f"Error searching code examples: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    formatted_results = [
+        {
+            "code_example_id": r.code_example_id,
+            "document_id": r.document_id,
+            "code": r.code,
+            "summary": r.summary,
+            "language": r.language,
+            "similarity": r.similarity,
+            "source": r.source,
+            "metadata": r.metadata
+        }
+        for r in results
+    ]
+    
+    return CodeExampleSearchResponse(
+        success=True,
+        query=request.query,
+        results=formatted_results,
+        count=len(formatted_results)
+    )
 
 
 @router.get("/sources")
-@with_dependencies(AgentDependencies)
 async def get_sources(
-    deps: AgentDependencies
+    deps: Annotated[Any, Depends(get_agent_deps)]
 ):
     """
     Get all available sources (domains/paths) that have been crawled and stored.
@@ -503,13 +512,12 @@ async def get_sources(
 # ============================================================================
 
 @router.post("/memory/record")
-@with_dependencies(AgentDependencies)
 async def record_message_endpoint(
     user_id: str,
     persona_id: str,
     content: str,
-    role: str = "user",
-    deps: AgentDependencies = None
+    deps: Annotated[Any, Depends(get_agent_deps)],
+    role: str = "user"
 ):
     """Record a message in memory."""
     from server.projects.mongo_rag.memory_tools import MemoryTools
@@ -520,12 +528,11 @@ async def record_message_endpoint(
 
 
 @router.get("/memory/context")
-@with_dependencies(AgentDependencies)
 async def get_context_window_endpoint(
     user_id: str,
     persona_id: str,
-    limit: int = 20,
-    deps: AgentDependencies = None
+    deps: Annotated[Any, Depends(get_agent_deps)],
+    limit: int = 20
 ):
     """Get recent messages for context window."""
     from server.projects.mongo_rag.memory_tools import MemoryTools
@@ -548,13 +555,12 @@ async def get_context_window_endpoint(
 
 
 @router.post("/memory/facts")
-@with_dependencies(AgentDependencies)
 async def store_fact_endpoint(
     user_id: str,
     persona_id: str,
     fact: str,
-    tags: Optional[List[str]] = None,
-    deps: AgentDependencies = None
+    deps: Annotated[Any, Depends(get_agent_deps)],
+    tags: Optional[List[str]] = None
 ):
     """Store a fact in memory."""
     from server.projects.mongo_rag.memory_tools import MemoryTools
@@ -565,13 +571,12 @@ async def store_fact_endpoint(
 
 
 @router.get("/memory/facts/search")
-@with_dependencies(AgentDependencies)
 async def search_facts_endpoint(
     user_id: str,
     persona_id: str,
     query: str,
-    limit: int = 10,
-    deps: AgentDependencies = None
+    deps: Annotated[Any, Depends(get_agent_deps)],
+    limit: int = 10
 ):
     """Search for facts in memory."""
     from server.projects.mongo_rag.memory_tools import MemoryTools
@@ -594,16 +599,15 @@ async def search_facts_endpoint(
 
 
 @router.post("/memory/web-content")
-@with_dependencies(AgentDependencies)
 async def store_web_content_endpoint(
     user_id: str,
     persona_id: str,
     content: str,
     source_url: str,
+    deps: Annotated[Any, Depends(get_agent_deps)],
     source_title: str = "",
     source_description: str = "",
-    tags: Optional[List[str]] = None,
-    deps: AgentDependencies = None
+    tags: Optional[List[str]] = None
 ):
     """Store web content in memory."""
     from server.projects.mongo_rag.memory_tools import MemoryTools

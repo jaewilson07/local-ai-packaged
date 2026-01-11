@@ -27,14 +27,25 @@ if [ ! -f "/opt/venv/bin/python" ]; then
     echo "✓ Python packages installed and persisted to volume"
     
     # Run crawl4ai-setup after package installation
+    # According to crawl4ai docs: https://docs.crawl4ai.com/basic/installation/
+    # 1. Install: pip install crawl4ai (already done)
+    # 2. Setup: crawl4ai-setup (installs Playwright browsers)
+    # 3. Verify: crawl4ai-doctor (optional)
     echo "Running crawl4ai-setup to install Playwright browsers..."
     if command -v crawl4ai-setup &> /dev/null; then
-        crawl4ai-setup || echo "Warning: crawl4ai-setup failed, but continuing..."
+        if crawl4ai-setup; then
+            echo "✓ Crawl4AI setup completed successfully"
+        else
+            echo "⚠️  crawl4ai-setup failed, trying fallback method..."
+            # Fallback: install Playwright browsers directly
+            # From docs: python -m playwright install --with-deps chromium
+            python -m playwright install --with-deps chromium || echo "Warning: Playwright browser installation failed"
+        fi
     else
-        # Fallback: try running via python module
-        python -m crawl4ai.setup || echo "Warning: crawl4ai setup failed, but continuing..."
+        # Fallback: try running via python module or direct playwright install
+        echo "crawl4ai-setup command not found, trying direct Playwright installation..."
+        python -m playwright install --with-deps chromium || echo "Warning: Playwright browser installation failed"
     fi
-    echo "✓ Crawl4AI setup completed"
 else
     echo "✓ Using existing Python packages from volume"
     # Always activate venv if it exists
@@ -46,12 +57,18 @@ else
     if [ ! -d "$PLAYWRIGHT_CACHE" ] || [ -z "$(ls -A "$PLAYWRIGHT_CACHE" 2>/dev/null)" ]; then
         echo "Playwright browsers not found. Running crawl4ai-setup..."
         if command -v crawl4ai-setup &> /dev/null; then
-            crawl4ai-setup || echo "Warning: crawl4ai-setup failed, but continuing..."
+            if crawl4ai-setup; then
+                echo "✓ Crawl4AI setup completed successfully"
+            else
+                echo "⚠️  crawl4ai-setup failed, trying fallback method..."
+                # Fallback: install Playwright browsers directly
+                python -m playwright install --with-deps chromium || echo "Warning: Playwright browser installation failed"
+            fi
         else
-            # Fallback: try running via python module
-            python -m crawl4ai.setup || echo "Warning: crawl4ai setup failed, but continuing..."
+            # Fallback: try direct Playwright installation
+            echo "crawl4ai-setup command not found, trying direct Playwright installation..."
+            python -m playwright install --with-deps chromium || echo "Warning: Playwright browser installation failed"
         fi
-        echo "✓ Crawl4AI setup completed"
     else
         echo "✓ Playwright browsers already installed"
     fi

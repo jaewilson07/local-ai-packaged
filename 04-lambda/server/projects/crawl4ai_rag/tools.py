@@ -6,7 +6,7 @@ from datetime import datetime
 from pydantic_ai import RunContext
 
 from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.crawler import crawl_single_page, crawl_deep
+from server.projects.crawl4ai_rag.services.crawler import crawl_single_page, crawl_deep
 from server.projects.crawl4ai_rag.ingestion.adapter import CrawledContentIngester
 from server.projects.mongo_rag.ingestion.pipeline import IngestionResult
 

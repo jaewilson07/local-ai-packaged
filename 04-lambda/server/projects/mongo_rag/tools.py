@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from pymongo.errors import OperationFailure
 
 from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.graphiti_rag.search.graph_search import graphiti_search
 from server.projects.mongo_rag.reranking.reranker import get_reranker, initialize_reranker
 from server.projects.mongo_rag.config import config
 
@@ -380,8 +379,10 @@ async def hybrid_search(
         ]
         
         # Add Graphiti search if available
+        # Import here to avoid circular import
         graphiti_results = []
         if deps.graphiti_deps and deps.graphiti_deps.graphiti:
+            from server.projects.graphiti_rag.search.graph_search import graphiti_search
             search_tasks.append(
                 graphiti_search(deps.graphiti_deps.graphiti, query, fetch_count)
             )

@@ -62,10 +62,12 @@ async def rag_instructions(ctx: RunContext[StateDeps[RAGState]]) -> str:
 
 ### Search Tool Pattern
 
+**Important**: Dependencies are provided via `RunContext` - do NOT initialize them inside tools.
+
 ```python
 @rag_agent.tool
 async def search_knowledge_base(
-    ctx: RunContext[StateDeps[RAGState]],
+    ctx: RunContext[AgentDependencies],  # Type parameter matches agent's deps_type
     query: str,
     match_count: Optional[int] = 5,
     search_type: Optional[str] = "semantic"
@@ -74,7 +76,7 @@ async def search_knowledge_base(
     Search the knowledge base for relevant information.
 
     Args:
-        ctx: Agent runtime context with state dependencies
+        ctx: Agent runtime context with dependencies (already initialized)
         query: Search query text
         match_count: Number of results to return (default: 5)
         search_type: Type of search - "semantic" or "hybrid" (default: semantic)
@@ -83,33 +85,23 @@ async def search_knowledge_base(
         String containing the retrieved information formatted for the LLM
     """
     try:
-        # Initialize database connection
-        agent_deps = AgentDependencies()
-        await agent_deps.initialize()
-
-        # Create context wrapper
-        class DepsWrapper:
-            def __init__(self, deps):
-                self.deps = deps
-
-        deps_ctx = DepsWrapper(agent_deps)
-
-        # Perform search based on type
+        # Access dependencies from context - they are already initialized
+        # Do NOT call initialize() here - dependencies are provided by the caller
+        deps = ctx.deps
+        
+        # Perform search based on type using provided dependencies
         if search_type == "hybrid":
             results = await hybrid_search(
-                ctx=deps_ctx,
+                ctx=deps,
                 query=query,
                 match_count=match_count
             )
         else:
             results = await semantic_search(
-                ctx=deps_ctx,
+                ctx=deps,
                 query=query,
                 match_count=match_count
             )
-
-        # Clean up
-        await agent_deps.cleanup()
 
         # Format results
         if not results:
@@ -135,33 +127,46 @@ async def search_knowledge_base(
         return f"Error searching knowledge base: {str(e)}"
 ```
 
+**Key Points:**
+- Dependencies are accessed via `ctx.deps` - they are already initialized
+- The `RunContext[DepsType]` type parameter must match the agent's `deps_type`
+- Do NOT call `initialize()` or `cleanup()` inside tools - lifecycle is managed by the caller
+- Tools should only use the provided dependencies, not create new ones
+
 ### Tool Best Practices
 
 1. **Return strings, not objects**: LLMs consume text, not Pydantic models
 2. **Include context**: Format results with source attribution
 3. **Handle errors gracefully**: Return helpful error messages, don't crash
-4. **Clean up resources**: Use `try/finally` or context managers
-5. **Log operations**: Log tool calls for debugging
+4. **Access dependencies via ctx.deps**: Dependencies are provided, not created in tools
+5. **Do NOT initialize dependencies**: Dependencies should be initialized before `agent.run()` is called
+6. **Do NOT cleanup in tools**: Resource cleanup is handled by the caller (FastAPI or application code)
+7. **Log operations**: Log tool calls for debugging
 
 ### Alternative Tool Pattern (Direct Dependencies)
+
+This pattern assumes dependencies are already initialized and provided via `RunContext`:
 
 ```python
 @rag_agent.tool
 async def search_knowledge_base(
-    ctx: RunContext[StateDeps[RAGState]],
+    ctx: RunContext[AgentDependencies],  # Dependencies type matches agent's deps_type
     query: str,
     match_count: Optional[int] = 5,
     search_type: Optional[str] = "semantic"
 ) -> str:
-    """Search knowledge base with direct dependency access."""
+    """Search knowledge base with direct dependency access.
+    
+    Note: Dependencies are already initialized by the caller before agent.run() is called.
+    """
 
-    # Access dependencies from context
-    state_deps = ctx.deps
-    mongo_client = state_deps.mongo_client
-    db = state_deps.db
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
+    mongo_client = deps.mongo_client
+    db = deps.db
 
-    # Generate query embedding
-    embedding = await state_deps.get_embedding(query)
+    # Generate query embedding using provided dependencies
+    embedding = await deps.get_embedding(query)
 
     # Build and execute search pipeline
     if search_type == "hybrid":
@@ -174,6 +179,8 @@ async def search_knowledge_base(
     # Format and return
     return format_search_results(results)
 ```
+
+**Important**: This pattern correctly accesses dependencies via `ctx.deps` without initializing them. The dependencies must be initialized before calling `agent.run(deps=deps)`.
 
 ## Streaming Implementation
 
@@ -364,60 +371,320 @@ def truncate_history(
 
 ## Dependencies Pattern
 
-### AgentDependencies Class
+### Pydantic AI Dependency System
+
+Pydantic AI uses a type-safe dependency injection system where dependencies are:
+1. **Declared** via `deps_type` parameter in `Agent()` constructor
+2. **Passed** explicitly when calling `agent.run(deps=deps)` or `agent.iter(deps=deps)`
+3. **Accessed** via `RunContext[DepsType]` and `ctx.deps` attribute in tools, instructions, and system prompts
+
+### Dependency Types
+
+Dependencies can be:
+- **Dataclasses**: Using `@dataclass` decorator
+- **Pydantic BaseModel**: Using `BaseModel` class
+- **Simple Types**: `str`, `int`, `bool`, etc.
+- **StateDeps**: For stateful agents (`StateDeps[StateType]` where `StateType` is a Pydantic BaseModel)
+
+### Dataclass Dependencies Example
 
 ```python
-from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorClient
-import openai
+from dataclasses import dataclass
+from pydantic_ai import Agent, RunContext
 
+@dataclass
 class AgentDependencies:
     """Dependencies injected into the agent context."""
-
-    def __init__(self):
-        self.mongo_client: Optional[AsyncIOMotorClient] = None
-        self.db = None
-        self.openai_client: Optional[openai.AsyncOpenAI] = None
-        self.settings = None
+    mongo_client: AsyncMongoClient
+    db: Any
+    openai_client: openai.AsyncOpenAI
+    settings: Any
 
     async def initialize(self):
         """Initialize external connections."""
-        if not self.settings:
-            self.settings = load_settings()
-
-        # MongoDB
-        if not self.mongo_client:
-            self.mongo_client = AsyncIOMotorClient(self.settings.mongodb_uri)
-            self.db = self.mongo_client[self.settings.mongodb_database]
-
-            # Verify connection
-            await self.mongo_client.admin.command('ping')
-
-        # OpenAI client
-        if not self.openai_client:
-            self.openai_client = openai.AsyncOpenAI(
-                api_key=self.settings.llm_api_key,
-                base_url=self.settings.llm_base_url
-            )
+        # Initialize MongoDB connection
+        await self.mongo_client.admin.command('ping')
+        # OpenAI client is already initialized
 
     async def cleanup(self):
         """Clean up connections."""
-        if self.mongo_client:
-            self.mongo_client.close()
-            self.mongo_client = None
-            self.db = None
+        await self.mongo_client.close()
 
     async def get_embedding(self, text: str) -> list[float]:
         """Generate embedding for text."""
-        if not self.openai_client:
-            await self.initialize()
-
         response = await self.openai_client.embeddings.create(
             model=self.settings.embedding_model,
             input=text
         )
         return response.data[0].embedding
+
+# Create agent with dataclass dependencies
+agent = Agent(
+    'openai:gpt-4o',
+    deps_type=AgentDependencies
+)
+
+# Use in tools
+@agent.tool
+async def search(ctx: RunContext[AgentDependencies], query: str) -> str:
+    embedding = await ctx.deps.get_embedding(query)
+    # Use ctx.deps.mongo_client, ctx.deps.db, etc.
+    return "Search results..."
 ```
+
+### Pydantic BaseModel Dependencies Example
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+from pydantic_ai import Agent, RunContext
+
+class AgentDependencies(BaseModel):
+    """Dependencies as Pydantic model."""
+    mongo_client: Optional[AsyncMongoClient] = None
+    db: Optional[Any] = None
+    openai_client: Optional[openai.AsyncOpenAI] = None
+    settings: Optional[Any] = None
+
+    @classmethod
+    def from_settings(cls, **kwargs) -> "AgentDependencies":
+        """Factory method to create dependencies from settings."""
+        return cls(**kwargs)
+
+    async def initialize(self):
+        """Initialize external connections."""
+        if not self.mongo_client:
+            self.mongo_client = AsyncMongoClient(self.settings.mongodb_uri)
+            self.db = self.mongo_client[self.settings.mongodb_database]
+        # ... rest of initialization
+
+    async def cleanup(self):
+        """Clean up connections."""
+        if self.mongo_client:
+            await self.mongo_client.close()
+
+# Create agent
+agent = Agent('openai:gpt-4o', deps_type=AgentDependencies)
+
+# Initialize and use
+deps = AgentDependencies.from_settings()
+await deps.initialize()
+try:
+    result = await agent.run("Query", deps=deps)
+finally:
+    await deps.cleanup()
+```
+
+### StateDeps for Stateful Agents
+
+```python
+from pydantic import BaseModel
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.ag_ui import StateDeps
+
+class RAGState(BaseModel):
+    """State for the RAG agent."""
+    conversation_history: list[str] = []
+    user_preferences: dict[str, Any] = {}
+
+# Create agent with StateDeps
+agent = Agent(
+    'openai:gpt-4o',
+    deps_type=StateDeps[RAGState]
+)
+
+# Access state in tools
+@agent.tool
+async def update_history(ctx: RunContext[StateDeps[RAGState]], message: str) -> str:
+    ctx.deps.state.conversation_history.append(message)
+    return "History updated"
+
+# Use with state
+state = RAGState()
+deps = StateDeps(state=state)
+result = await agent.run("Hello", deps=deps)
+```
+
+### Key Principles
+
+1. **Dependencies are provided, not created**: Tools access `ctx.deps` - dependencies are initialized before `agent.run()` is called
+2. **Type safety**: `RunContext[DepsType]` ensures type checking matches the agent's `deps_type`
+3. **Lifecycle management**: Dependencies with resources (DB connections, HTTP clients) should have `initialize()` and `cleanup()` methods, but these are called by application code, not by Pydantic AI
+4. **No initialization in tools**: Tools should never call `initialize()` or create new dependency instances
+
+## FastAPI Integration Patterns
+
+### FastAPI Dependency Injection System
+
+FastAPI uses a different dependency injection system than Pydantic AI:
+- **Declaration**: Dependencies are declared in function signatures using `Depends()`
+- **Injection**: FastAPI automatically resolves and injects dependencies before endpoint execution
+- **Type Safety**: Use `Annotated[Type, Depends(function)]` pattern (Python 3.10+)
+- **Resource Cleanup**: Use `yield` in dependency functions for proper cleanup
+
+### Basic FastAPI Dependency Pattern
+
+```python
+from typing import Annotated
+from fastapi import Depends, FastAPI, APIRouter
+
+router = APIRouter()
+
+# Simple dependency function
+async def get_common_params(
+    q: str | None = None,
+    skip: int = 0,
+    limit: int = 100
+) -> dict:
+    return {"q": q, "skip": skip, "limit": limit}
+
+# Use in endpoint
+@router.get("/items/")
+async def read_items(
+    commons: Annotated[dict, Depends(get_common_params)]
+):
+    return commons
+```
+
+### FastAPI Dependency with Resource Cleanup (yield pattern)
+
+```python
+from typing import Annotated, AsyncGenerator
+from fastapi import Depends, APIRouter
+
+router = APIRouter()
+
+# Dependency with yield for cleanup
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    session = AsyncSessionLocal()
+    try:
+        yield session  # Injected into endpoint
+        await session.commit()  # Commit if no exceptions
+    except Exception:
+        await session.rollback()  # Rollback on error
+        raise
+    finally:
+        await session.close()  # Always close
+
+# Use in endpoint
+@router.get("/users/{user_id}")
+async def get_user(
+    user_id: int,
+    db: Annotated[AsyncSession, Depends(get_db_session)]
+):
+    user = await db.get(User, user_id)
+    return user
+```
+
+### Integrating Pydantic AI Agents with FastAPI
+
+When using Pydantic AI agents in FastAPI endpoints, combine both dependency systems:
+
+```python
+from typing import Annotated
+from fastapi import Depends, APIRouter
+from pydantic_ai import Agent, RunContext
+
+router = APIRouter()
+
+# FastAPI dependency that creates and manages AgentDependencies
+async def get_agent_deps() -> AsyncGenerator[AgentDependencies, None]:
+    """FastAPI dependency that yields AgentDependencies for Pydantic AI agent."""
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps  # Injected into endpoint, passed to agent.run()
+    finally:
+        await deps.cleanup()  # Cleanup after response
+
+# Endpoint using both FastAPI and Pydantic AI dependencies
+@router.post("/agent/query")
+async def query_agent(
+    request: AgentRequest,
+    deps: Annotated[AgentDependencies, Depends(get_agent_deps)]
+):
+    """Query the RAG agent using dependencies from FastAPI."""
+    # FastAPI provides deps via Depends(), we pass it to Pydantic AI
+    result = await rag_agent.run(request.query, deps=deps)
+    return AgentResponse(query=request.query, response=result.data)
+```
+
+### Key Differences: Pydantic AI vs FastAPI Dependencies
+
+| Aspect | Pydantic AI | FastAPI |
+|--------|-------------|---------|
+| **Declaration** | `deps_type` in `Agent()` | `Depends()` in function signature |
+| **Injection** | Explicit: `agent.run(deps=deps)` | Automatic: FastAPI injects before endpoint |
+| **Access** | `RunContext[DepsType]` and `ctx.deps` | Direct parameter in function |
+| **Type Safety** | `RunContext[DepsType]` | `Annotated[Type, Depends(...)]` |
+| **Use Case** | Agent tools, instructions, agent resources | REST endpoints, DB sessions, auth |
+| **Lifecycle** | Managed by application code | Managed by FastAPI (with yield) |
+
+### Common Patterns
+
+**Pattern 1: FastAPI manages lifecycle, Pydantic AI uses dependencies**
+```python
+# FastAPI dependency with yield
+async def get_agent_deps() -> AsyncGenerator[AgentDependencies, None]:
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+# Endpoint
+@router.post("/query")
+async def query(deps: Annotated[AgentDependencies, Depends(get_agent_deps)]):
+    result = await agent.run("Query", deps=deps)
+    return result.data
+```
+
+**Pattern 2: Shared dependencies across multiple endpoints**
+```python
+# Create type alias for reuse
+AgentDepsDep = Annotated[AgentDependencies, Depends(get_agent_deps)]
+
+@router.post("/query")
+async def query(deps: AgentDepsDep):
+    result = await agent.run("Query", deps=deps)
+    return result.data
+
+@router.post("/search")
+async def search(deps: AgentDepsDep):
+    result = await agent.run("Search", deps=deps)
+    return result.data
+```
+
+**Pattern 3: Dependency scope control**
+```python
+# Cleanup before response is sent
+async def get_deps_early_cleanup() -> AsyncGenerator[AgentDependencies, None]:
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+# Use scope="function" to cleanup before response
+@router.post("/query")
+async def query(
+    deps: Annotated[
+        AgentDependencies, 
+        Depends(get_deps_early_cleanup, scope="function")
+    ]
+):
+    result = await agent.run("Query", deps=deps)
+    return result.data
+```
+
+### Important Notes
+
+1. **Do NOT mix patterns**: Don't use `Depends()` inside Pydantic AI tools - use `RunContext` instead
+2. **Lifecycle management**: FastAPI handles dependency lifecycle with `yield`, Pydantic AI just uses the dependencies
+3. **Initialization timing**: Dependencies should be initialized in FastAPI dependency functions, not in Pydantic AI tools
+4. **Type consistency**: The type in `Annotated[Type, Depends(...)]` should match the agent's `deps_type`
 
 ## Provider Configuration
 
@@ -480,56 +747,60 @@ def get_llm_model_by_provider(provider_name: str) -> OpenAIModel:
 
 ### Graceful Degradation
 
+**Important**: Dependencies are provided via `RunContext` - do NOT initialize them inside tools.
+
 ```python
 @rag_agent.tool
 async def search_knowledge_base(
-    ctx: RunContext[StateDeps[RAGState]],
+    ctx: RunContext[AgentDependencies],  # Dependencies already provided
     query: str,
     match_count: Optional[int] = 5,
     search_type: Optional[str] = "semantic"
 ) -> str:
-    """Search with comprehensive error handling."""
+    """Search with comprehensive error handling.
+    
+    Note: Dependencies are already initialized by the caller.
+    """
 
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
+
+    # Perform search with error handling
     try:
-        # Initialize
-        deps = AgentDependencies()
-        await deps.initialize()
+        if search_type == "hybrid":
+            results = await hybrid_search(deps, query, match_count)
+        else:
+            results = await semantic_search(deps, query, match_count)
 
-        # Perform search
-        try:
-            if search_type == "hybrid":
-                results = await hybrid_search(...)
-            else:
-                results = await semantic_search(...)
-
-        except OperationFailure as e:
-            if e.code == 291:
-                return (
-                    "Vector search index is not configured. "
-                    "Please set up indexes in MongoDB Atlas before searching."
-                )
-            raise
-
-        except ConnectionFailure:
+    except OperationFailure as e:
+        if e.code == 291:
             return (
-                "Could not connect to MongoDB. "
-                "Please check your connection and try again."
+                "Vector search index is not configured. "
+                "Please set up indexes in MongoDB Atlas before searching."
             )
+        raise
 
-        # Format results
-        if not results:
-            return "No relevant information found in the knowledge base."
-
-        return format_results(results)
+    except ConnectionFailure:
+        return (
+            "Could not connect to MongoDB. "
+            "Please check your connection and try again."
+        )
 
     except Exception as e:
         logger.exception("search_tool_error", query=query)
         return f"An error occurred while searching: {str(e)}"
 
-    finally:
-        if deps:
-            await deps.cleanup()
+    # Format results
+    if not results:
+        return "No relevant information found in the knowledge base."
+
+    return format_results(results)
 ```
+
+**Key Points:**
+- Dependencies are accessed via `ctx.deps` - no initialization needed
+- Error handling focuses on the search operation, not dependency lifecycle
+- Cleanup is handled by the caller (FastAPI dependency or application code)
 
 ## Testing Agents and Tools
 

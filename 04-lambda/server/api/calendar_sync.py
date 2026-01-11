@@ -1,12 +1,26 @@
 """Calendar sync REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Annotated, AsyncGenerator
 import logging
+
+from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
+from server.projects.mongo_rag.dependencies import AgentDependencies
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_agent_deps_for_sync() -> AsyncGenerator[AgentDependencies, None]:
+    """FastAPI dependency that yields AgentDependencies for calendar sync."""
+    deps = AgentDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
 
 
 class CalendarSyncRequest(BaseModel):
@@ -35,7 +49,10 @@ class CalendarSyncResponse(BaseModel):
 
 
 @router.post("/sync", response_model=CalendarSyncResponse)
-async def sync_event_to_calendar(request: CalendarSyncRequest):
+async def sync_event_to_calendar(
+    request: CalendarSyncRequest,
+    deps_rag: Annotated[AgentDependencies, Depends(get_agent_deps_for_sync)]
+):
     """
     Scrape event information from a website and create/update a Google Calendar event.
     
@@ -99,7 +116,6 @@ async def sync_event_to_calendar(request: CalendarSyncRequest):
     """
     import httpx
     from server.config import settings
-    from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
     from server.api.n8n_workflow import list_workflows_endpoint
     
     try:
@@ -110,30 +126,24 @@ async def sync_event_to_calendar(request: CalendarSyncRequest):
         
         try:
             # Query MongoDB directly for document by source URL
-            from server.projects.mongo_rag.dependencies import AgentDependencies
+            # deps_rag is already initialized via FastAPI dependency injection
             from server.projects.mongo_rag.config import config
             
-            deps_rag = AgentDependencies()
-            await deps_rag.initialize()
+            documents_collection = deps_rag.db[config.mongodb_collection_documents]
+            # Find document by exact source URL match
+            document = await documents_collection.find_one({"source": request.url})
             
-            try:
-                documents_collection = deps_rag.db[config.mongodb_collection_documents]
-                # Find document by exact source URL match
-                document = await documents_collection.find_one({"source": request.url})
-                
-                if document:
-                    content_found = True
-                    # Get HTML from metadata if available
-                    metadata = document.get("metadata", {})
-                    cached_html = metadata.get("original_html")
-                    if cached_html:
-                        logger.info(f"Found cached HTML in RAG for {request.url} ({len(cached_html)} chars)")
-                    else:
-                        logger.info(f"Found document in RAG for {request.url} but no HTML stored")
+            if document:
+                content_found = True
+                # Get HTML from metadata if available
+                metadata = document.get("metadata", {})
+                cached_html = metadata.get("original_html")
+                if cached_html:
+                    logger.info(f"Found cached HTML in RAG for {request.url} ({len(cached_html)} chars)")
                 else:
-                    logger.info(f"No document found in RAG for {request.url}")
-            finally:
-                await deps_rag.cleanup()
+                    logger.info(f"Found document in RAG for {request.url} but no HTML stored")
+            else:
+                logger.info(f"No document found in RAG for {request.url}")
                 
         except Exception as e:
             logger.warning(f"Error checking RAG: {e}. Will proceed with fresh scrape.")
@@ -158,10 +168,7 @@ async def sync_event_to_calendar(request: CalendarSyncRequest):
                 # Continue to workflow as fallback
         
         # Step 3: Find the workflow by name and call it
-        deps = N8nWorkflowDeps.from_settings()
-        await deps.initialize()
-        
-        try:
+        async with DependencyContext(N8nWorkflowDeps) as deps:
             # List workflows to find by name
             workflows_result = await list_workflows_endpoint(active_only=False)
             workflows = workflows_result.get("workflows", [])
@@ -234,8 +241,6 @@ async def sync_event_to_calendar(request: CalendarSyncRequest):
                 if "data" in result:
                     result = result["data"]
             
-            await deps.cleanup()
-            
             # Convert workflow result to API response format
             return CalendarSyncResponse(
                 success=result.get("action") in ["created", "updated"],
@@ -249,12 +254,6 @@ async def sync_event_to_calendar(request: CalendarSyncRequest):
                 message=f"Event {result.get('action', 'processed')} successfully",
                 errors=[]
             )
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            await deps.cleanup()
-            raise HTTPException(status_code=500, detail=f"Failed to sync event: {str(e)}")
         
     except HTTPException:
         raise

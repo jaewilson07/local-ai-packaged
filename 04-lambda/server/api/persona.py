@@ -1,6 +1,7 @@
 """Persona project REST API."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 import logging
 
 from server.projects.persona.models import (
@@ -12,18 +13,27 @@ from server.projects.persona.models import (
     PersonaStateResponse,
 )
 from server.projects.persona.dependencies import PersonaDeps
-from server.core.api_utils import with_dependencies
 from server.projects.persona.tools import get_voice_instructions, record_interaction
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_persona_deps() -> AsyncGenerator[PersonaDeps, None]:
+    """FastAPI dependency that yields PersonaDeps."""
+    deps = PersonaDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/get-voice", response_model=VoiceInstructionsResponse)
-@with_dependencies(PersonaDeps)
 async def get_voice_instructions_endpoint(
     request: GetVoiceInstructionsRequest,
-    deps: PersonaDeps
+    deps: Annotated[PersonaDeps, Depends(get_persona_deps)]
 ):
     """
     Generate dynamic style instructions based on current persona state.
@@ -41,10 +51,9 @@ async def get_voice_instructions_endpoint(
 
 
 @router.post("/record-interaction")
-@with_dependencies(PersonaDeps)
 async def record_interaction_endpoint(
     request: RecordInteractionRequest,
-    deps: PersonaDeps
+    deps: Annotated[PersonaDeps, Depends(get_persona_deps)]
 ):
     """
     Record an interaction to update persona state.
@@ -70,11 +79,10 @@ async def record_interaction_endpoint(
 
 
 @router.get("/state", response_model=PersonaStateResponse)
-@with_dependencies(PersonaDeps)
 async def get_persona_state_endpoint(
     user_id: str,
     persona_id: str,
-    deps: PersonaDeps
+    deps: Annotated[PersonaDeps, Depends(get_persona_deps)]
 ):
     """
     Get current persona state including mood, relationship, and context.
@@ -131,15 +139,12 @@ async def get_persona_state_endpoint(
     except Exception as e:
         logger.exception(f"Error getting persona state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()
 
 
 @router.post("/update-mood")
-@with_dependencies(PersonaDeps)
 async def update_mood_endpoint(
     request: UpdateMoodRequest,
-    deps: PersonaDeps
+    deps: Annotated[PersonaDeps, Depends(get_persona_deps)]
 ):
     """
     Update persona mood state.
@@ -169,5 +174,3 @@ async def update_mood_endpoint(
     except Exception as e:
         logger.exception(f"Error updating mood: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await deps.cleanup()

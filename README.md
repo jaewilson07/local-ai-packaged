@@ -60,6 +60,12 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 
 ✅ [**Infisical**](https://infisical.com/) - Open source secrets management platform with web UI and CLI for securely managing environment variables and sensitive configuration
 
+✅ [**Lambda Server**](04-lambda/README.md) - FastAPI server providing REST APIs and MCP (Model Context Protocol) endpoints with 40+ tools for RAG, knowledge graphs, workflow automation, and more
+
+✅ [**Discord Bot**](03-apps/discord-bot/README.md) - Discord bot for Immich integration with face mapping, automated notifications, and MCP server for Discord management
+
+✅ [**Immich**](https://immich.app/) - Self-hosted photo and video backup solution with face detection, metadata search, and social features
+
 ## Prerequisites
 
 Before you begin, make sure you have the following software installed:
@@ -590,6 +596,84 @@ For cloud instances with static IPs where you can open ports:
 - sudo chmod +x /usr/local/bin/docker-compose
 - sudo mkdir -p /usr/local/lib/docker/cli-plugins
 - sudo ln -s /usr/local/bin/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+
+## MCP Server Integration
+
+The Lambda server provides a comprehensive **Model Context Protocol (MCP)** server with 40+ tools organized into categories:
+
+### Available MCP Tool Categories
+
+- **MongoDB RAG Tools**: Search knowledge base, ingest documents, conversational agent, code example search
+- **Graphiti RAG Tools**: Knowledge graph search, GitHub repository parsing, hallucination detection
+- **Crawl4AI Tools**: Single page crawling, deep website crawling, web search
+- **N8N Workflow Tools**: Create, update, delete, activate, and execute workflows
+- **Open WebUI Tools**: Export conversations, classify topics, search conversations
+- **Calendar Tools**: Create, update, delete, and list Google Calendar events
+- **Knowledge Extraction**: Extract events from web content and crawled pages
+- **Persona Management**: Store facts, search memories, manage persona state and mood
+- **Conversation Orchestration**: Multi-agent conversation management
+
+### Connecting to MCP Server
+
+The Lambda MCP server is accessible at `http://lambda-server:8000/mcp` (internal) or via your configured hostname.
+
+**For Open WebUI:**
+1. Go to Settings → Connections → MCP Servers
+2. Add new server: `http://lambda-server:8000/mcp`
+3. Tools will be automatically available in conversations
+
+**For Claude Desktop:**
+Add to your MCP settings:
+```json
+{
+  "mcpServers": {
+    "lambda-server": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+For complete MCP tools documentation, see [docs/MCP_INTEGRATION.md](docs/MCP_INTEGRATION.md).
+
+## Workflow Overview
+
+The local-ai-packaged infrastructure supports several key workflows:
+
+### Document Ingestion Workflow
+1. **Upload/Crawl**: Documents uploaded via REST API or crawled from web pages
+2. **Processing**: Documents are chunked, embedded, and stored in MongoDB
+3. **Indexing**: Vector embeddings enable semantic search, full-text search enables keyword matching
+4. **Search**: Hybrid search combines semantic and text search using Reciprocal Rank Fusion
+
+### RAG Search Workflow
+1. **Query**: User submits natural language query
+2. **Search**: Lambda server searches MongoDB RAG knowledge base (semantic + text)
+3. **Retrieval**: Relevant chunks retrieved with metadata
+4. **Generation**: LLM (Ollama) generates response using retrieved context
+5. **Response**: Formatted answer returned to user
+
+### Conversation Memory Workflow
+1. **Chat**: User interacts with Open WebUI
+2. **Storage**: Conversations stored in PostgreSQL
+3. **Export**: Conversations can be exported to MongoDB RAG for searchability
+4. **Topic Classification**: LLM classifies conversations into topics
+5. **Search**: Users can search past conversations by topic or content
+
+### Discord → Immich Workflow
+1. **Upload**: User uploads photo/video to Discord `#event-uploads` channel
+2. **Ingestion**: Discord bot automatically uploads to Immich
+3. **Face Detection**: Immich detects faces in uploaded media
+4. **Mapping**: Users claim faces via `/claim_face` command
+5. **Notifications**: Bot sends DMs when users are detected in new photos
+
+### N8N Workflow Orchestration
+1. **Trigger**: External event (webhook, schedule, file change, etc.)
+2. **Processing**: N8N workflow executes with Lambda MCP tools
+3. **Integration**: Lambda tools interact with RAG, knowledge graphs, calendars, etc.
+4. **Response**: Results returned via webhook or stored in database
+
+For detailed workflow documentation, see [docs/WORKFLOWS.md](docs/WORKFLOWS.md).
 
 ## ⚡️ Quick start and usage
 

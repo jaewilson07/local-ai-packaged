@@ -2,6 +2,29 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The MongoDB RAG project provides a comprehensive Retrieval-Augmented Generation system with advanced query processing, memory management, and knowledge graph integration. It enables semantic search over documents stored in MongoDB, with sophisticated query decomposition, document grading, and result synthesis capabilities.
+
+**Inspiration**: This implementation is inspired by [MongoDB-RAG-Agent](https://github.com/coleam00/MongoDB-RAG-Agent), which demonstrates best practices for building production-ready RAG systems with MongoDB Atlas Vector Search and Docling document processing.
+
+**Key Capabilities:**
+- **Docling Integration**: Production-grade document processing with DocumentConverter and HybridChunker for intelligent document conversion and chunking
+- **Hybrid Search**: Combines semantic (vector) and text (keyword) search using Reciprocal Rank Fusion for optimal results
+- **Enhanced RAG**: Advanced query processing with decomposition, grading, citations, and synthesis
+- **Memory Management**: Persistent storage for conversation messages, facts, and web content with context window retrieval
+- **Knowledge Graph Integration**: Optional Neo4j integration for entity relationship exploration
+- **Code Example Extraction**: Agentic RAG for extracting and searching code examples from documentation
+- **Flexible Search Modes**: Semantic-only, text-only, or hybrid search strategies
+- **Multi-Format Support**: PDF, Word, PowerPoint, Excel, HTML, Markdown, and Audio (via Docling)
+
+**Use Cases:**
+- Document Q&A: Ask questions over ingested documentation and get cited answers
+- Conversation Memory: Maintain context across conversations with persistent message storage
+- Knowledge Discovery: Explore relationships between entities using knowledge graphs
+- Code Search: Find relevant code examples from technical documentation
+- Multi-Query Search: Automatically decompose complex questions into focused sub-queries
+
 ## Component Identity
 
 - **Project**: `mongo_rag`
@@ -11,6 +34,148 @@
 - **Agent**: `rag_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/rag/* ]
+        MCP[ MCP Tools<br/>search_knowledge_base, etc. ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ rag_agent<br/>Pydantic AI Agent ]
+        TOOLS[ Agent Tools<br/>search, enhanced_search, memory ops ]
+    end
+    
+    subgraph "Search Layer"
+        HYBRID[ hybrid_search<br/>Semantic + Text RRF ]
+        SEMANTIC[ semantic_search<br/>Vector Search ]
+        TEXT[ text_search<br/>Keyword Search ]
+    end
+    
+    subgraph "Enhanced RAG Nodes"
+        DECOMPOSE[ decompose_query<br/>Query Decomposition ]
+        GRADE[ grade_documents<br/>Relevance Filtering ]
+        SYNTHESIZE[ synthesize_results<br/>Result Synthesis ]
+        CITATIONS[ extract_citations<br/>Citation Extraction ]
+        REWRITE[ rewrite_query<br/>Query Rewriting ]
+    end
+    
+    subgraph "Memory Layer"
+        MEMORY[ MemoryTools<br/>Interface ]
+        STORE[ MongoMemoryStore<br/>Implementation ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ AgentDependencies<br/>MongoDB, OpenAI Client ]
+        MONGO[ MongoDB<br/>Vector Store ]
+        NEO4J[ Neo4j<br/>Knowledge Graph ]
+    end
+    
+    subgraph "External Services"
+        OLLAMA[ Ollama<br/>LLM & Embeddings ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOLS
+    TOOLS --> HYBRID
+    TOOLS --> DECOMPOSE
+    TOOLS --> MEMORY
+    HYBRID --> SEMANTIC
+    HYBRID --> TEXT
+    DECOMPOSE --> GRADE
+    DECOMPOSE --> SYNTHESIZE
+    DECOMPOSE --> CITATIONS
+    DECOMPOSE --> REWRITE
+    SEMANTIC --> DEPS
+    TEXT --> DEPS
+    MEMORY --> STORE
+    DEPS --> MONGO
+    DEPS --> NEO4J
+    DEPS --> OLLAMA
+    STORE --> MONGO
+    
+    style AGENT fill:#e1f5ff
+    style HYBRID fill:#fff4e1
+    style DECOMPOSE fill:#fff4e1
+    style MEMORY fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+    style MONGO fill:#ffe1e1
+    style OLLAMA fill:#ffe1e1
+```
+
+### Enhanced RAG Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as rag_agent
+    participant Enhanced as enhanced_search
+    participant Decompose as decompose_query
+    participant Search as hybrid_search
+    participant Grade as grade_documents
+    participant Synthesize as synthesize_results
+    participant Citations as extract_citations
+    participant Deps as AgentDependencies
+    participant MongoDB
+    
+    Client->>Agent: Complex multi-part query
+    Agent->>Enhanced: enhanced_search(query, use_decomposition=true)
+    Enhanced->>Decompose: decompose_query(query)
+    Decompose->>Deps: Call LLM for decomposition
+    Deps-->>Decompose: Sub-queries list
+    Decompose-->>Enhanced: [sub_query1, sub_query2, ...]
+    
+    loop For each sub-query
+        Enhanced->>Search: hybrid_search(sub_query)
+        Search->>Deps: Get embedding, search MongoDB
+        Deps->>MongoDB: Vector + text search
+        MongoDB-->>Deps: Search results
+        Deps-->>Search: Results
+        Search-->>Enhanced: Results for sub-query
+    end
+    
+    Enhanced->>Grade: grade_documents(all_results)
+    Grade->>Deps: Call LLM for relevance scoring
+    Deps-->>Grade: Graded results
+    Grade-->>Enhanced: Filtered results
+    
+    Enhanced->>Synthesize: synthesize_results(graded_results)
+    Synthesize->>Deps: Call LLM for synthesis
+    Deps-->>Synthesize: Synthesized answer
+    Synthesize-->>Enhanced: Final answer
+    
+    Enhanced->>Citations: extract_citations(results)
+    Citations-->>Enhanced: Citation metadata
+    
+    Enhanced-->>Agent: Answer with citations
+    Agent-->>Client: Final response
+```
+
+### Memory Management Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as rag_agent
+    participant MemoryTools
+    participant Store as MongoMemoryStore
+    participant MongoDB
+    
+    Agent->>MemoryTools: record_message(user_id, persona_id, content)
+    MemoryTools->>Store: add_message(message)
+    Store->>MongoDB: Insert message document
+    MongoDB-->>Store: Success
+    
+    Agent->>MemoryTools: get_recent_messages(user_id, persona_id, limit=20)
+    MemoryTools->>Store: get_recent_messages(...)
+    Store->>MongoDB: Query with sort & limit
+    MongoDB-->>Store: Message list
+    Store-->>MemoryTools: Messages
+    MemoryTools-->>Agent: Context window
+```
 
 ### File Organization
 
@@ -24,8 +189,9 @@ mongo_rag/
 ├── tools.py             # Core search tools (semantic, text, hybrid)
 ├── tools_code.py        # Code example extraction tools
 ├── memory_models.py     # Memory data models (Message, Fact, WebContent)
-├── memory_store.py      # MongoDB memory store implementation
 ├── memory_tools.py      # Memory tools interface
+├── stores/               # Data storage implementations
+│   └── memory_store.py  # MongoDB memory store implementation
 ├── nodes/               # Enhanced RAG processing nodes
 │   ├── decompose.py     # Query decomposition
 │   ├── grade.py         # Document grading/relevance filtering
@@ -33,6 +199,9 @@ mongo_rag/
 │   ├── synthesize.py    # Result synthesis from multiple queries
 │   └── rewrite.py       # Query rewriting
 ├── ingestion/           # Document ingestion pipeline
+│   ├── pipeline.py      # Main ingestion pipeline with Docling integration
+│   ├── chunker.py       # Docling HybridChunker wrapper
+│   └── embedder.py      # Embedding generation
 ├── reranking/           # Cross-encoder reranking (optional)
 ├── extraction/          # Entity extraction (optional)
 └── neo4j_client.py      # Neo4j knowledge graph client
@@ -89,6 +258,7 @@ mongo_rag/
 - ❌ **Don't use synchronous MongoDB operations**: All operations must be async
 - ❌ **Don't bypass memory tools**: Use `MemoryTools` interface, not direct MongoDB access
 - ❌ **Don't ignore errors in node processing**: Log warnings but continue with fallback behavior
+- ❌ **Don't bypass Docling**: Always use Docling's DocumentConverter and HybridChunker for document processing (don't implement custom chunking for Docling-supported formats)
 
 ### Code Examples
 
@@ -141,7 +311,7 @@ if needs_decomp:
 - `agent.py:50` - `rag_agent` definition with tools
 - `dependencies.py:17` - `AgentDependencies` class
 - `tools.py:30` - `hybrid_search` function (main search entry point)
-- `memory_store.py:14` - `MongoMemoryStore` implementation
+- `stores/memory_store.py:14` - `MongoMemoryStore` implementation
 - `nodes/decompose.py:12` - Query decomposition logic
 - `nodes/grade.py:25` - Document grading logic
 
@@ -203,8 +373,32 @@ curl -X POST http://lambda-server:8000/api/v1/rag/memory/record \
 - **MongoDB**: Primary vector store and document storage (`mongodb:27017`)
 - **Ollama**: LLM for agent responses and embeddings (`ollama:11434`)
 - **Neo4j**: Optional knowledge graph for entity relationships (`neo4j:7687`)
+- **Docling**: Document processing and intelligent chunking (integrated in `ingestion/pipeline.py` and `ingestion/chunker.py`)
 - **REST API**: Endpoints in `server/api/mongo_rag.py`
 - **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+
+## Docling Integration
+
+**Document Processing**:
+- Uses `docling.document_converter.DocumentConverter` for PDF, Word, PowerPoint, Excel, HTML conversion
+- Converts documents to markdown while preserving structure (headings, sections, tables)
+- Returns both markdown content and `DoclingDocument` object for efficient chunking
+
+**Intelligent Chunking**:
+- Uses `docling.chunking.HybridChunker` for token-aware, structure-preserving chunking
+- Respects document hierarchy and semantic boundaries
+- Contextualizes chunks with heading hierarchy for better RAG performance
+- Token-precise chunking (uses actual tokenizer, not character estimates)
+
+**Audio Transcription**:
+- Uses Docling's ASR pipeline with Whisper ASR for audio transcription
+- Supports MP3, WAV, M4A, FLAC formats
+- Transcribes to markdown format for consistent processing
+
+**Implementation Files**:
+- `ingestion/pipeline.py`: Document conversion and ingestion pipeline
+- `ingestion/chunker.py`: Docling HybridChunker wrapper
+- See MongoDB-RAG-Agent for reference implementation patterns
 
 ## Configuration
 

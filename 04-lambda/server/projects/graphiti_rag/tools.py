@@ -91,6 +91,9 @@ async def parse_github_repository(
     if not config.use_knowledge_graph:
         raise ValueError("Knowledge graph is not enabled. Set USE_KNOWLEDGE_GRAPH=true.")
     
+    if not repo_url.endswith('.git'):
+        raise ValueError("Repository URL must end with .git")
+    
     extractor = DirectNeo4jExtractor(
         config.neo4j_uri,
         config.neo4j_user,

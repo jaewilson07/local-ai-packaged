@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 import logging
+from pymongo import AsyncMongoClient
+import openai
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode
 from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 from server.projects.crawl4ai_rag.config import config
@@ -39,7 +41,10 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
             logger.info("settings_loaded", extra={"database": config.mongodb_database})
 
         # Initialize MongoDB using mixin
-        await self._initialize_mongodb(db_name=config.mongodb_database)
+        await self.initialize_mongodb(
+            mongodb_uri=config.mongodb_uri,
+            mongodb_database=config.mongodb_database
+        )
         logger.info(
             "mongodb_connected",
             extra={
@@ -52,9 +57,11 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
         )
 
         # Initialize OpenAI client using mixin
-        await self._initialize_openai_client(
+        await self.initialize_openai_client(
             api_key=config.embedding_api_key,
-            base_url=config.embedding_base_url
+            base_url=config.embedding_base_url,
+            embedding_api_key=config.embedding_api_key,
+            embedding_base_url=config.embedding_base_url
         )
         logger.info(
             "openai_client_initialized",
@@ -90,8 +97,8 @@ class Crawl4AIDependencies(BaseDependencies, MongoDBMixin, OpenAIClientMixin):
                 logger.warning(f"Error closing crawler: {e}")
         
         # Cleanup using mixins
-        await self._cleanup_mongodb()
-        await self._cleanup_openai_client()
+        await self.cleanup_mongodb()
+        await self.cleanup_openai_clients()
 
     async def get_embedding(self, text: str) -> list[float]:
         """

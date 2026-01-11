@@ -6,13 +6,16 @@ from typing import Any, Dict, Optional
 
 try:
     import httpx
+    aiohttp = None
 except ImportError:
     try:
         import aiohttp
         httpx = None
     except ImportError:
-        httpx = None
-        aiohttp = None
+        raise ImportError(
+            "Either httpx or aiohttp must be installed. "
+            "Install with: pip install httpx or pip install aiohttp"
+        )
 
 logger = logging.getLogger(__name__)
 

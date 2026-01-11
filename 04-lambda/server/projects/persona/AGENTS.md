@@ -2,6 +2,24 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The Persona project manages character/persona state including mood, relationships, conversation context, and generates dynamic voice instructions that shape how the AI responds. It enables personalized, consistent AI interactions that adapt based on conversation history and relationship dynamics.
+
+**Key Capabilities:**
+- **Mood Tracking**: Analyzes and tracks persona mood state based on conversation interactions
+- **Relationship Management**: Maintains relationship state between users and personas (familiarity, trust, etc.)
+- **Context Analysis**: Tracks conversation context and topics for continuity
+- **Voice Instructions**: Generates dynamic personality guidelines that influence response style and tone
+- **State Persistence**: Stores persona state in MongoDB for consistency across sessions
+- **LLM-Based Analysis**: Uses language models to analyze interactions and update state
+
+**Use Cases:**
+- Personalized AI assistants with consistent personality traits
+- Character-based interactions that maintain mood and relationship state
+- Context-aware conversations that remember past interactions
+- Dynamic personality adaptation based on conversation history
+
 ## Component Identity
 
 - **Project**: `persona`
@@ -11,6 +29,103 @@
 - **Agent**: `persona_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/persona/* ]
+        MCP[ MCP Tools<br/>get_voice_instructions, etc. ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ persona_agent<br/>Pydantic AI Agent ]
+        TOOLS[ Persona Tools<br/>voice_instructions, record_interaction ]
+    end
+    
+    subgraph "State Management"
+        STORE[ PersonaStore<br/>Protocol Interface ]
+        MONGOSTORE[ MongoPersonaStore<br/>Implementation ]
+        MOOD[ track_mood<br/>Mood Analysis ]
+        REL[ track_relationship<br/>Relationship Updates ]
+        CTX[ track_context<br/>Context Analysis ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ PersonaDeps<br/>MongoDB, OpenAI Client ]
+        MONGO[ MongoDB<br/>State Storage ]
+    end
+    
+    subgraph "External Services"
+        OLLAMA[ Ollama<br/>LLM Analysis ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOLS
+    TOOLS --> STORE
+    TOOLS --> MOOD
+    TOOLS --> REL
+    TOOLS --> CTX
+    STORE --> MONGOSTORE
+    MONGOSTORE --> DEPS
+    MOOD --> DEPS
+    REL --> DEPS
+    CTX --> DEPS
+    DEPS --> MONGO
+    DEPS --> OLLAMA
+    
+    style AGENT fill:#e1f5ff
+    style STORE fill:#fff4e1
+    style MOOD fill:#e1ffe1
+    style REL fill:#e1ffe1
+    style CTX fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+    style MONGO fill:#ffe1e1
+```
+
+### Voice Instructions Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as persona_agent
+    participant Tool as get_voice_instructions
+    participant Store as PersonaStore
+    participant Mood as track_mood
+    participant Rel as track_relationship
+    participant Ctx as track_context
+    participant LLM as Ollama LLM
+    participant MongoDB
+    
+    Client->>Agent: Get voice instructions (user_id, persona_id)
+    Agent->>Tool: get_voice_instructions()
+    Tool->>Store: Get persona state
+    Store->>MongoDB: Query persona document
+    MongoDB-->>Store: Persona state (mood, relationship, context)
+    Store-->>Tool: State data
+    
+    Tool->>Mood: Analyze mood from interactions
+    Mood->>LLM: Analyze conversation for mood
+    LLM-->>Mood: Mood analysis
+    Mood->>Store: Update mood state
+    
+    Tool->>Rel: Analyze relationship state
+    Rel->>LLM: Analyze relationship dynamics
+    LLM-->>Rel: Relationship analysis
+    Rel->>Store: Update relationship state
+    
+    Tool->>Ctx: Analyze conversation context
+    Ctx->>LLM: Extract context topics
+    LLM-->>Ctx: Context analysis
+    Ctx->>Store: Update context
+    
+    Tool->>LLM: Generate voice instructions from state
+    LLM-->>Tool: Voice instructions (personality, style, tone)
+    Tool-->>Agent: Voice instructions string
+    Agent-->>Client: Voice instructions response
+```
 
 ### File Organization
 

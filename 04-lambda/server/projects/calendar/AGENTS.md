@@ -2,6 +2,24 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The Calendar project provides Google Calendar integration with full CRUD operations for events and sync state tracking. It enables AI agents to create, update, delete, and list calendar events while maintaining sync state to prevent duplicates and track changes.
+
+**Key Capabilities:**
+- **Event CRUD**: Create, read, update, and delete Google Calendar events
+- **Sync State Tracking**: Maintains sync state in MongoDB to track event mappings and prevent duplicates
+- **OAuth2 Integration**: Handles Google Calendar API authentication
+- **Event Search**: List and filter events by date range, calendar ID, and other criteria
+- **Bidirectional Sync**: Tracks both local and remote event states for synchronization
+- **Error Handling**: Robust error handling for API failures and sync conflicts
+
+**Use Cases:**
+- AI assistants that can schedule and manage calendar events
+- Event extraction from web content with automatic calendar creation
+- Calendar synchronization between systems
+- Automated event management and reminders
+
 ## Component Identity
 
 - **Project**: `calendar`
@@ -11,6 +29,91 @@
 - **Agent**: `calendar_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/calendar/* ]
+        MCP[ MCP Tools<br/>create_event, list_events, etc. ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ calendar_agent<br/>Pydantic AI Agent ]
+        TOOLS[ Calendar Tools<br/>create, update, delete, list ]
+    end
+    
+    subgraph "Service Layer"
+        SYNC[ GoogleCalendarSyncService<br/>Core Sync Logic ]
+        CALAPI[ Google Calendar API<br/>OAuth2 Client ]
+    end
+    
+    subgraph "State Management"
+        SYNCSTORE[ SyncStateStore<br/>Protocol Interface ]
+        MONGOSTORE[ MongoSyncStore<br/>Implementation ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ CalendarDeps<br/>Calendar Service, Sync Store ]
+        MONGO[ MongoDB<br/>Sync State Storage ]
+    end
+    
+    subgraph "External Services"
+        GOOGLE[ Google Calendar API<br/>OAuth2 ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOLS
+    TOOLS --> SYNC
+    TOOLS --> SYNCSTORE
+    SYNC --> CALAPI
+    SYNC --> SYNCSTORE
+    SYNCSTORE --> MONGOSTORE
+    MONGOSTORE --> DEPS
+    CALAPI --> GOOGLE
+    DEPS --> MONGO
+    
+    style AGENT fill:#e1f5ff
+    style SYNC fill:#fff4e1
+    style SYNCSTORE fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+    style GOOGLE fill:#ffe1e1
+```
+
+### Event Creation Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as calendar_agent
+    participant Tool as create_event
+    participant Sync as GoogleCalendarSyncService
+    participant SyncStore as SyncStateStore
+    participant CalAPI as Google Calendar API
+    participant MongoDB
+    
+    Client->>Agent: Create event (title, start, end, etc.)
+    Agent->>Tool: create_event(event_data)
+    Tool->>SyncStore: Check sync state (event_id)
+    SyncStore->>MongoDB: Query sync state
+    alt Event exists
+        MongoDB-->>SyncStore: Existing sync state
+        SyncStore-->>Tool: Event already synced
+        Tool->>Sync: update_event(existing_id, event_data)
+    else New event
+        MongoDB-->>SyncStore: No sync state
+        Tool->>Sync: create_event(event_data)
+        Sync->>CalAPI: POST /calendars/{id}/events
+        CalAPI-->>Sync: Google event (with id)
+        Sync->>SyncStore: Save sync state
+        SyncStore->>MongoDB: Store sync state (local_id <-> google_id)
+    end
+    Sync-->>Tool: Event result
+    Tool-->>Agent: Event created/updated
+    Agent-->>Client: CalendarEvent response
+```
 
 ### File Organization
 

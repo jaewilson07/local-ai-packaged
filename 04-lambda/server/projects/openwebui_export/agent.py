@@ -1,10 +1,7 @@
 """Main Open WebUI Export agent implementation."""
 
 from pydantic_ai import Agent, RunContext
-from pydantic import BaseModel
 from typing import Optional, List
-from pydantic_ai.ag_ui import StateDeps
-
 from server.projects.shared.llm import get_llm_model as _get_openwebui_export_model
 from server.projects.openwebui_export.config import config
 from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
@@ -17,18 +14,10 @@ from server.projects.openwebui_export.tools import (
 )
 
 
-from server.projects.shared.llm import get_llm_model as _get_openwebui_export_model
-
-
-class OpenWebUIExportState(BaseModel):
-    """Minimal shared state for the Open WebUI export agent."""
-    pass
-
-
-# Create the Open WebUI export agent with AGUI support
+# Create the Open WebUI export agent with OpenWebUIExportDeps
 openwebui_export_agent = Agent(
     _get_openwebui_export_model(),
-    deps_type=StateDeps[OpenWebUIExportState],
+    deps_type=OpenWebUIExportDeps,
     system_prompt=(
         "You are an expert assistant for exporting Open WebUI conversations to MongoDB RAG. "
         "You help users export conversations, retrieve conversation data, and manage conversation exports. "
@@ -40,11 +29,11 @@ openwebui_export_agent = Agent(
 # Register tools - create wrapper functions that bridge StateDeps to OpenWebUIExportDeps
 @openwebui_export_agent.tool
 async def export_conversation_tool(
-    ctx: RunContext[StateDeps[OpenWebUIExportState]],
+    ctx: RunContext[OpenWebUIExportDeps],
     conversation_id: str,
+    messages: List[ConversationMessage],
     user_id: Optional[str] = None,
     title: Optional[str] = None,
-    messages: List[ConversationMessage],
     topics: Optional[List[str]] = None,
     metadata: Optional[dict] = None
 ) -> str:
@@ -66,38 +55,35 @@ async def export_conversation_tool(
     Returns:
         String describing the export result
     """
-    deps = OpenWebUIExportDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        request = ConversationExportRequest(
-            conversation_id=conversation_id,
-            user_id=user_id,
-            title=title,
-            messages=messages,
-            topics=topics,
-            metadata=metadata or {}
+    request = ConversationExportRequest(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        title=title,
+        messages=messages,
+        topics=topics,
+        metadata=metadata or {}
+    )
+    
+    # Create RunContext for tools.py
+    tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+    result = await export_conversation(tool_ctx, request)
+    
+    if result["success"]:
+        return (
+            f"Conversation exported successfully. "
+            f"Document ID: {result['document_id']}, "
+            f"Chunks created: {result['chunks_created']}"
         )
-        
-        # Create RunContext for tools.py
-        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        result = await export_conversation(tool_ctx, request)
-        
-        if result["success"]:
-            return (
-                f"Conversation exported successfully. "
-                f"Document ID: {result['document_id']}, "
-                f"Chunks created: {result['chunks_created']}"
-            )
-        else:
-            return f"Export failed: {result['message']}"
-    finally:
-        await deps.cleanup()
+    else:
+        return f"Export failed: {result['message']}"
 
 
 @openwebui_export_agent.tool
 async def get_conversations_tool(
-    ctx: RunContext[StateDeps[OpenWebUIExportState]],
+    ctx: RunContext[OpenWebUIExportDeps],
     user_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
@@ -114,27 +100,24 @@ async def get_conversations_tool(
     Returns:
         String describing the conversations retrieved
     """
-    deps = OpenWebUIExportDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        result = await get_conversations(tool_ctx, user_id, limit, offset)
-        
-        if "error" in result:
-            return f"Failed to get conversations: {result['error']}"
-        
-        return (
-            f"Retrieved {result['total']} conversations. "
-            f"Limit: {result['limit']}, Offset: {result['offset']}"
-        )
-    finally:
-        await deps.cleanup()
+    tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+    result = await get_conversations(tool_ctx, user_id, limit, offset)
+    
+    if "error" in result:
+        return f"Failed to get conversations: {result['error']}"
+    
+    return (
+        f"Retrieved {result['total']} conversations. "
+        f"Limit: {result['limit']}, Offset: {result['offset']}"
+    )
 
 
 @openwebui_export_agent.tool
 async def get_conversation_tool(
-    ctx: RunContext[StateDeps[OpenWebUIExportState]],
+    ctx: RunContext[OpenWebUIExportDeps],
     conversation_id: str
 ) -> str:
     """
@@ -147,16 +130,13 @@ async def get_conversation_tool(
     Returns:
         String describing the conversation data
     """
-    deps = OpenWebUIExportDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        result = await get_conversation(tool_ctx, conversation_id)
-        
-        if "error" in result:
-            return f"Failed to get conversation: {result['error']}"
-        
-        return f"Retrieved conversation {conversation_id}"
-    finally:
-        await deps.cleanup()
+    tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+    result = await get_conversation(tool_ctx, conversation_id)
+    
+    if "error" in result:
+        return f"Failed to get conversation: {result['error']}"
+    
+    return f"Retrieved conversation {conversation_id}"

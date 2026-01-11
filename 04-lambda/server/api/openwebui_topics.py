@@ -1,10 +1,10 @@
 """Open WebUI topic classification REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 import logging
 from pydantic_ai import RunContext
 
-from server.core.api_utils import with_dependencies
 from server.projects.openwebui_topics.models import (
     TopicClassificationRequest,
     TopicClassificationResponse
@@ -16,9 +16,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_openwebui_topics_deps() -> AsyncGenerator[OpenWebUITopicsDeps, None]:
+    """FastAPI dependency that yields OpenWebUITopicsDeps."""
+    deps = OpenWebUITopicsDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/classify", response_model=TopicClassificationResponse)
-@with_dependencies(OpenWebUITopicsDeps)
-async def classify_topics_endpoint(request: TopicClassificationRequest, deps: OpenWebUITopicsDeps):
+async def classify_topics_endpoint(
+    request: TopicClassificationRequest,
+    deps: Annotated[OpenWebUITopicsDeps, Depends(get_openwebui_topics_deps)]
+):
     """
     Classify topics for a conversation using LLM.
     

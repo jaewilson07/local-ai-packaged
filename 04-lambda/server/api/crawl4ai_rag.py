@@ -1,11 +1,10 @@
 """Crawl4AI RAG REST API endpoints."""
 
-from fastapi import APIRouter, HTTPException
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List, Annotated, AsyncGenerator
 import logging
 from pydantic_ai import RunContext
 
-from server.core.api_utils import with_dependencies
 from server.projects.crawl4ai_rag.models import (
     CrawlSinglePageRequest,
     CrawlDeepRequest,
@@ -21,9 +20,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_crawl4ai_deps() -> AsyncGenerator[Crawl4AIDependencies, None]:
+    """FastAPI dependency that yields Crawl4AIDependencies."""
+    deps = Crawl4AIDependencies.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/single", response_model=CrawlResponse)
-@with_dependencies(Crawl4AIDependencies)
-async def crawl_single(request: CrawlSinglePageRequest, deps: Crawl4AIDependencies):
+async def crawl_single(
+    request: CrawlSinglePageRequest,
+    deps: Annotated[Crawl4AIDependencies, Depends(get_crawl4ai_deps)]
+):
     """
     Crawl a single web page and automatically ingest it into the MongoDB RAG knowledge base.
     
@@ -119,8 +131,10 @@ async def crawl_single(request: CrawlSinglePageRequest, deps: Crawl4AIDependenci
 
 
 @router.post("/deep", response_model=CrawlResponse)
-@with_dependencies(Crawl4AIDependencies)
-async def crawl_deep_endpoint(request: CrawlDeepRequest, deps: Crawl4AIDependencies):
+async def crawl_deep_endpoint(
+    request: CrawlDeepRequest,
+    deps: Annotated[Crawl4AIDependencies, Depends(get_crawl4ai_deps)]
+):
     """
     Deep crawl a website recursively and ingest all discovered pages into MongoDB.
     

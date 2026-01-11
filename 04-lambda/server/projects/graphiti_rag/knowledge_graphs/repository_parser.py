@@ -22,11 +22,15 @@ from typing import List, Optional, Dict, Any, Set
 import ast
 
 from dotenv import load_dotenv
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from neo4j import AsyncGraphDatabase
-except ImportError:
-    AsyncGraphDatabase = None  # type: ignore
+else:
+    try:
+        from neo4j import AsyncGraphDatabase
+    except ImportError:
+        AsyncGraphDatabase = None  # type: ignore
 
 from server.projects.graphiti_rag.config import config
 

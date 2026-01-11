@@ -144,23 +144,41 @@ server/projects/{project_name}/
 
 ### REST API Design
 
+**Authentication:**
+All API endpoints (except `/health` and `/docs`) require Cloudflare Access authentication via `get_current_user` dependency:
+
+```python
+from server.projects.auth.dependencies import get_current_user
+from server.projects.auth.models import User
+
+@router.get("/protected")
+async def endpoint(user: User = Depends(get_current_user)):
+    """Endpoint requires authentication."""
+    return {"email": user.email}
+```
+
 **Endpoint Pattern:**
 ```python
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from server.models.{project} import RequestModel, ResponseModel
 from server.projects.{project}.dependencies import ProjectDeps
+from server.projects.auth.dependencies import get_current_user
+from server.projects.auth.models import User
 
 router = APIRouter()
 
 @router.post("/endpoint", response_model=ResponseModel)
-async def endpoint(request: RequestModel):
+async def endpoint(
+    request: RequestModel,
+    user: User = Depends(get_current_user)  # Authentication required
+):
     """Endpoint description."""
     deps = ProjectDeps.from_settings()
     await deps.initialize()  # If needed
     
     try:
-        # Business logic
-        result = await process(deps, request)
+        # Business logic (user context available)
+        result = await process(deps, request, user)
         return ResponseModel(result=result)
     except SpecificError as e:
         logger.exception("operation_failed")
@@ -402,6 +420,62 @@ async def endpoint(request: RequestModel):
 - Calls REST endpoints internally (no code duplication)
 - Returns formatted text responses
 
+## API Endpoints Overview
+
+### Public Endpoints (No Authentication)
+- `GET /health` - Health check
+- `GET /docs` - OpenAPI documentation
+- `GET /openapi.json` - OpenAPI specification
+- `GET /mcp-info` - MCP server information
+
+### Authenticated Endpoints (Require Cloudflare Access JWT)
+
+**Auth & Identity:**
+- `GET /api/me` - Get current user profile
+- `GET /test/my-data` - Test Supabase data isolation (HTML)
+- `GET /test/my-images` - Test MinIO data isolation (HTML)
+
+**Data Viewing:**
+- `GET /api/v1/data/storage` - View MinIO/blob storage files
+- `GET /api/v1/data/supabase` - View Supabase table data
+- `GET /api/v1/data/neo4j` - View Neo4j nodes and relationships
+- `GET /api/v1/data/mongodb` - View MongoDB collection data
+
+**RAG & Knowledge:**
+- `POST /api/v1/rag/search` - Search MongoDB RAG knowledge base
+- `POST /api/v1/rag/ingest` - Ingest documents
+- `POST /api/v1/rag/agent` - Query conversational agent
+- `POST /api/v1/crawl/single` - Crawl single page
+- `POST /api/v1/crawl/deep` - Deep crawl website
+- `POST /api/v1/graphiti/search` - Search Graphiti knowledge graph
+
+**Workflows & Automation:**
+- `POST /api/v1/n8n/create` - Create N8n workflow
+- `POST /api/v1/n8n/update` - Update workflow
+- `GET /api/v1/n8n/list` - List workflows
+- `POST /api/v1/n8n/execute` - Execute workflow
+
+**Calendar:**
+- `POST /api/v1/calendar/events/create` - Create calendar event
+- `POST /api/v1/calendar/events/update` - Update event
+- `POST /api/v1/calendar/events/delete` - Delete event
+- `GET /api/v1/calendar/events/list` - List events
+- `POST /api/v1/calendar/sync` - Sync calendar
+
+**Storage:**
+- `POST /api/v1/storage/upload` - Upload file
+- `GET /api/v1/storage/list` - List files
+- `GET /api/v1/storage/download/{filename}` - Download file
+- `DELETE /api/v1/storage/delete/{filename}` - Delete file
+- `GET /api/v1/storage/url/{filename}` - Get presigned URL
+
+**Other:**
+- `POST /api/v1/conversation/orchestrate` - Orchestrate multi-agent conversation
+- `POST /api/v1/persona/get-voice` - Get persona voice instructions
+- `GET /api/v1/persona/state` - Get persona state
+- `POST /api/v1/openwebui/export` - Export conversation to RAG
+- `POST /api/v1/openwebui/classify` - Classify conversation topics
+
 ## Adding New Projects
 
 1. **Create project folder**: `server/projects/your_project/`
@@ -412,16 +486,17 @@ async def endpoint(request: RequestModel):
 2. **Create API router**: `server/api/your_project.py`
    - Define endpoints
    - Use Pydantic models from `server/models/`
+   - **Add authentication**: Use `Depends(get_current_user)` for protected endpoints
    
 3. **Register in main**: `server/main.py`
    ```python
    from server.api import your_project
-   app.include_router(your_project.router, prefix="/api/v1/your_project")
+   app.include_router(your_project.router, prefix="/api/v1/your_project", tags=["your-project"])
    ```
    
-4. **Add MCP tools**: `server/mcp/server.py`
-   - Add tool definitions to `list_tools()`
-   - Add tool execution to `call_tool()`
+4. **Add MCP tools**: `server/mcp/server.py` (if using FastMCP)
+   - Tools are automatically registered from project agent definitions
+   - Or manually add to FastMCP server in `server/mcp/fastmcp_server.py`
 
 ## Dependencies
 
@@ -603,6 +678,161 @@ See [ENHANCEMENT_RESEARCH.md](server/projects/n8n_workflow/docs/ENHANCEMENT_RESE
 - **N8n Service**: `http://n8n:5678` (from 03-apps stack)
 - **Network**: `ai-network` (shared Docker network)
 
+## Discord Characters Project
+
+### Overview
+The Discord Characters project provides AI character management and interaction capabilities for Discord channels. It enables adding AI characters with distinct personalities to Discord channels, where they can respond to mentions and engage in conversations.
+
+**Standards Compliance**: This project fully complies with the Pydantic AI Agent Implementation Standard.
+
+### Architecture
+- **Agent**: Pydantic AI agent with Discord character management tools
+- **Dependencies**: `DiscordCharactersDeps` with MongoDB store and Persona service integration
+- **API**: REST endpoints at `/api/v1/discord-characters/*`
+- **MCP Tools**: 5 tools for character operations
+
+### Configuration
+- **MongoDB URI**: `MONGODB_URI` (from global settings)
+- **MongoDB Database**: `MONGODB_DATABASE` (from global settings)
+- **Collections**: `discord_channel_states`, `discord_conversation_history`
+
+### API Endpoints
+- `POST /api/v1/discord-characters/add` - Add character to channel
+- `POST /api/v1/discord-characters/remove` - Remove character from channel
+- `POST /api/v1/discord-characters/list` - List active characters in channel
+- `POST /api/v1/discord-characters/clear-history` - Clear conversation history
+- `POST /api/v1/discord-characters/engage` - Engage character in conversation
+
+### MCP Tools
+- `add_discord_character` - Add character to Discord channel
+- `remove_discord_character` - Remove character from Discord channel
+- `list_discord_characters` - List active characters in channel
+- `clear_discord_character_history` - Clear conversation history
+- `engage_discord_character` - Engage character in conversation
+
+### Integration Points
+- **Persona Service**: Uses `PersonaDeps` for character definitions and voice instructions
+- **Conversation Orchestrator**: Uses `ConversationOrchestrator` for multi-agent responses
+- **MongoDB**: Stores channel state and conversation history
+- **Discord Bot**: `03-apps/discord-character-bot` calls these APIs
+
+### Service Layer
+The project includes a service layer (`server/services/discord_characters/`) with:
+- **Models**: `ChannelCharacter`, `DiscordMessage`, `ConversationHistory`, `ChannelState`
+- **Store**: `MongoCharacterStore` for MongoDB persistence
+- **Manager**: `CharacterManager` for business logic
+
+## Auth Project
+
+### Overview
+The auth project provides centralized header-based authentication using Cloudflare Access (Zero Trust) with Just-In-Time (JIT) user provisioning and strict data isolation.
+
+**Key Features:**
+- JWT validation from `Cf-Access-Jwt-Assertion` header
+- Automatic user provisioning in Supabase, Neo4j, and MinIO
+- Data isolation enforcement across all data stores
+- Admin override for privileged access
+
+**Configuration:**
+- `CLOUDFLARE_AUTH_DOMAIN`: Cloudflare Access team domain (e.g., `https://datacrew-space.cloudflareaccess.com`)
+- `CLOUDFLARE_AUD_TAG`: Application audience tag (64-character hex string, unique per Access application)
+- `SUPABASE_DB_URL`: PostgreSQL connection string
+- `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`: MinIO credentials
+
+**Getting the AUD Tag:**
+```bash
+# Use the script to retrieve AUD tag
+python3 00-infrastructure/scripts/get-lambda-api-aud-tag.py
+```
+
+**Usage:**
+```python
+from server.projects.auth.dependencies import get_current_user
+from server.projects.auth.models import User
+
+@router.get("/protected")
+async def endpoint(user: User = Depends(get_current_user)):
+    return {"email": user.email}
+```
+
+**Endpoints:**
+- `GET /api/me` - Get current user profile
+- `GET /test/my-data` - Test Supabase data isolation (HTML)
+- `GET /test/my-images` - Test MinIO data isolation (HTML)
+
+**Services:**
+- `JWTService`: Validates Cloudflare Access JWTs, checks audience and issuer
+- `SupabaseService`: User provisioning and management in PostgreSQL
+- `Neo4jService`: User node provisioning in Neo4j graph
+- `MinIOService`: User folder provisioning in MinIO object storage
+- `AuthService`: Helper functions (admin checks)
+
+See [server/projects/auth/README.md](server/projects/auth/README.md) for detailed documentation.
+
+## Data Viewing APIs
+
+### Overview
+The data viewing APIs provide JSON endpoints for authenticated users to view their data across all storage layers with proper data isolation.
+
+**Location**: `server/api/data_view.py`
+
+**Key Features:**
+- All endpoints require authentication via `get_current_user`
+- Data isolation: Regular users see only their data
+- Admin override: Admin users see all data
+- JSON responses (no HTML)
+- Pagination support where applicable
+
+**Endpoints:**
+- `GET /api/v1/data/storage` - View MinIO/blob storage files
+  - Query params: `prefix` (optional, e.g., `prefix=loras/`)
+  - Returns: File metadata (key, filename, size, last_modified, etag)
+- `GET /api/v1/data/supabase` - View Supabase table data
+  - Query params: `table` (default: "items"), `page`, `per_page`
+  - Returns: Paginated items from specified table
+- `GET /api/v1/data/neo4j` - View Neo4j nodes and relationships
+  - Query params: `node_type` (optional, e.g., `node_type=Document`)
+  - Returns: Nodes and relationships (user-anchored for regular users)
+- `GET /api/v1/data/mongodb` - View MongoDB collection data
+  - Query params: `collection` (default: "documents"), `page`, `per_page`
+  - Returns: Paginated documents (filtered by user_id/user_email)
+
+**Usage Example:**
+```bash
+# List all files in blob storage
+curl -H "Cf-Access-Jwt-Assertion: YOUR_JWT" \
+     https://api.datacrew.space/api/v1/data/storage
+
+# List files with prefix filter
+curl -H "Cf-Access-Jwt-Assertion: YOUR_JWT" \
+     "https://api.datacrew.space/api/v1/data/storage?prefix=loras/"
+
+# View Supabase items
+curl -H "Cf-Access-Jwt-Assertion: YOUR_JWT" \
+     "https://api.datacrew.space/api/v1/data/supabase?table=items&page=1&per_page=50"
+```
+
+**Data Isolation:**
+- **Regular users**: See only their own data (filtered by user_id, user_email, or owner_email)
+- **Admin users**: See all data across all users (bypasses filtering)
+- Admin status checked via `AuthService.is_admin(user.email)`
+
+**Response Models:**
+- `StorageDataResponse`: Files list with metadata
+- `SupabaseDataResponse`: Paginated table items
+- `Neo4jDataResponse`: Nodes and relationships
+- `MongoDBDataResponse`: Paginated documents
+
+**Implementation Details:**
+- Location: `server/api/data_view.py`
+- All endpoints use `get_current_user` dependency for authentication
+- Services used: `AuthService`, `SupabaseService`, `Neo4jService`, `MinIOService`, `AsyncMongoClient`
+- Admin override implemented in each endpoint via `AuthService.is_admin()`
+- For MinIO: Admin users can view all files from all user folders
+- For Supabase: Admin users bypass `owner_email` filtering
+- For Neo4j: Admin users skip user anchoring in Cypher queries
+- For MongoDB: Admin users bypass `user_id`/`user_email` filtering
+
 ## Best Practices
 
 1. **Always cleanup resources**: Use `try/finally` blocks
@@ -620,6 +850,12 @@ See [ENHANCEMENT_RESEARCH.md](server/projects/n8n_workflow/docs/ENHANCEMENT_RESE
 # Find API endpoints
 rg -n "@router\." server/api/
 
+# Find authenticated endpoints (using get_current_user)
+rg -n "get_current_user" server/api/
+
+# Find data viewing endpoints
+rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" server/api/
+
 # Find MCP tools
 rg -n "def.*tool" server/mcp/
 
@@ -628,6 +864,12 @@ rg -n "class.*Config" server/
 
 # Find dependencies
 rg -n "class.*Dependencies" server/projects/
+
+# Find auth services
+rg -n "class.*Service" server/projects/auth/services/
+
+# Find response models
+rg -n "class.*Response" server/api/
 ```
 
 ## Stack Orchestration

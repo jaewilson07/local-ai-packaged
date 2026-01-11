@@ -22,7 +22,8 @@ class GraphitiRAGState(BaseModel):
     pass
 
 
-# Create agent instance
+# Create agent instance with GraphitiRAGDeps
+# Changed from state_type=GraphitiRAGState to deps_type=GraphitiRAGDeps to match tool requirements
 agent = Agent(
     model=_get_graphiti_model(),
     system_prompt="""You are a Graphiti RAG assistant that helps users search knowledge graphs,
@@ -35,13 +36,13 @@ You have access to:
 - Knowledge graph queries (explore repositories and code structure)
 
 Use the available tools to help users with their queries.""",
-    state_type=GraphitiRAGState
+    deps_type=GraphitiRAGDeps
 )
 
 
 @agent.tool
 async def search_graphiti(
-    ctx: RunContext[StateDeps[GraphitiRAGState]],
+    ctx: RunContext[GraphitiRAGDeps],
     query: str = Field(..., description="Search query text"),
     match_count: int = Field(10, ge=1, le=50, description="Number of results to return")
 ) -> str:
@@ -58,8 +59,8 @@ async def search_graphiti(
     Returns:
         JSON string with search results
     """
-    deps = GraphitiRAGDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     try:
         # Create RunContext for tools
@@ -74,13 +75,11 @@ async def search_graphiti(
         logger = logging.getLogger(__name__)
         logger.exception(f"Error in search_graphiti tool: {e}")
         return f"Error: {str(e)}"
-    finally:
-        await deps.cleanup()
 
 
 @agent.tool
 async def parse_repository(
-    ctx: RunContext[StateDeps[GraphitiRAGState]],
+    ctx: RunContext[GraphitiRAGDeps],
     repo_url: str = Field(..., description="GitHub repository URL (must end with .git)")
 ) -> str:
     """
@@ -95,8 +94,8 @@ async def parse_repository(
     Returns:
         JSON string with parse results
     """
-    deps = GraphitiRAGDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     try:
         tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -109,13 +108,11 @@ async def parse_repository(
         logger = logging.getLogger(__name__)
         logger.exception(f"Error in parse_repository tool: {e}")
         return f"Error: {str(e)}"
-    finally:
-        await deps.cleanup()
 
 
 @agent.tool
 async def validate_script(
-    ctx: RunContext[StateDeps[GraphitiRAGState]],
+    ctx: RunContext[GraphitiRAGDeps],
     script_path: str = Field(..., description="Absolute path to the Python script to validate")
 ) -> str:
     """
@@ -130,8 +127,8 @@ async def validate_script(
     Returns:
         JSON string with validation results
     """
-    deps = GraphitiRAGDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     try:
         tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -144,13 +141,11 @@ async def validate_script(
         logger = logging.getLogger(__name__)
         logger.exception(f"Error in validate_script tool: {e}")
         return f"Error: {str(e)}"
-    finally:
-        await deps.cleanup()
 
 
 @agent.tool
 async def query_graph(
-    ctx: RunContext[StateDeps[GraphitiRAGState]],
+    ctx: RunContext[GraphitiRAGDeps],
     command: str = Field(..., description="Command to execute (e.g., 'repos', 'explore <repo>', 'query <cypher>')")
 ) -> str:
     """
@@ -167,8 +162,8 @@ async def query_graph(
     Returns:
         JSON string with query results
     """
-    deps = GraphitiRAGDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
     try:
         tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
@@ -181,5 +176,3 @@ async def query_graph(
         logger = logging.getLogger(__name__)
         logger.exception(f"Error in query_graph tool: {e}")
         return f"Error: {str(e)}"
-    finally:
-        await deps.cleanup()

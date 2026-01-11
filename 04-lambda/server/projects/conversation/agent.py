@@ -33,14 +33,14 @@ You can:
 
 conversation_agent = Agent(
     get_llm_model(),
-    deps_type=StateDeps[ConversationState],
+    deps_type=PersonaDeps,
     system_prompt=CONVERSATION_SYSTEM_PROMPT
 )
 
 
 @conversation_agent.tool
 async def orchestrate_conversation_tool(
-    ctx: RunContext[StateDeps[ConversationState]],
+    ctx: RunContext[PersonaDeps],
     user_id: str = Field(..., description="User ID"),
     persona_id: str = Field(..., description="Persona ID"),
     message: str = Field(..., description="User message"),
@@ -55,46 +55,39 @@ async def orchestrate_conversation_tool(
     4. Generates final response
     5. Records interaction for persona state updates
     """
-    import openai
+    # Access dependencies from context - they are already initialized
+    persona_deps = ctx.deps
     
-    # Initialize dependencies
-    persona_deps = PersonaDeps.from_settings()
-    await persona_deps.initialize()
+    # Get voice instructions
+    voice_instructions = await get_voice_instructions(persona_deps, user_id, persona_id)
     
+    # Create orchestrator
+    orchestrator = ConversationOrchestrator(llm_client=persona_deps.openai_client)
+    
+    # Plan response
+    available_tools = [
+        "enhanced_search", "search_facts", "get_context_window",
+        "create_calendar_event", "list_calendar_events"
+    ]
+    plan = await orchestrator.plan_response(message, voice_instructions, available_tools)
+    
+    # Execute tools (simplified - in production, would route to actual tool execution)
+    tool_results = {}
+    if plan.get("tools"):
+        # For now, just note which tools would be used
+        tool_results = {tool: f"Tool {tool} would be executed here" for tool in plan.get("tools", [])}
+    
+    # Generate response
+    response = await orchestrator.generate_response(
+        message, voice_instructions, tool_results, plan
+    )
+    
+    # Record interaction (async, don't wait)
     try:
-        # Get voice instructions
-        voice_instructions = await get_voice_instructions(persona_deps, user_id, persona_id)
-        
-        # Create orchestrator
-        orchestrator = ConversationOrchestrator(llm_client=persona_deps.openai_client)
-        
-        # Plan response
-        available_tools = [
-            "enhanced_search", "search_facts", "get_context_window",
-            "create_calendar_event", "list_calendar_events"
-        ]
-        plan = await orchestrator.plan_response(message, voice_instructions, available_tools)
-        
-        # Execute tools (simplified - in production, would route to actual tool execution)
-        tool_results = {}
-        if plan.get("tools"):
-            # For now, just note which tools would be used
-            tool_results = {tool: f"Tool {tool} would be executed here" for tool in plan.get("tools", [])}
-        
-        # Generate response
-        response = await orchestrator.generate_response(
-            message, voice_instructions, tool_results, plan
+        await record_interaction(
+            persona_deps, user_id, persona_id, message, response
         )
-        
-        # Record interaction (async, don't wait)
-        try:
-            await record_interaction(
-                persona_deps, user_id, persona_id, message, response
-            )
-        except Exception as e:
-            logger.warning(f"Error recording interaction: {e}")
-        
-        return response
+    except Exception as e:
+        logger.warning(f"Error recording interaction: {e}")
     
-    finally:
-        await persona_deps.cleanup()
+    return response

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import logging
 import httpx
+from pymongo import AsyncMongoClient
 
 from server.projects.shared.dependencies import BaseDependencies, MongoDBMixin
 from server.projects.openwebui_export.config import config
@@ -35,7 +36,10 @@ class OpenWebUIExportDeps(BaseDependencies, MongoDBMixin):
             Exception: If connection initialization fails
         """
         # Initialize MongoDB using mixin
-        await self._initialize_mongodb(db_name=self.mongodb_database)
+        await self.initialize_mongodb(
+            mongodb_uri=self.mongodb_uri,
+            mongodb_database=self.mongodb_database
+        )
         logger.info(
             "mongodb_client_initialized",
             extra={
@@ -66,7 +70,7 @@ class OpenWebUIExportDeps(BaseDependencies, MongoDBMixin):
     async def cleanup(self) -> None:
         """Clean up all infrastructure connections."""
         # Cleanup MongoDB using mixin
-        await self._cleanup_mongodb()
+        await self.cleanup_mongodb()
         
         if self.http_client:
             await self.http_client.aclose()

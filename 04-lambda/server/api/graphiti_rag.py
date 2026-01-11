@@ -1,10 +1,10 @@
 """REST API endpoints for Graphiti RAG and knowledge graph operations."""
 
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 from pydantic_ai import RunContext
 
-from server.core.api_utils import with_dependencies
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
 from server.projects.graphiti_rag.config import config as graphiti_config
 from server.projects.graphiti_rag.models import (
@@ -25,9 +25,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/graphiti", tags=["graphiti"])
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_graphiti_rag_deps() -> AsyncGenerator[GraphitiRAGDeps, None]:
+    """FastAPI dependency that yields GraphitiRAGDeps."""
+    deps = GraphitiRAGDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/search", response_model=GraphitiSearchResponse)
-@with_dependencies(GraphitiRAGDeps)
-async def search_graphiti_endpoint(request: GraphitiSearchRequest, deps: GraphitiRAGDeps):
+async def search_graphiti_endpoint(
+    request: GraphitiSearchRequest,
+    deps: Annotated[GraphitiRAGDeps, Depends(get_graphiti_rag_deps)]
+):
     """
     Search the Graphiti knowledge graph for entities and relationships.
     
@@ -67,8 +80,10 @@ async def search_graphiti_endpoint(request: GraphitiSearchRequest, deps: Graphit
 
 
 @router.post("/knowledge-graph/repositories", response_model=ParseRepositoryResponse)
-@with_dependencies(GraphitiRAGDeps)
-async def parse_github_repository_endpoint(request: ParseRepositoryRequest, deps: GraphitiRAGDeps):
+async def parse_github_repository_endpoint(
+    request: ParseRepositoryRequest,
+    deps: Annotated[GraphitiRAGDeps, Depends(get_graphiti_rag_deps)]
+):
     """
     Parse a GitHub repository into the Neo4j knowledge graph.
     
@@ -104,8 +119,10 @@ async def parse_github_repository_endpoint(request: ParseRepositoryRequest, deps
 
 
 @router.post("/knowledge-graph/validate", response_model=ValidateScriptResponse)
-@with_dependencies(GraphitiRAGDeps)
-async def validate_ai_script_endpoint(request: ValidateScriptRequest, deps: GraphitiRAGDeps):
+async def validate_ai_script_endpoint(
+    request: ValidateScriptRequest,
+    deps: Annotated[GraphitiRAGDeps, Depends(get_graphiti_rag_deps)]
+):
     """
     Check an AI-generated Python script for hallucinations using the knowledge graph.
     
@@ -144,8 +161,10 @@ async def validate_ai_script_endpoint(request: ValidateScriptRequest, deps: Grap
 
 
 @router.post("/knowledge-graph/query", response_model=QueryKnowledgeGraphResponse)
-@with_dependencies(GraphitiRAGDeps)
-async def query_knowledge_graph_endpoint(request: QueryKnowledgeGraphRequest, deps: GraphitiRAGDeps):
+async def query_knowledge_graph_endpoint(
+    request: QueryKnowledgeGraphRequest,
+    deps: Annotated[GraphitiRAGDeps, Depends(get_graphiti_rag_deps)]
+):
     """
     Query and explore the Neo4j knowledge graph containing repository code structure.
     

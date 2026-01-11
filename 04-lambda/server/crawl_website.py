@@ -10,7 +10,7 @@ sys.path.insert(0, '/app')
 
 from server.projects.crawl4ai_rag.models import CrawlDeepRequest
 from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.crawler import crawl_deep
+from server.projects.crawl4ai_rag.services.crawler import crawl_deep
 from server.projects.crawl4ai_rag.ingestion.adapter import CrawledContentIngester
 
 

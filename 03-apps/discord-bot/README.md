@@ -267,6 +267,225 @@ Set `MCP_ENABLED=false` in your `.env` file to disable the MCP server and run on
 
 See [Immich API Documentation](https://immich.app/docs/api) for details.
 
+## Testing
+
+The Discord bot includes a comprehensive test suite that allows testing functionality without requiring a live Discord bot instance.
+
+### Test Structure
+
+```
+tests/
+├── conftest.py              # Shared fixtures (Discord mocks, Immich mocks, DB fixtures)
+├── unit/                    # Unit tests with mocks
+│   ├── test_database.py
+│   ├── test_immich_client.py
+│   ├── test_upload_handler.py
+│   ├── test_command_handler.py
+│   ├── test_notification_task.py
+│   └── test_utils.py
+├── integration/            # Integration tests with real database
+│   ├── test_upload_flow.py
+│   ├── test_claim_face_flow.py
+│   └── test_notification_flow.py
+└── manual/                 # Manual testing utilities
+    ├── test_immich_connection.py
+    ├── test_discord_connection.py
+    └── test_mcp_tools.py
+```
+
+### Running Tests
+
+#### Unit Tests
+
+```bash
+cd 03-apps/discord-bot
+
+# Run all unit tests
+pytest tests/unit -v
+
+# Run specific test file
+pytest tests/unit/test_upload_handler.py -v
+
+# Run with coverage
+pytest --cov=bot --cov-report=html tests/unit
+```
+
+#### Integration Tests
+
+```bash
+# Run all integration tests
+pytest tests/integration -v
+
+# Run specific integration test
+pytest tests/integration/test_upload_flow.py -v
+```
+
+#### All Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with markers
+pytest -m unit -v          # Only unit tests
+pytest -m integration -v  # Only integration tests
+```
+
+### Manual Testing Utilities
+
+These utilities can be run independently to test connectivity and functionality:
+
+#### Test Immich Connection
+
+```bash
+# Test Immich API connectivity
+python -m tests.manual.test_immich_connection
+
+# Test with upload
+python -m tests.manual.test_immich_connection --upload
+```
+
+#### Test Discord Connection
+
+```bash
+# Test Discord bot connectivity
+python -m tests.manual.test_discord_connection
+```
+
+#### Test MCP Server
+
+```bash
+# Test MCP server endpoints (requires bot to be running)
+python -m tests.manual.test_mcp_tools
+```
+
+### Validation Script
+
+The validation script provides quick checks for configuration and connectivity:
+
+```bash
+# Validate configuration
+python scripts/validate.py config
+
+# Test Immich connection
+python scripts/validate.py immich
+
+# Test Discord connection
+python scripts/validate.py discord
+
+# Check database schema
+python scripts/validate.py database
+
+# Test MCP server
+python scripts/validate.py mcp
+
+# Run all validations
+python scripts/validate.py all
+```
+
+### Testing Best Practices
+
+1. **Run tests before committing**: Always run the test suite before committing changes
+   ```bash
+   pytest tests/ -v
+   ```
+
+2. **Test specific functionality**: When working on a feature, run relevant tests
+   ```bash
+   pytest tests/unit/test_upload_handler.py -v
+   ```
+
+3. **Use manual tests for connectivity**: Use manual testing utilities to verify external service connections
+
+4. **Validate configuration**: Use the validation script to check configuration before starting the bot
+   ```bash
+   python scripts/validate.py all
+   ```
+
+5. **Check coverage**: Aim for >80% code coverage
+   ```bash
+   pytest --cov=bot --cov-report=term-missing tests/
+   ```
+
+### Writing New Tests
+
+When adding new functionality, follow these patterns:
+
+#### Unit Test Example
+
+```python
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_new_feature(mock_discord_message, mock_immich_client):
+    """Test new feature."""
+    # Setup
+    # ...
+    
+    # Execute
+    result = await new_feature_function(mock_discord_message, mock_immich_client)
+    
+    # Assert
+    assert result is not None
+```
+
+#### Integration Test Example
+
+```python
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_new_workflow(test_database, mock_discord_client):
+    """Test complete workflow."""
+    # Setup with real database
+    # ...
+    
+    # Execute workflow
+    # ...
+    
+    # Verify results
+    # ...
+```
+
+### Test Fixtures
+
+Common fixtures available in `conftest.py`:
+
+- `mock_discord_client` - Mock Discord client
+- `mock_discord_message` - Mock Discord message
+- `mock_discord_attachment` - Mock Discord attachment
+- `mock_discord_interaction` - Mock Discord interaction
+- `mock_immich_client` - Mock Immich client
+- `test_database` - Temporary test database
+- `sample_immich_people` - Sample people data
+- `sample_immich_asset` - Sample asset data
+
+### Troubleshooting Tests
+
+#### Tests Failing
+
+1. Check that all dependencies are installed:
+   ```bash
+   pip install -e ".[dev]"
+   ```
+
+2. Verify environment variables are set (tests use defaults if not set)
+
+3. Check test logs for specific error messages
+
+#### Import Errors
+
+If you see import errors, ensure you're running tests from the project root:
+```bash
+cd 03-apps/discord-bot
+pytest tests/
+```
+
+#### Database Lock Errors
+
+If you see SQLite lock errors, ensure tests are not running concurrently:
+```bash
+pytest tests/ -n 1  # Run tests sequentially
+```
+
 ## License
 
 Part of the local-ai-packaged infrastructure.

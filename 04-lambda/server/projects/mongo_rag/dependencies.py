@@ -1,11 +1,12 @@
 """Dependencies for MongoDB RAG Agent."""
 
-from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 import logging
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import openai
+
+from pydantic import BaseModel, Field, ConfigDict
 from server.projects.mongo_rag.config import config
 from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
 from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
@@ -14,9 +15,14 @@ from server.projects.graphiti_rag.config import config as graphiti_config
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AgentDependencies:
+class AgentDependencies(BaseModel):
     """Dependencies injected into the agent context."""
+    
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        # Exclude from OpenAPI schema generation (FastAPI dependency injection only)
+        json_schema_extra={"exclude": True}
+    )
 
     # Core dependencies
     mongo_client: Optional[AsyncMongoClient] = None
@@ -29,8 +35,22 @@ class AgentDependencies:
 
     # Session context
     session_id: Optional[str] = None
-    user_preferences: Dict[str, Any] = field(default_factory=dict)
-    query_history: list = field(default_factory=list)
+    user_preferences: Dict[str, Any] = Field(default_factory=dict)
+    query_history: list = Field(default_factory=list)
+
+    @classmethod
+    def from_settings(
+        cls,
+        mongo_client: Optional[AsyncMongoClient] = None,
+        session_id: Optional[str] = None,
+        **kwargs
+    ) -> "AgentDependencies":
+        """Create dependencies from application settings."""
+        return cls(
+            mongo_client=mongo_client,
+            session_id=session_id,
+            **kwargs
+        )
 
     async def initialize(self) -> None:
         """

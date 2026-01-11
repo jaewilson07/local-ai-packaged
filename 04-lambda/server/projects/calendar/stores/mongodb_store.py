@@ -3,18 +3,21 @@
 from typing import Optional, Dict, Any
 import logging
 from datetime import datetime
+from pymongo.database import Database
+
+from server.projects.shared.stores.base import BaseMongoStore
 
 logger = logging.getLogger(__name__)
 
 
-class MongoDBCalendarStore:
+class MongoDBCalendarStore(BaseMongoStore):
     """
     MongoDB store for calendar sync state.
     
     Adapts MongoDB to the interface expected by GoogleCalendarSyncService.
     """
     
-    def __init__(self, db: Any, collection_name: str = "calendar_sync_state"):
+    def __init__(self, db: Database, collection_name: str = "calendar_sync_state"):
         """
         Initialize MongoDB calendar store.
         
@@ -22,9 +25,34 @@ class MongoDBCalendarStore:
             db: MongoDB database instance
             collection_name: Name of the collection for sync state
         """
-        self.db = db
-        self.collection = db[collection_name]
-        self.collection_name = collection_name
+        super().__init__(db, collection_name=collection_name)
+        self._create_indexes()
+    
+    def _create_indexes(self) -> None:
+        """Create indexes for efficient queries."""
+        from pymongo import ASCENDING
+        
+        # Index for lookups by user_id, persona_id, local_event_id
+        self._create_index_safe(
+            self.collection,
+            [("user_id", ASCENDING), ("persona_id", ASCENDING), ("local_event_id", ASCENDING)],
+            unique=True,
+            name="user_persona_event_unique"
+        )
+        
+        # Index for lookups by gcal_event_id
+        self._create_index_safe(
+            self.collection,
+            [("gcal_event_id", ASCENDING)],
+            name="gcal_event_id"
+        )
+        
+        # Index for sync status queries
+        self._create_index_safe(
+            self.collection,
+            [("sync_status", ASCENDING), ("last_sync_attempt", ASCENDING)],
+            name="sync_status_attempt"
+        )
     
     async def get_sync_state(
         self, user_id: str, persona_id: str, local_event_id: str
@@ -48,7 +76,7 @@ class MongoDBCalendarStore:
             })
             return result
         except Exception as e:
-            logger.warning(f"Error getting sync state: {e}")
+            self._handle_operation_error("getting sync state", e, raise_on_error=False)
             return None
     
     async def save_sync_state(
@@ -142,5 +170,4 @@ class MongoDBCalendarStore:
                 f"Saved sync state: {local_event_id} -> {gcal_event_id} ({sync_status})"
             )
         except Exception as e:
-            logger.warning(f"Error saving sync state: {e}")
-            raise
+            self._handle_operation_error("saving sync state", e, raise_on_error=True)

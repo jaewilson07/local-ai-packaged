@@ -12,18 +12,16 @@ from server.projects.openwebui_topics.models import TopicClassificationRequest
 from server.projects.openwebui_topics.tools import classify_topics
 
 
-from server.projects.shared.llm import get_llm_model as _get_openwebui_topics_model
-
-
 class OpenWebUITopicsState(BaseModel):
     """Minimal shared state for the Open WebUI topics agent."""
     pass
 
 
-# Create the Open WebUI topics agent with AGUI support
+# Create the Open WebUI topics agent with OpenWebUITopicsDeps
+# Changed from StateDeps[OpenWebUITopicsState] to OpenWebUITopicsDeps to match tool requirements
 openwebui_topics_agent = Agent(
     _get_openwebui_topics_model(),
-    deps_type=StateDeps[OpenWebUITopicsState],
+    deps_type=OpenWebUITopicsDeps,
     system_prompt=(
         "You are an expert assistant for classifying conversation topics. "
         "You help users identify and organize conversation themes. "
@@ -35,7 +33,7 @@ openwebui_topics_agent = Agent(
 # Register tools - create wrapper functions that bridge StateDeps to OpenWebUITopicsDeps
 @openwebui_topics_agent.tool
 async def classify_topics_tool(
-    ctx: RunContext[StateDeps[OpenWebUITopicsState]],
+    ctx: RunContext[OpenWebUITopicsDeps],
     conversation_id: str,
     messages: List[dict],
     title: Optional[str] = None,
@@ -57,25 +55,22 @@ async def classify_topics_tool(
     Returns:
         String describing the classified topics
     """
-    deps = OpenWebUITopicsDeps.from_settings()
-    await deps.initialize()
+    # Access dependencies from context - they are already initialized
+    deps = ctx.deps
     
-    try:
-        request = TopicClassificationRequest(
-            conversation_id=conversation_id,
-            title=title,
-            messages=messages,
-            existing_topics=existing_topics
-        )
-        
-        # Create RunContext for tools.py
-        tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
-        result = await classify_topics(tool_ctx, request)
-        
-        return (
-            f"Classified topics for conversation {result.conversation_id}: {result.topics}. "
-            f"Confidence: {result.confidence}. "
-            f"Reasoning: {result.reasoning or 'N/A'}"
-        )
-    finally:
-        await deps.cleanup()
+    request = TopicClassificationRequest(
+        conversation_id=conversation_id,
+        title=title,
+        messages=messages,
+        existing_topics=existing_topics
+    )
+    
+    # Create RunContext for tools.py
+    tool_ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
+    result = await classify_topics(tool_ctx, request)
+    
+    return (
+        f"Classified topics for conversation {result.conversation_id}: {result.topics}. "
+        f"Confidence: {result.confidence}. "
+        f"Reasoning: {result.reasoning or 'N/A'}"
+    )

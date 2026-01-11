@@ -5,6 +5,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from graphiti_core import Graphiti
+    from server.projects.mongo_rag.tools import SearchResult
 else:
     try:
         from graphiti_core import Graphiti

@@ -2,6 +2,25 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Overview
+
+The N8n Workflow project provides agentic workflow management for the N8n automation platform. It enables AI agents to create, update, delete, activate, and execute N8n workflows through natural language, with RAG-enhanced knowledge base search for informed workflow design.
+
+**Key Capabilities:**
+- **Workflow CRUD**: Create, update, delete, list, and execute N8n workflows
+- **RAG-Enhanced Creation**: Searches MongoDB RAG knowledge base before creating workflows for best practices
+- **Node Discovery**: Discovers available N8n nodes via API for informed workflow design
+- **Node Examples**: Searches for specific node configuration examples from knowledge base
+- **Workflow Activation**: Activate or deactivate workflows programmatically
+- **Manual Execution**: Execute workflows with custom input data
+- **Knowledge Integration**: Uses RAG to inform workflow design with documentation and examples
+
+**Use Cases:**
+- AI agents that can create and manage automation workflows
+- Natural language workflow creation with RAG-informed design
+- Automated workflow management and orchestration
+- Workflow discovery and example-based learning
+
 ## Component Identity
 
 - **Project**: `n8n_workflow`
@@ -11,6 +30,101 @@
 - **Agent**: `n8n_workflow_agent` (Pydantic AI agent with StateDeps)
 
 ## Architecture & Patterns
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        REST[ REST API<br/>/api/v1/n8n/* ]
+        MCP[ MCP Tools<br/>create_workflow, etc. ]
+    end
+    
+    subgraph "Agent Layer"
+        AGENT[ n8n_workflow_agent<br/>Pydantic AI Agent ]
+        TOOLS[ N8n Tools<br/>CRUD, discovery, RAG search ]
+    end
+    
+    subgraph "RAG Integration"
+        RAGSEARCH[ search_n8n_knowledge_base<br/>Knowledge Base Search ]
+        NODEEXAMPLES[ search_n8n_node_examples<br/>Node Examples ]
+        RAG[ MongoDB RAG<br/>Knowledge Base ]
+    end
+    
+    subgraph "N8n Operations"
+        DISCOVER[ discover_n8n_nodes<br/>Node Discovery ]
+        CRUD[ Workflow CRUD<br/>Create, Update, Delete ]
+        EXEC[ execute_workflow<br/>Workflow Execution ]
+    end
+    
+    subgraph "Dependencies"
+        DEPS[ N8nWorkflowDeps<br/>HTTP Client ]
+        N8N[ N8n API<br/>n8n:5678 ]
+    end
+    
+    REST --> AGENT
+    MCP --> AGENT
+    AGENT --> TOOLS
+    TOOLS --> RAGSEARCH
+    TOOLS --> NODEEXAMPLES
+    TOOLS --> DISCOVER
+    TOOLS --> CRUD
+    TOOLS --> EXEC
+    RAGSEARCH --> RAG
+    NODEEXAMPLES --> RAG
+    DISCOVER --> DEPS
+    CRUD --> DEPS
+    EXEC --> DEPS
+    DEPS --> N8N
+    
+    style AGENT fill:#e1f5ff
+    style RAGSEARCH fill:#fff4e1
+    style CRUD fill:#e1ffe1
+    style DEPS fill:#f0f0f0
+    style N8N fill:#ffe1e1
+```
+
+### RAG-Enhanced Workflow Creation Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Agent as n8n_workflow_agent
+    participant Tool as create_workflow
+    participant RAGSearch as search_n8n_knowledge_base
+    participant NodeExamples as search_n8n_node_examples
+    participant Discover as discover_n8n_nodes
+    participant RAG as MongoDB RAG
+    participant N8n as N8n API
+    participant Create as create_workflow
+    
+    Client->>Agent: Create workflow (name, description)
+    Agent->>Tool: create_workflow(name, description)
+    
+    Tool->>RAGSearch: Search knowledge base for workflow patterns
+    RAGSearch->>RAG: Semantic search
+    RAG-->>RAGSearch: Relevant documentation/examples
+    RAGSearch-->>Tool: Knowledge base results
+    
+    Tool->>Discover: Discover available nodes
+    Discover->>N8n: GET /nodes
+    N8n-->>Discover: Available node types
+    Discover-->>Tool: Node list
+    
+    Tool->>NodeExamples: Search for node configuration examples
+    NodeExamples->>RAG: Search for specific node examples
+    RAG-->>NodeExamples: Node configuration examples
+    NodeExamples-->>Tool: Examples
+    
+    Tool->>Tool: Design workflow using RAG knowledge + node examples
+    Tool->>Create: Create workflow with nodes and connections
+    Create->>N8n: POST /workflows
+    N8n-->>Create: Workflow created
+    Create-->>Tool: Workflow result
+    
+    Tool-->>Agent: Workflow created with RAG-informed design
+    Agent-->>Client: Workflow creation response
+```
 
 ### File Organization
 

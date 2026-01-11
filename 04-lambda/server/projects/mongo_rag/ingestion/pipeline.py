@@ -74,8 +74,9 @@ class DocumentIngestionPipeline:
         self.documents_folder = documents_folder
         self.clean_before_ingest = clean_before_ingest
 
-        # Load settings
-        self.settings = config
+        # Load settings - use RAG config for MongoDB/LLM settings
+        from server.projects.mongo_rag.config import config as rag_config
+        self.settings = rag_config
 
         # Initialize MongoDB client and database references
         self.mongo_client: Optional[AsyncMongoClient] = None
@@ -222,39 +223,25 @@ class DocumentIngestionPipeline:
         ]
 
         if file_ext in docling_formats:
-            try:
-                from docling.document_converter import DocumentConverter
+            from docling.document_converter import DocumentConverter
 
-                logger.info(
-                    f"Converting {file_ext} file using Docling: "
-                    f"{os.path.basename(file_path)}"
-                )
+            logger.info(
+                f"Converting {file_ext} file using Docling: "
+                f"{os.path.basename(file_path)}"
+            )
 
-                converter = DocumentConverter()
-                result = converter.convert(file_path)
+            converter = DocumentConverter()
+            result = converter.convert(file_path)
 
-                # Export to markdown for consistent processing
-                markdown_content = result.document.export_to_markdown()
-                logger.info(
-                    f"Successfully converted {os.path.basename(file_path)} "
-                    f"to markdown"
-                )
+            # Export to markdown for consistent processing
+            markdown_content = result.document.export_to_markdown()
+            logger.info(
+                f"Successfully converted {os.path.basename(file_path)} "
+                f"to markdown"
+            )
 
-                # Return both markdown and DoclingDocument for HybridChunker
-                return (markdown_content, result.document)
-
-            except Exception as e:
-                logger.error(f"Failed to convert {file_path} with Docling: {e}")
-                # Fall back to raw text if Docling fails
-                logger.warning(f"Falling back to raw text extraction for {file_path}")
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        return (f.read(), None)
-                except Exception:
-                    return (
-                        f"[Error: Could not read file {os.path.basename(file_path)}]",
-                        None
-                    )
+            # Return both markdown and DoclingDocument for HybridChunker
+            return (markdown_content, result.document)
 
         # Text-based formats (read directly)
         else:
@@ -380,10 +367,6 @@ class DocumentIngestionPipeline:
                     yaml_metadata = yaml.safe_load(frontmatter)
                     if isinstance(yaml_metadata, dict):
                         metadata.update(yaml_metadata)
-            except ImportError:
-                logger.warning(
-                    "PyYAML not installed, skipping frontmatter extraction"
-                )
             except Exception as e:
                 logger.warning(f"Failed to parse frontmatter: {e}")
 

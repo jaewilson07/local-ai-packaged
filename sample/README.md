@@ -1,0 +1,496 @@
+# Service Samples
+
+This directory contains example scripts demonstrating the core functionality of all major services in the local-ai-packaged project. These samples are designed to be educational, self-contained, and demonstrate real-world use cases.
+
+## Overview
+
+The samples are organized by service type:
+
+- **RAG Services**: MongoDB RAG, Graphiti RAG, Crawl4AI RAG
+- **Major Services**: Calendar, Conversation, Persona, N8N Workflow, Open WebUI, Neo4j
+
+Each sample includes:
+- Clear documentation explaining what it does
+- Prerequisites and setup instructions
+- Error handling and cleanup
+- Real-world use cases relevant to the project goals
+
+## Prerequisites
+
+Before running any samples, ensure:
+
+1. **Services are running**: MongoDB, Neo4j, Ollama, N8N (as needed)
+2. **Environment variables configured**: See `.env` or Infisical for required variables
+3. **Dependencies installed**: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+4. **Python path**: Samples automatically add the project to `sys.path`
+
+## RAG Services
+
+### MongoDB RAG
+
+MongoDB RAG provides enhanced Retrieval-Augmented Generation with vector search, memory tools, and advanced query processing.
+
+#### `mongo_rag/semantic_search_example.py`
+Demonstrates pure semantic (vector) search over documents stored in MongoDB.
+
+**Features:**
+- Vector similarity search using MongoDB Atlas
+- Document retrieval with similarity scores
+- Source tracking and metadata
+
+**Prerequisites:**
+- MongoDB running with vector search index
+- Documents ingested (use `document_ingestion_example.py`)
+
+#### `mongo_rag/hybrid_search_example.py`
+Demonstrates hybrid search combining semantic and text search using Reciprocal Rank Fusion (RRF).
+
+**Features:**
+- Semantic search (vector similarity)
+- Text search (keyword matching)
+- Hybrid search (combines both with RRF)
+- Comparison of search strategies
+
+**Prerequisites:**
+- MongoDB running with vector search index
+- Documents ingested
+
+#### `mongo_rag/document_ingestion_example.py`
+Demonstrates ingesting documents (PDF, Markdown, etc.) into MongoDB for vector search.
+
+**Features:**
+- Automatic document conversion (PDF, Word, etc. to Markdown)
+- Intelligent chunking with configurable size and overlap
+- Embedding generation and storage
+- Support for multiple formats (PDF, Word, PowerPoint, Excel, HTML, Markdown, Text)
+
+**Prerequisites:**
+- MongoDB running
+- Documents folder with files to ingest
+
+#### `mongo_rag/memory_tools_example.py`
+Demonstrates MongoDB RAG's memory tools for persistent conversation context and knowledge storage.
+
+**Features:**
+- Store and retrieve conversation messages
+- Store and search facts
+- Store web content for later retrieval
+- Get context windows for conversations
+
+**Prerequisites:**
+- MongoDB running
+
+#### `mongo_rag/enhanced_rag_example.py`
+Demonstrates advanced RAG capabilities including query decomposition, document grading, and citation extraction.
+
+**Features:**
+- Query decomposition (breaking complex queries into sub-queries)
+- Document grading (filtering irrelevant documents using LLM)
+- Citation extraction (identifying sources for answers)
+- Result synthesis (combining results from multiple queries)
+- Query rewriting (improving query quality)
+
+**Prerequisites:**
+- MongoDB running with documents ingested
+- LLM available (Ollama or OpenAI)
+
+### Graphiti RAG
+
+Graphiti RAG provides knowledge graph search, repository parsing, and AI script validation using Neo4j.
+
+#### `graphiti_rag/knowledge_graph_search_example.py`
+Demonstrates searching the Graphiti knowledge graph for entities and relationships.
+
+**Features:**
+- Hybrid search (semantic + keyword + graph traversal)
+- Entity and relationship discovery
+- Similarity scoring
+
+**Prerequisites:**
+- Graphiti configured (USE_GRAPHITI=true)
+- Neo4j running
+- Knowledge graph populated (use `repository_parsing_example.py`)
+
+#### `graphiti_rag/repository_parsing_example.py`
+Demonstrates parsing a GitHub repository into the Neo4j knowledge graph.
+
+**Features:**
+- Extracts code structure (classes, methods, functions)
+- Creates nodes and relationships in Neo4j
+- Enables hallucination detection
+
+**Prerequisites:**
+- Neo4j running (USE_KNOWLEDGE_GRAPH=true)
+- GitHub repository URL (must end with .git)
+
+#### `graphiti_rag/script_validation_example.py`
+Demonstrates validating AI-generated Python scripts against the knowledge graph to detect hallucinations.
+
+**Features:**
+- Validates import statements
+- Checks method calls and class instantiations
+- Detects non-existent functions and incorrect signatures
+- Generates hallucination reports
+
+**Prerequisites:**
+- Neo4j running with knowledge graph populated
+- Python script to validate
+
+#### `graphiti_rag/cypher_query_example.py`
+Demonstrates querying the Neo4j knowledge graph using Cypher queries.
+
+**Features:**
+- List repositories
+- Explore repository statistics
+- Execute custom Cypher queries
+- Query code structure patterns
+
+**Prerequisites:**
+- Neo4j running with knowledge graph populated
+
+### Crawl4AI RAG
+
+Crawl4AI RAG provides automated web crawling with immediate ingestion into MongoDB RAG.
+
+#### `crawl4ai_rag/single_page_crawl_example.py`
+Demonstrates crawling a single web page and automatically ingesting it into MongoDB RAG.
+
+**Features:**
+- Crawls single URL
+- Extracts content as markdown
+- Automatic chunking and embedding
+- Immediate searchability
+
+**Prerequisites:**
+- MongoDB running
+
+#### `crawl4ai_rag/deep_crawl_example.py`
+Demonstrates deep crawling of a website, following internal links recursively.
+
+**Features:**
+- Recursive crawling up to specified depth
+- Domain and subdomain filtering
+- Automatic ingestion of all discovered pages
+- Concurrent crawling for performance
+
+**Prerequisites:**
+- MongoDB running
+
+#### `crawl4ai_rag/adaptive_crawl_example.py`
+Demonstrates adaptive crawling strategies that adjust parameters based on site characteristics.
+
+**Features:**
+- Shallow crawl to assess site structure
+- Dynamic depth adjustment
+- Domain filtering strategies
+- Optimized chunk sizes
+
+**Prerequisites:**
+- MongoDB running
+
+## Major Services
+
+### Calendar
+
+Calendar project provides Google Calendar integration with sync state tracking.
+
+#### `calendar/create_event_example.py`
+Demonstrates creating Google Calendar events with automatic sync state tracking.
+
+**Features:**
+- Create calendar events via Google Calendar API
+- Automatic sync state tracking in MongoDB
+- Duplicate prevention
+- OAuth2 authentication
+
+**Prerequisites:**
+- MongoDB running
+- Google Calendar OAuth2 credentials configured
+
+#### `calendar/list_events_example.py`
+Demonstrates listing and filtering Google Calendar events.
+
+**Features:**
+- List events by time range
+- Filter by calendar ID
+- Format event data for display
+
+**Prerequisites:**
+- MongoDB running
+- Google Calendar OAuth2 credentials configured
+
+#### `calendar/sync_state_example.py`
+Demonstrates how sync state tracking prevents duplicate events.
+
+**Features:**
+- Check sync state for existing events
+- Create and update sync state
+- Demonstrate duplicate prevention logic
+
+**Prerequisites:**
+- MongoDB running
+
+### Conversation
+
+Conversation project provides multi-agent orchestration for context-aware responses.
+
+#### `conversation/orchestration_example.py`
+Demonstrates conversation orchestration coordinating multiple agents and tools.
+
+**Features:**
+- Gets persona voice instructions
+- Plans response using available tools
+- Executes tools (search, memory, calendar)
+- Generates context-aware response
+- Records interaction for persona state
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured
+
+#### `conversation/multi_agent_example.py`
+Demonstrates multi-agent coordination for complex queries requiring multiple services.
+
+**Features:**
+- Coordinates persona, memory, knowledge, and calendar agents
+- Handles complex multi-part queries
+- Synthesizes responses from multiple sources
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured
+
+### Persona
+
+Persona project manages character/persona state and generates dynamic voice instructions.
+
+#### `persona/mood_tracking_example.py`
+Demonstrates tracking and analyzing mood state from conversations.
+
+**Features:**
+- LLM-based mood analysis
+- Tracks primary emotion and intensity
+- Updates persona mood state in MongoDB
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured
+
+#### `persona/voice_instructions_example.py`
+Demonstrates generating dynamic voice instructions based on persona state.
+
+**Features:**
+- Generates style instructions from current state
+- Incorporates mood, relationship, and context
+- Guides persona response style
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured
+
+#### `persona/relationship_management_example.py`
+Demonstrates tracking and managing relationship state between users and personas.
+
+**Features:**
+- Tracks affection and trust levels
+- Analyzes relationship dynamics
+- Updates relationship state in MongoDB
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured
+
+### N8N Workflow
+
+N8N Workflow project provides agentic workflow management with RAG-enhanced creation.
+
+#### `n8n_workflow/create_workflow_example.py`
+Demonstrates creating an N8N workflow with RAG-enhanced design.
+
+**Features:**
+- Creates workflows with nodes and connections
+- Searches knowledge base for best practices
+- Discovers available nodes via N8N API
+
+**Prerequisites:**
+- N8N running and accessible
+- MongoDB running (for RAG knowledge base)
+
+#### `n8n_workflow/execute_workflow_example.py`
+Demonstrates executing an N8N workflow with input data.
+
+**Features:**
+- Executes workflows programmatically
+- Passes input data to workflows
+- Returns execution results
+
+**Prerequisites:**
+- N8N running and accessible
+- Existing workflow ID
+
+#### `n8n_workflow/rag_enhanced_workflow_example.py`
+Demonstrates RAG-enhanced workflow creation using knowledge base search.
+
+**Features:**
+- Searches knowledge base for workflow patterns
+- Discovers available nodes
+- Finds node configuration examples
+- Creates informed workflows
+
+**Prerequisites:**
+- N8N running and accessible
+- MongoDB running (for RAG knowledge base)
+
+### Open WebUI
+
+Open WebUI projects enable exporting conversations and classifying topics.
+
+#### `openwebui/export_conversation_example.py`
+Demonstrates exporting Open WebUI conversations to MongoDB RAG.
+
+**Features:**
+- Exports conversations to MongoDB
+- Chunks conversations for semantic search
+- Generates embeddings
+- Preserves metadata (ID, title, topics)
+
+**Prerequisites:**
+- MongoDB running
+- Ollama or OpenAI configured (for embeddings)
+
+#### `openwebui/topic_classification_example.py`
+Demonstrates classifying topics for conversations using LLM-based analysis.
+
+**Features:**
+- Analyzes conversation content
+- Identifies 3-5 main topics
+- Provides reasoning for classification
+
+**Prerequisites:**
+- Ollama or OpenAI configured
+
+### Neo4j
+
+Neo4j samples demonstrate basic graph database operations.
+
+#### `neo4j/basic_cypher_example.py`
+Demonstrates basic Cypher query operations using Neo4j directly.
+
+**Features:**
+- Creating nodes and relationships
+- Querying nodes and relationships
+- Updating and deleting data
+
+**Prerequisites:**
+- Neo4j running and configured
+
+#### `neo4j/knowledge_graph_example.py`
+Demonstrates building a knowledge graph in Neo4j with entities and relationships.
+
+**Features:**
+- Creating entities with properties
+- Creating relationships between entities
+- Querying graph patterns
+- Traversing relationships
+
+**Prerequisites:**
+- Neo4j running and configured
+
+## Running Samples
+
+### Basic Usage
+
+```bash
+# Navigate to sample directory
+cd sample/<service>/<sample>
+
+# Run the sample
+python <sample_name>.py
+```
+
+### Example
+
+```bash
+# Run MongoDB RAG semantic search example
+cd sample/mongo_rag
+python semantic_search_example.py
+```
+
+### Environment Setup
+
+Most samples require environment variables. Ensure your `.env` file or Infisical is configured with:
+
+- `MONGODB_URI`: MongoDB connection string
+- `NEO4J_URI`: Neo4j connection string
+- `NEO4J_USER`: Neo4j username
+- `NEO4J_PASSWORD`: Neo4j password
+- `LLM_BASE_URL`: LLM API base URL (e.g., Ollama)
+- `EMBEDDING_BASE_URL`: Embedding API base URL
+- `LLM_MODEL`: LLM model name
+- `EMBEDDING_MODEL`: Embedding model name
+- `N8N_API_URL`: N8N API URL
+- `N8N_API_KEY`: N8N API key (if required)
+- `GOOGLE_CALENDAR_CREDENTIALS_PATH`: Path to Google Calendar OAuth2 credentials
+
+## Sample Structure
+
+All samples follow a consistent structure:
+
+1. **Imports**: Project imports with path setup
+2. **Configuration**: Logging and environment setup
+3. **Main Function**: Async main function with example logic
+4. **Error Handling**: Try/except with cleanup
+5. **Documentation**: Clear docstrings and comments
+
+## Integration Examples
+
+Samples can be combined to demonstrate end-to-end workflows:
+
+1. **Document Q&A Pipeline**:
+   - `crawl4ai_rag/single_page_crawl_example.py` → Crawl documentation
+   - `mongo_rag/document_ingestion_example.py` → Ingest documents
+   - `mongo_rag/hybrid_search_example.py` → Search documents
+   - `mongo_rag/enhanced_rag_example.py` → Get enhanced answers
+
+2. **Conversation Memory Pipeline**:
+   - `openwebui/export_conversation_example.py` → Export conversation
+   - `mongo_rag/memory_tools_example.py` → Store in memory
+   - `conversation/orchestration_example.py` → Use in orchestration
+
+3. **Code Analysis Pipeline**:
+   - `graphiti_rag/repository_parsing_example.py` → Parse repository
+   - `graphiti_rag/cypher_query_example.py` → Query structure
+   - `graphiti_rag/script_validation_example.py` → Validate scripts
+
+## Notes
+
+- Samples are designed to be educational and demonstrate best practices
+- All samples include error handling and cleanup
+- Samples use async/await patterns consistent with the project
+- Each sample is self-contained but can be combined for complex workflows
+- Samples demonstrate real use cases from the project's AGENTS.md files
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Import Errors**: Ensure you're running from the correct directory and Python path is set
+2. **Connection Errors**: Verify services are running (MongoDB, Neo4j, Ollama, etc.)
+3. **Environment Variables**: Check `.env` file or Infisical configuration
+4. **Missing Dependencies**: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+
+### Getting Help
+
+- Check service-specific AGENTS.md files for detailed documentation
+- Review sample code comments for implementation details
+- Check service logs for detailed error messages
+
+## Contributing
+
+When adding new samples:
+
+1. Follow the existing sample structure
+2. Include comprehensive docstrings
+3. Add error handling and cleanup
+4. Document prerequisites clearly
+5. Update this README with sample description

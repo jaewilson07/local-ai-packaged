@@ -62,8 +62,15 @@ app.add_middleware(
 )
 
 # Import and include routers
-from server.api import health, mongo_rag, crawl4ai_rag, graphiti_rag, n8n_workflow, openwebui_export, openwebui_topics, searxng, calendar_sync, calendar, knowledge, persona, conversation, mcp_rest
+from server.api import health, auth, mongo_rag, crawl4ai_rag, graphiti_rag, n8n_workflow, openwebui_export, openwebui_topics, searxng, calendar_sync, calendar, knowledge, persona, conversation, mcp_rest, data_view
+from server.projects.blob_storage.router import router as blob_storage_router
+from server.projects.comfyui_workflow.router import router as comfyui_workflow_router
+from server.projects.discord_characters.api import router as discord_characters_router
+
 app.include_router(health.router, tags=["health"])
+app.include_router(blob_storage_router, prefix="/api/v1/storage", tags=["storage"])
+app.include_router(comfyui_workflow_router, prefix="/api/v1/comfyui", tags=["comfyui"])
+app.include_router(auth.router, tags=["auth"])
 app.include_router(mongo_rag.router, prefix="/api/v1/rag", tags=["rag"])
 app.include_router(crawl4ai_rag.router, prefix="/api/v1/crawl", tags=["crawl"])
 app.include_router(graphiti_rag.router, tags=["graphiti"])
@@ -76,6 +83,8 @@ app.include_router(calendar.router, prefix="/api/v1/calendar/events", tags=["cal
 app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
 app.include_router(persona.router, prefix="/api/v1/persona", tags=["persona"])
 app.include_router(conversation.router, prefix="/api/v1/conversation", tags=["conversation"])
+app.include_router(discord_characters_router, prefix="/api/v1", tags=["discord-characters"])
+app.include_router(data_view.router, prefix="/api/v1/data", tags=["data-view"])
 app.include_router(mcp_rest.router)  # REST API wrapper for MCP tools
 
 # Add a simple GET endpoint for MCP server info (for testing/debugging)

@@ -99,20 +99,24 @@ For detailed component rules, see:
 - **[00-infrastructure/AGENTS.md](00-infrastructure/AGENTS.md)** - Infrastructure services (Caddy, Cloudflare Tunnel, Infisical, Redis)
 - **[01-data/AGENTS.md](01-data/AGENTS.md)** - Data layer (Supabase, Qdrant, Neo4j, MongoDB, MinIO)
 - **[02-compute/AGENTS.md](02-compute/AGENTS.md)** - AI compute (Ollama, ComfyUI)
-- **[03-apps/AGENTS.md](03-apps/AGENTS.md)** - Application services (n8n, Flowise, Open WebUI, SearXNG, Langfuse, ClickHouse)
+- **[03-apps/AGENTS.md](03-apps/AGENTS.md)** - Application services (n8n, Flowise, Open WebUI, SearXNG, Langfuse, ClickHouse, Discord bots)
 - **[04-lambda/AGENTS.md](04-lambda/AGENTS.md)** - Lambda FastAPI server with MCP and REST APIs
 - **[setup/AGENTS.md](setup/AGENTS.md)** - Setup scripts and configuration utilities
 
 ### Lambda Project-Level Documentation
 For Lambda server projects, see project-specific AGENTS.md files:
 
-- **[04-lambda/server/projects/mongo_rag/AGENTS.md](04-lambda/server/projects/mongo_rag/AGENTS.md)** - MongoDB RAG with enhanced search, memory tools, and knowledge graph
-- **[04-lambda/server/projects/persona/AGENTS.md](04-lambda/server/projects/persona/AGENTS.md)** - Persona state management (mood, relationship, context)
-- **[04-lambda/server/projects/conversation/AGENTS.md](04-lambda/server/projects/conversation/AGENTS.md)** - Multi-agent conversation orchestration
 - **[04-lambda/server/projects/calendar/AGENTS.md](04-lambda/server/projects/calendar/AGENTS.md)** - Google Calendar integration and sync
+- **[04-lambda/server/projects/conversation/AGENTS.md](04-lambda/server/projects/conversation/AGENTS.md)** - Multi-agent conversation orchestration
+- **[04-lambda/server/projects/crawl4ai_rag/AGENTS.md](04-lambda/server/projects/crawl4ai_rag/AGENTS.md)** - Web crawling and automatic ingestion into MongoDB RAG knowledge base
 - **[04-lambda/server/projects/graphiti_rag/AGENTS.md](04-lambda/server/projects/graphiti_rag/AGENTS.md)** - Graph-based RAG using Graphiti and Neo4j
 - **[04-lambda/server/projects/knowledge/AGENTS.md](04-lambda/server/projects/knowledge/AGENTS.md)** - Event extraction from web content
+- **[04-lambda/server/projects/mongo_rag/AGENTS.md](04-lambda/server/projects/mongo_rag/AGENTS.md)** - MongoDB RAG with enhanced search, memory tools, and knowledge graph
 - **[04-lambda/server/projects/n8n_workflow/AGENTS.md](04-lambda/server/projects/n8n_workflow/AGENTS.md)** - N8n workflow management with RAG
+- **[04-lambda/server/projects/openwebui_export/AGENTS.md](04-lambda/server/projects/openwebui_export/AGENTS.md)** - Export Open WebUI conversations to MongoDB RAG system for searchability
+- **[04-lambda/server/projects/openwebui_topics/AGENTS.md](04-lambda/server/projects/openwebui_topics/AGENTS.md)** - Classify conversation topics using LLM for organization and filtering
+- **[04-lambda/server/projects/persona/AGENTS.md](04-lambda/server/projects/persona/AGENTS.md)** - Persona state management (mood, relationship, context)
+- **[04-lambda/server/projects/discord_characters/AGENTS.md](04-lambda/server/projects/discord_characters/AGENTS.md)** - Discord character management and interaction
 
 ## Common Patterns
 

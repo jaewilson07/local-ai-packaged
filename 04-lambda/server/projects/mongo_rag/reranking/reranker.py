@@ -6,10 +6,7 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from server.projects.mongo_rag.tools import SearchResult
 
-try:
-    from sentence_transformers import CrossEncoder
-except ImportError:
-    CrossEncoder = None  # type: ignore
+from sentence_transformers import CrossEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +65,6 @@ class Reranker:
         from server.projects.mongo_rag.tools import SearchResult
         
         if not self.model or not results:
-            return results
-        
-        if CrossEncoder is None:
-            logger.warning("sentence_transformers not available - skipping reranking")
             return results
         
         try:

@@ -1,6 +1,7 @@
 """Calendar project REST API."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, AsyncGenerator
 import logging
 
 from server.projects.calendar.models import (
@@ -12,17 +13,26 @@ from server.projects.calendar.models import (
     CalendarEventsListResponse,
 )
 from server.projects.calendar.dependencies import CalendarDeps
-from server.core.api_utils import with_dependencies
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# FastAPI dependency function with yield pattern for resource cleanup
+async def get_calendar_deps() -> AsyncGenerator[CalendarDeps, None]:
+    """FastAPI dependency that yields CalendarDeps."""
+    deps = CalendarDeps.from_settings()
+    await deps.initialize()
+    try:
+        yield deps
+    finally:
+        await deps.cleanup()
+
+
 @router.post("/create", response_model=CalendarEventResponse)
-@with_dependencies(CalendarDeps)
 async def create_calendar_event_endpoint(
     request: CreateCalendarEventRequest,
-    deps: CalendarDeps
+    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Create a new calendar event in Google Calendar.
@@ -93,10 +103,9 @@ async def create_calendar_event_endpoint(
 
 
 @router.post("/update", response_model=CalendarEventResponse)
-@with_dependencies(CalendarDeps)
 async def update_calendar_event_endpoint(
     request: UpdateCalendarEventRequest,
-    deps: CalendarDeps
+    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Update an existing calendar event in Google Calendar.
@@ -170,10 +179,9 @@ async def update_calendar_event_endpoint(
 
 
 @router.post("/delete", response_model=CalendarEventResponse)
-@with_dependencies(CalendarDeps)
 async def delete_calendar_event_endpoint(
     request: DeleteCalendarEventRequest,
-    deps: CalendarDeps
+    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)]
 ):
     """
     Delete a calendar event from Google Calendar.
@@ -213,14 +221,13 @@ async def delete_calendar_event_endpoint(
 
 
 @router.get("/list", response_model=CalendarEventsListResponse)
-@with_dependencies(CalendarDeps)
 async def list_calendar_events_endpoint(
     user_id: str,
+    deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],
     calendar_id: str = "primary",
     start_time: str | None = None,
     end_time: str | None = None,
-    timezone: str = "America/Los_Angeles",
-    deps: CalendarDeps = None
+    timezone: str = "America/Los_Angeles"
 ):
     """
     List calendar events from Google Calendar.

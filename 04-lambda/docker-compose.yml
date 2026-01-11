@@ -39,6 +39,19 @@ services:
       # Server
       LOG_LEVEL: ${LOG_LEVEL:-info}
       
+      # Cloudflare Access Authentication
+      CLOUDFLARE_AUTH_DOMAIN: ${CLOUDFLARE_AUTH_DOMAIN:-https://datacrew-space.cloudflareaccess.com}
+      CLOUDFLARE_AUD_TAG: ${CLOUDFLARE_AUD_TAG:-e869f0dbb027893e1c9ded98f81e6c85420c574098c895a51f79a1e9930c948c}
+      
+      # Supabase (for auth and data)
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@supabase-db:5432/postgres}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      
+      # MinIO (Supabase Storage)
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://supabase-minio:9020}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-${SUPABASE_MINIO_ROOT_USER:-supa-storage}}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-${SUPABASE_MINIO_ROOT_PASSWORD:-secret1234}}
+      
     volumes:
       - ./uploads:/app/uploads
       - ./server:/app/server  # Writable mount (app needs to generate MCP server code)

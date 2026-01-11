@@ -58,6 +58,10 @@
 - **Langfuse** - LLM observability platform (web + worker)
 - **ClickHouse** - Time-series database (for Langfuse)
 
+### Discord Integration
+- **discord-bot** - Discord bot for Immich integration
+- **discord-character-bot** - Discord bot for AI character interactions
+
 ## n8n
 
 ### Architecture

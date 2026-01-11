@@ -101,12 +101,42 @@ async def call_tool(request: ToolCallRequest) -> ToolCallResponse:
             tool_manager = mcp._tool_manager
             if hasattr(tool_manager, '_tools') and request.name in tool_manager._tools:
                 tool = tool_manager._tools[request.name]
-                # Call the tool function directly
-                if hasattr(tool, 'func'):
-                    # Tool is a FunctionTool wrapper
-                    func = tool.func
+                
+                # FastMCP tools are FunctionTool objects with a 'run' method
+                if hasattr(tool, 'run'):
+                    # Use the run method to execute the tool
+                    # run() expects arguments as a dict, not keyword arguments
+                    if callable(tool.run):
+                        import inspect
+                        if inspect.iscoroutinefunction(tool.run):
+                            tool_result = await tool.run(arguments=request.arguments)
+                        else:
+                            tool_result = tool.run(arguments=request.arguments)
+                        # Extract result from ToolResult object
+                        if hasattr(tool_result, 'content'):
+                            # ToolResult has content array
+                            if tool_result.content and len(tool_result.content) > 0:
+                                first_item = tool_result.content[0]
+                                if hasattr(first_item, 'text'):
+                                    import json
+                                    try:
+                                        result = json.loads(first_item.text)
+                                    except json.JSONDecodeError:
+                                        result = first_item.text
+                                else:
+                                    result = first_item
+                            else:
+                                result = {}
+                        elif hasattr(tool_result, 'result'):
+                            result = tool_result.result
+                        else:
+                            result = tool_result
+                    else:
+                        raise ValueError(f"Tool {request.name} run method is not callable")
+                # Fallback: try to access underlying function
+                elif hasattr(tool, 'fn'):
+                    func = tool.fn
                     if callable(func):
-                        # Check if it's async
                         import inspect
                         if inspect.iscoroutinefunction(func):
                             result = await func(**request.arguments)
@@ -114,17 +144,10 @@ async def call_tool(request: ToolCallRequest) -> ToolCallResponse:
                             result = func(**request.arguments)
                     else:
                         raise ValueError(f"Tool {request.name} function is not callable")
-                elif callable(tool):
-                    # Tool is directly callable
-                    import inspect
-                    if inspect.iscoroutinefunction(tool):
-                        result = await tool(**request.arguments)
-                    else:
-                        result = tool(**request.arguments)
                 else:
-                    raise ValueError(f"Tool {request.name} is not callable")
+                    raise ValueError(f"Tool {request.name} does not have a run method or fn attribute")
             else:
-                raise ValueError(f"Tool {request.name} not found")
+                raise ValueError(f"Tool {request.name} not found in tool manager")
         elif hasattr(mcp, '_call_tool'):
             # Fallback: try FastMCP's internal method (may have different signature)
             try:
