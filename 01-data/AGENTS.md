@@ -324,4 +324,3 @@ docker exec minio mc ready local
 - [supabase/README.md](../supabase/README.md) for Supabase-specific docs
 - [Auth Project README](../04-lambda/server/projects/auth/README.md) - User provisioning and data isolation patterns
 - [Neo4j Data Isolation Guide](neo4j/docs/data-isolation.md) - Neo4j user anchoring patterns
-

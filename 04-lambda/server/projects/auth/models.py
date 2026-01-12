@@ -37,7 +37,9 @@ class RAGSummary(BaseModel):
     mongodb_sources: int = Field(default=0, description="Number of sources in MongoDB")
     supabase_items: int = Field(default=0, description="Number of items in Supabase")
     supabase_workflows: int = Field(default=0, description="Number of workflows in Supabase")
-    supabase_workflow_runs: int = Field(default=0, description="Number of workflow runs in Supabase")
+    supabase_workflow_runs: int = Field(
+        default=0, description="Number of workflow runs in Supabase"
+    )
     total_data_points: int = Field(
         default=0, description="Total data points across all RAG sources"
     )

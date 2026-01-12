@@ -280,12 +280,12 @@ async def list_calendar_events_endpoint(
     if start_time:
         try:
             time_min = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-        except Exception:
+        except ValueError:
             time_min = datetime.fromisoformat(start_time)
     if end_time:
         try:
             time_max = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-        except Exception:
+        except ValueError:
             time_max = datetime.fromisoformat(end_time)
 
     events = await sync_service.list_events(

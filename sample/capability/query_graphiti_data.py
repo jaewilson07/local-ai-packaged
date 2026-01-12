@@ -134,6 +134,32 @@ def explore_graphiti_data():
     print("✅ Exploration complete!")
     print("=" * 80)
 
+    # Verify that queries returned results
+    try:
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_neo4j_data
+
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
+
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
+
+        success, message = verify_neo4j_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_nodes_min=1,
+        )
+        print(message)
+
+        if success:
+            print("\n✅ Verification passed!")
+        else:
+            print("\n⚠️  Verification failed (nodes may need time to sync)")
+    except Exception as e:
+        print(f"\n⚠️  Verification error: {e}")
+
 
 def interactive_search():
     """Interactive search interface."""

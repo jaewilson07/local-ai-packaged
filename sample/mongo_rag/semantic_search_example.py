@@ -63,14 +63,12 @@ async def main():
     # Initialize dependencies with user context (for RLS)
     # In production, these would come from authenticated user session
     from uuid import uuid4
+
     user_id = str(uuid4())  # Simulated user ID
     user_email = "demo@example.com"  # Simulated user email
-    
+
     deps = AgentDependencies.from_settings(
-        user_id=user_id,
-        user_email=user_email,
-        is_admin=False,
-        user_groups=[]
+        user_id=user_id, user_email=user_email, is_admin=False, user_groups=[]
     )
     await deps.initialize()
 
@@ -106,6 +104,34 @@ async def main():
         print("\n" + "=" * 80)
         print("✅ Semantic search completed successfully!")
         print("=" * 80)
+
+        # Verify search results
+        try:
+            from sample.shared.verification_helpers import verify_search_results
+
+            all_results = []
+            for query in queries:
+                results = await semantic_search(ctx=ctx, query=query, match_count=5)
+                if results:
+                    all_results.extend(results)
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_search_results(all_results, expected_min=1)
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n❌ Verification failed: No search results found")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
 
     except Exception as e:
         logger.exception(f"❌ Error during semantic search: {e}")

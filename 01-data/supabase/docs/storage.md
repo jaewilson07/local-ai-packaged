@@ -226,7 +226,7 @@ USING (bucket_id = 'public-bucket');
 CREATE POLICY "Authenticated write access"
 ON storage.objects FOR INSERT
 WITH CHECK (
-  bucket_id = 'public-bucket' 
+  bucket_id = 'public-bucket'
   AND auth.role() = 'authenticated'
 );
 ```
@@ -395,5 +395,3 @@ If you were using file backend and want to migrate:
 - [MinIO Documentation](https://min.io/docs)
 - [S3 API Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html)
 - [imgproxy Documentation](https://docs.imgproxy.net/)
-
-

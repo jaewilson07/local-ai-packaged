@@ -47,8 +47,8 @@ async def main():
     max_concurrent = 10  # Maximum concurrent browser sessions
 
     # Domain filtering (optional)
-    # allowed_domains = ["bluesmuse.dance"]  # Only crawl this domain
-    # allowed_subdomains = ["www", "docs"]  # Only crawl these subdomains
+    # allowed_domains = ["bluesmuse.dance"]  # Only crawl this domain  # noqa: ERA001
+    # allowed_subdomains = ["www", "docs"]  # Only crawl these subdomains  # noqa: ERA001
     allowed_domains = None  # Allow all domains from starting URL
     allowed_subdomains = None  # Allow all subdomains
 
@@ -132,7 +132,37 @@ async def main():
             print()
             print("All crawled pages are now searchable via MongoDB RAG.")
             print("Run semantic_search_example.py or hybrid_search_example.py to test.")
-            sys.exit(0)
+
+            # Verify via API
+            try:
+                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+                from sample.shared.verification_helpers import verify_rag_data
+
+                api_base_url = get_api_base_url()
+                headers = get_auth_headers()
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                success, message = verify_rag_data(
+                    api_base_url=api_base_url,
+                    headers=headers,
+                    expected_documents_min=result.get("pages_crawled", 0),
+                    expected_chunks_min=result.get("chunks_created", 0),
+                )
+                print(message)
+
+                if success:
+                    print("\n✅ Verification passed!")
+                    sys.exit(0)
+                else:
+                    print("\n⚠️  Verification failed (data may need time to propagate)")
+                    sys.exit(1)
+            except Exception as e:
+                logger.warning(f"Verification error: {e}")
+                print(f"\n⚠️  Verification error: {e}")
+                sys.exit(1)
         else:
             print("\n⚠️  Deep crawl completed with errors")
             sys.exit(1)

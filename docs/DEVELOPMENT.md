@@ -200,7 +200,7 @@ uv run pytest tests/ -v
    ```bash
    # Lambda server
    cd 04-lambda && uv run pytest tests/ -v
-   
+
    # Discord bot
    cd 03-apps/discord-character-bot && uv run pytest tests/ -v
    ```

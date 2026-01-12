@@ -7,4 +7,3 @@ echo "Watching Open WebUI logs (Ctrl+C to stop)..."
 echo ""
 
 docker logs -f open-webui 2>&1
-

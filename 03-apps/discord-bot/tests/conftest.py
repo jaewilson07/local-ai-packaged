@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import discord
 import pytest
-from discord import app_commands
+from discord import Interaction, app_commands
 
 # Set minimal environment variables before any imports
 os.environ.setdefault("DISCORD_BOT_TOKEN", "test-token")
@@ -83,7 +83,7 @@ def mock_discord_attachment():
 @pytest.fixture
 def mock_discord_interaction(mock_discord_user):
     """Mock Discord Interaction."""
-    interaction = AsyncMock(spec=app_commands.Interaction)
+    interaction = AsyncMock(spec=Interaction)
     interaction.id = 777888999
     interaction.user = mock_discord_user
     interaction.response = AsyncMock()

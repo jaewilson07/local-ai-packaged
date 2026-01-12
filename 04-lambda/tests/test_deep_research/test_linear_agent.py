@@ -4,8 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from server.projects.deep_research.agent import linear_researcher_agent
-from server.projects.deep_research.models import ResearchResponse
+from server.projects.deep_research.agent import ResearchResponse, linear_researcher_agent
 from server.projects.deep_research.workflow import run_linear_research
 
 # ============================================================================
@@ -329,7 +328,7 @@ async def test_query_knowledge_tool(mock_deep_research_deps):
         # Note: The tool code accesses res.title, res.url, res.score, res.snippet
         # but CitedChunk doesn't have these - this may be a bug in agent.py
         # For testing, we'll create a mock that has these attributes
-        with patch("server.projects.deep_research.agent.query_knowledge") as mock_query:
+        with patch("server.projects.deep_research.agent.query_knowledge") as inner_mock_query:
             from unittest.mock import Mock
 
             from server.projects.deep_research.models import QueryKnowledgeResponse
@@ -341,7 +340,7 @@ async def test_query_knowledge_tool(mock_deep_research_deps):
             mock_chunk.score = 0.95
             mock_chunk.snippet = "Deep research is a methodology"
 
-            mock_query.return_value = QueryKnowledgeResponse(
+            inner_mock_query.return_value = QueryKnowledgeResponse(
                 results=[mock_chunk], count=1, success=True
             )
 

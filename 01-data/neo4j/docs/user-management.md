@@ -315,4 +315,3 @@ Only use Per-User Accounts if you need:
 - [Authentication Flow](authentication-flow.md) - How users authenticate
 - [Data Isolation](data-isolation.md) - User-specific data access
 - [Bolt API Authentication](bolt-api-authentication.md) - Programmatic access
-

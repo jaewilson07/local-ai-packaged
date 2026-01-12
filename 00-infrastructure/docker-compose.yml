@@ -1,6 +1,7 @@
 # Infrastructure Stack
 # Contains: cloudflared, caddy, redis
 # Network: Uses external ai-network
+# Note: Infisical has been moved to external standalone project but Caddy still routes to it
 
 # Shared configuration anchors
 x-logging-json: &logging-json
@@ -86,6 +87,7 @@ services:
       - COMFYUI_HOSTNAME=${COMFYUI_HOSTNAME:-:8009}
       - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-:8010}
       - IMMICH_HOSTNAME=${IMMICH_HOSTNAME:-:2283}
+      - FRONTEND_HOSTNAME=${FRONTEND_HOSTNAME:-:8011}
       # Infisical configuration for CORS
       - INFISICAL_SITE_URL=${INFISICAL_SITE_URL:-https://infisical.datacrew.space}
       # Logging configuration (INFO, WARN, ERROR, DEBUG)
@@ -95,7 +97,8 @@ services:
       - default
     logging: *logging-json
     healthcheck:
-      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      # Health check with Host header to avoid 404
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider --header='Host: localhost' http://localhost:80 || exit 1"]
       <<: *healthcheck-fast
 
   # Redis for n8n and other services

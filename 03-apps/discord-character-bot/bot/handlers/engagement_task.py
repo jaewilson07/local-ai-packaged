@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from typing import Optional
 
 import discord
 
@@ -26,7 +25,7 @@ class EngagementTask:
         self.client = client
         self.api_client = api_client
         self.running = False
-        self.task: Optional[asyncio.Task] = None
+        self.task: asyncio.Task | None = None
 
     def start(self):
         """Start the engagement task."""

@@ -101,7 +101,7 @@ services:
     environment:
       <<: *database-env
       # n8n-specific vars
-      
+
   langfuse-worker:
     environment:
       <<: *database-env
@@ -255,4 +255,3 @@ docker inspect --format='{{.State.Health.Status}}' <container-name>
 - [Docker Compose Health Checks](https://docs.docker.com/compose/compose-file/05-services/#healthcheck)
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
 - [YAML Anchors and Aliases](https://yaml.org/spec/1.2.2/#3222-anchors-and-aliases)
-

@@ -10,6 +10,7 @@ import asyncio
 import glob
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -260,12 +261,13 @@ class DocumentIngestionPipeline:
 
         # Text-based formats (read directly)
         else:
+            file_path_obj = Path(file_path)
             try:
-                with open(file_path, encoding="utf-8") as f:
+                with file_path_obj.open(encoding="utf-8") as f:
                     return (f.read(), None)
             except UnicodeDecodeError:
                 # Try with different encoding
-                with open(file_path, encoding="latin-1") as f:
+                with file_path_obj.open(encoding="latin-1") as f:
                     return (f.read(), None)
 
     def _transcribe_audio(self, file_path: str) -> tuple[str, Any | None]:
@@ -338,8 +340,8 @@ class DocumentIngestionPipeline:
         """
         # Try to find markdown title
         lines = content.split("\n")
-        for line in lines[:10]:  # Check first 10 lines
-            line = line.strip()
+        for raw_line in lines[:10]:  # Check first 10 lines
+            line = raw_line.strip()
             if line.startswith("# "):
                 return line[2:].strip()
 
@@ -582,7 +584,7 @@ class DocumentIngestionPipeline:
         )
 
     async def ingest_documents(
-        self, progress_callback: callable | None = None
+        self, progress_callback: Callable | None = None
     ) -> list[IngestionResult]:
         """
         Ingest all documents from the documents folder.

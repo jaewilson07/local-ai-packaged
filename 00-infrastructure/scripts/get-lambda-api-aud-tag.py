@@ -48,8 +48,8 @@ def get_infisical_secrets() -> dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
                 if "=" in line:
@@ -61,7 +61,7 @@ def get_infisical_secrets() -> dict[str, str]:
                     ):
                         value = value[1:-1]
                     secrets_dict[key] = value
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError):
         pass
     return secrets_dict
 
@@ -113,7 +113,7 @@ def get_account_id(headers):
             accounts = response.json().get("result", [])
             if accounts:
                 return accounts[0]["id"]
-    except Exception:
+    except (requests.exceptions.RequestException, KeyError, ValueError):
         pass
 
     raise ValueError("CLOUDFLARE_ACCOUNT_ID must be set or auto-detected from API")

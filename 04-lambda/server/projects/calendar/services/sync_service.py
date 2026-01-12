@@ -158,7 +158,7 @@ class GoogleCalendarSyncService:
         """Save OAuth2 token to file."""
         if self._credentials:
             self.token_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.token_path, "w") as token_file:
+            with self.token_path.open("w") as token_file:
                 token_file.write(self._credentials.to_json())
             logger.info(f"OAuth2 token saved to {self.token_path}")
 

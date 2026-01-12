@@ -69,7 +69,7 @@ def check_infisical_cli() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -86,7 +86,7 @@ def check_infisical_auth() -> bool:
         # If not authenticated, it will show auth error
         output = (result.stdout or result.stderr or "").lower()
         return not ("authenticate" in output or "login" in output)
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -111,8 +111,8 @@ def get_infisical_secrets() -> dict[str, str]:
 
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 
@@ -147,7 +147,7 @@ def parse_env_file(env_file_path: Path) -> tuple[dict[str, str], list[str]]:
     if not env_file_path.exists():
         return env_vars, lines
 
-    with open(env_file_path, encoding="utf-8") as f:
+    with env_file_path.open(encoding="utf-8") as f:
         for _line_num, line in enumerate(f, 1):
             lines.append(line)
             # Strip whitespace
@@ -390,7 +390,7 @@ def main():
 
     # Write updated .env file
     try:
-        with open(env_file_path, "w", encoding="utf-8") as f:
+        with env_file_path.open("w", encoding="utf-8") as f:
             f.writelines(new_lines)
 
         print()

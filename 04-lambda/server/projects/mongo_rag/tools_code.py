@@ -114,7 +114,9 @@ async def search_code_examples(
 
     except OperationFailure as e:
         error_code = e.code if hasattr(e, "code") else None
-        logger.exception(f"code_example_search_failed: query={query}, error={e!s}, code={error_code}")
+        logger.exception(
+            f"code_example_search_failed: query={query}, error={e!s}, code={error_code}"
+        )
         return []
     except Exception as e:
         logger.exception(f"code_example_search_error: query={query}, error={e!s}")

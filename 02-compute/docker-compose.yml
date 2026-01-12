@@ -36,7 +36,7 @@ x-ollama: &service-ollama
   networks:
     - default
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+    test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/11434' || exit 1"]
     <<: *healthcheck-http
 
 x-init-ollama: &init-ollama

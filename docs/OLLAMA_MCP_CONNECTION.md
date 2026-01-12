@@ -34,10 +34,10 @@ Open WebUI can use Ollama models AND connect to the Lambda MCP server simultaneo
    - Click **"+" (Add Server)**
    - Configure:
      - **Type**: `MCP (Streamable HTTP)`
-     - **Server URL**: 
+     - **Server URL**:
        - Internal (Docker): `http://lambda-server:8000/mcp` (recommended for internal use)
        - External (via Cloudflare Tunnel): `https://api.datacrew.space/mcp` (requires Cloudflare Access setup)
-     - **Authentication**: 
+     - **Authentication**:
        - Internal URL: Leave empty (network isolation provides security)
        - External URL: Leave empty if Cloudflare Access is configured, otherwise see [MCP Security Setup](./MCP_SECURITY_SETUP.md)
 
@@ -254,4 +254,3 @@ docker exec open-webui curl -s http://lambda-server:8000/mcp-info
 - [Open WebUI MCP Integration Guide](../03-apps/open-webui/docs/MCP_INTEGRATION.md)
 - [Lambda MCP Server Documentation](../04-lambda/server/mcp/AGENTS.md)
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
-

@@ -115,7 +115,7 @@ infisical login -i
 
 **Cause**: The redirect URI in Google Cloud Console doesn't match the configured site URL.
 
-**Solution**: 
+**Solution**:
 1. Check your `INFISICAL_SITE_URL` in `.env`
 2. Ensure the redirect URI in Google Cloud Console matches: `{INFISICAL_SITE_URL}/api/v1/sso/google`
 3. Wait a few minutes for Google's changes to propagate
@@ -234,4 +234,3 @@ To disable Google SSO:
 **Last Updated**: 2026-01-04  
 **Configured By**: Automated setup script  
 **Status**: ✅ Active
-

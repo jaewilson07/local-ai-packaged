@@ -21,14 +21,14 @@ echo "1. Checking container status..."
 if docker ps --format "{{.Names}}" | grep -q "^supabase-analytics$"; then
     STATUS=$(docker inspect supabase-analytics --format='{{.State.Status}}')
     HEALTH=$(docker inspect supabase-analytics --format='{{.State.Health.Status}}' 2>/dev/null || echo "no-healthcheck")
-    
+
     if [ "$STATUS" = "running" ]; then
         echo -e "${GREEN}✓ Container is running${NC}"
     else
         echo -e "${RED}✗ Container status: $STATUS${NC}"
         exit 1
     fi
-    
+
     if [ "$HEALTH" = "healthy" ]; then
         echo -e "${GREEN}✓ Health check: $HEALTH${NC}"
     elif [ "$HEALTH" = "starting" ]; then

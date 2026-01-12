@@ -43,8 +43,8 @@ def get_infisical_secrets() -> dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
                 if "=" in line:
@@ -56,7 +56,7 @@ def get_infisical_secrets() -> dict[str, str]:
                     ):
                         value = value[1:-1]
                     secrets_dict[key] = value
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError):
         pass
     return secrets_dict
 

@@ -147,6 +147,39 @@ result = await agent.run("test query")
 
         print("=" * 80)
 
+        # Verify via API
+        if result.get("success"):
+            try:
+                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+                from sample.shared.verification_helpers import verify_neo4j_data
+
+                api_base_url = get_api_base_url()
+                headers = get_auth_headers()
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                success, message = verify_neo4j_data(
+                    api_base_url=api_base_url,
+                    headers=headers,
+                    expected_nodes_min=1,
+                )
+                print(message)
+
+                if success:
+                    print("\n✅ Verification passed!")
+                    sys.exit(0)
+                else:
+                    print("\n⚠️  Verification failed (nodes may need time to sync)")
+                    sys.exit(1)
+            except Exception as e:
+                logger.warning(f"Verification error: {e}")
+                print(f"\n⚠️  Verification error: {e}")
+                sys.exit(1)
+        else:
+            sys.exit(1)
+
     except Exception as e:
         logger.exception(f"❌ Error during script validation: {e}")
         print(f"\n❌ Fatal error: {e}")

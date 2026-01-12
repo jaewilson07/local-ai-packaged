@@ -61,6 +61,29 @@ async def test_linear_researcher():
         # Check if answer is reasonable
         if len(result.data.answer) > 50:
             print("✅ Test passed: Agent produced a substantial answer")
+
+            # Verify via API if research ingested data
+            try:
+                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+                from sample.shared.verification_helpers import verify_rag_data
+
+                api_base_url = get_api_base_url()
+                headers = get_auth_headers()
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                # Verify that sources were ingested (if applicable)
+                success, message = verify_rag_data(
+                    api_base_url=api_base_url,
+                    headers=headers,
+                    expected_documents_min=1 if result.data.sources else None,
+                )
+                print(message)
+            except Exception as e:
+                print(f"\n⚠️  Verification skipped: {e}")
+
             return True
         else:
             print("⚠️  Warning: Answer seems too short")

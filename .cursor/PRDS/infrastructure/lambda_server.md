@@ -107,7 +107,7 @@ class AgentDependencies(BaseModel):
 2. **Option B: Use `Field` with `arbitrary_types_allowed`** (Recommended)
    ```python
    from pydantic import Field, ConfigDict
-   
+
    class AgentDependencies(BaseModel):
        model_config = ConfigDict(arbitrary_types_allowed=True)
        mongo_client: Optional[AsyncMongoClient] = Field(default=None, exclude=True)
@@ -119,7 +119,7 @@ class AgentDependencies(BaseModel):
 3. **Option C: Implement Custom Pydantic Schema** (Most Robust)
    ```python
    from pydantic_core import core_schema
-   
+
    @classmethod
    def __get_pydantic_core_schema__(cls, source_type, handler):
        return core_schema.any_schema()
@@ -171,7 +171,7 @@ class Settings(BaseSettings):
 2. **Option B: Make Optional with Validation** (Recommended)
    ```python
    mongodb_uri: Optional[str] = None
-   
+
    @field_validator('mongodb_uri')
    @classmethod
    def validate_mongodb_uri(cls, v):
@@ -362,7 +362,7 @@ from pydantic import BaseModel, ConfigDict
 
 class AgentDependencies(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     mongo_client: Optional[AsyncMongoClient] = None
     # ... rest of fields
 ```

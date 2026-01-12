@@ -10,6 +10,7 @@ import httpx
 from server.projects.auth.config import config as auth_config
 from server.projects.auth.services.minio_service import MinIOService
 from server.projects.auth.services.supabase_service import SupabaseService
+from server.projects.shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ except ImportError:
 
 
 @dataclass
-class ComfyUIWorkflowDeps:
+class ComfyUIWorkflowDeps(BaseDependencies):
     """Dependencies for ComfyUI workflow management."""
 
     # Services
@@ -92,6 +93,33 @@ class ComfyUIWorkflowDeps:
 
         if self.supabase_service:
             await self.supabase_service.close()
+
+    @classmethod
+    def from_settings(
+        cls,
+        supabase_service: SupabaseService | None = None,
+        minio_service: MinIOService | None = None,
+        google_drive_service: object | None = None,
+        **overrides,
+    ) -> "ComfyUIWorkflowDeps":
+        """
+        Create dependencies from application settings.
+
+        Args:
+            supabase_service: Optional pre-initialized Supabase service
+            minio_service: Optional pre-initialized MinIO service
+            google_drive_service: Optional pre-initialized Google Drive service
+            **overrides: Additional overrides
+
+        Returns:
+            ComfyUIWorkflowDeps instance
+        """
+        return cls(
+            supabase_service=supabase_service or SupabaseService(auth_config),
+            minio_service=minio_service or MinIOService(auth_config),
+            google_drive_service=google_drive_service,
+            **overrides,
+        )
 
 
 async def get_comfyui_workflow_deps() -> AsyncGenerator[ComfyUIWorkflowDeps, None]:

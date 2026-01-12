@@ -10,12 +10,12 @@ This guide shows how to use the `cloudflared` CLI to migrate Postman from `api.d
    ```bash
    # macOS
    brew install cloudflared
-   
+
    # Linux
    wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
    chmod +x cloudflared-linux-amd64
    sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
-   
+
    # Windows
    winget install --id Cloudflare.cloudflared
    ```
@@ -30,7 +30,7 @@ This guide shows how to use the `cloudflared` CLI to migrate Postman from `api.d
    ```bash
    # List all tunnels
    cloudflared tunnel list
-   
+
    # Or check your .env file
    grep CLOUDFLARE_TUNNEL_ID .env
    ```

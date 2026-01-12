@@ -50,7 +50,7 @@ if [ "$DRY_RUN" = false ]; then
         python "$SCRIPT_DIR/run_deep_research_tests.py"
     fi
     TEST_EXIT_CODE=$?
-    
+
     if [ $TEST_EXIT_CODE -ne 0 ]; then
         echo -e "${RED}Tests failed with exit code $TEST_EXIT_CODE${NC}"
     else
@@ -69,13 +69,13 @@ if [ "$DRY_RUN" = false ]; then
     if [ -f "$RESULTS_FILE" ]; then
         # Add issues from failures
         python "$SCRIPT_DIR/track_issues.py" --add "$RESULTS_FILE" || true
-        
+
         # Update scratchpad
         python "$SCRIPT_DIR/track_test_debugging.py" \
             --results "$RESULTS_FILE" \
             --update-scratchpad \
             --add-issues || true
-        
+
         echo -e "${GREEN}✓ Issues tracked and scratchpad updated${NC}"
     else
         echo -e "${YELLOW}Warning: Results file not found: $RESULTS_FILE${NC}"
@@ -93,7 +93,7 @@ if [ "$DRY_RUN" = false ]; then
         # Show issue summary
         python "$SCRIPT_DIR/track_issues.py" --summary || true
         echo ""
-        
+
         # Show recent test run info
         if command -v jq &> /dev/null; then
             echo "Recent Test Run:"

@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from server.core.api_utils import DependencyContext
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
 

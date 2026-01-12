@@ -180,7 +180,7 @@ def check_http_strict_transport_security(headers, zone_id):
                     max_age = hsts["strict_transport_security"].get("max_age")
                     print(f"    Max age: {max_age} seconds")
                 else:
-                    print("  ℹ️  HSTS is disabled (OK for testing)")
+                    print("  [i] HSTS is disabled (OK for testing)")
     except Exception as e:
         print(f"  ⚠️  Could not check HSTS: {e}")
 

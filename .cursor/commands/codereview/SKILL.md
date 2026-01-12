@@ -25,7 +25,7 @@ handoffs:
   - label: Start Implementation
     agent: agent
     prompt: Implement the approved plan exactly as written. Do not redesign or expand scope.
-   
+
 
   - label: Update Plan File
     agent: agent

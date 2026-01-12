@@ -73,6 +73,10 @@ async def main():
         # Create run context using helper
         ctx = create_run_context(deps)
 
+        # Track results
+        all_results = []
+        total_chunks = 0
+
         # Crawl and ingest each URL
         for i, url in enumerate(urls, 1):
             print(f"\n{'=' * 80}")
@@ -85,6 +89,10 @@ async def main():
             result = await crawl_and_ingest_single_page(
                 ctx=ctx, url=url, chunk_size=chunk_size, chunk_overlap=chunk_overlap
             )
+
+            all_results.append(result)
+            if result.get("success"):
+                total_chunks += result.get("chunks_created", 0)
 
             # Display results
             print("\n✅ Crawl and ingestion completed!")
@@ -106,6 +114,39 @@ async def main():
         print("The crawled pages are now searchable via MongoDB RAG.")
         print("Run semantic_search_example.py or hybrid_search_example.py to test.")
         print("=" * 80)
+
+        # Verify via API
+        try:
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_rag_data
+
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            successful_results = [r for r in all_results if r.get("success")]
+
+            success, message = verify_rag_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                expected_documents_min=len(successful_results) if successful_results else None,
+                expected_chunks_min=total_chunks if total_chunks > 0 else None,
+            )
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed (data may need time to propagate)")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
 
     except Exception as e:
         logger.exception(f"❌ Error during crawl: {e}")

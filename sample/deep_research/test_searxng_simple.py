@@ -48,6 +48,24 @@ async def test_searxng_search():
                 print(f"     Score: {item.get('score', 'N/A')}")
                 print()
 
+            # Verify results
+            try:
+                from sample.shared.verification_helpers import verify_search_results
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                success, message = verify_search_results(results, expected_min=1)
+                print(message)
+
+                if success:
+                    print("\n✅ Verification passed!")
+                else:
+                    print("\n⚠️  Verification failed")
+            except Exception as e:
+                print(f"\n⚠️  Verification error: {e}")
+
             return True
         else:
             print("  ⚠ No results returned")

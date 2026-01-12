@@ -1,7 +1,6 @@
 """Configuration management for Discord character bot."""
 
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -16,7 +15,7 @@ class Config:
 
     # Lambda API configuration
     LAMBDA_API_URL: str = os.getenv("LAMBDA_API_URL", "http://lambda:8000")
-    LAMBDA_API_KEY: Optional[str] = os.getenv("LAMBDA_API_KEY")
+    LAMBDA_API_KEY: str | None = os.getenv("LAMBDA_API_KEY")
 
     # Character settings
     MAX_CHARACTERS_PER_CHANNEL: int = int(os.getenv("MAX_CHARACTERS_PER_CHANNEL", "5"))

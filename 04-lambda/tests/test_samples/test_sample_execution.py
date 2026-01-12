@@ -102,7 +102,7 @@ async def execute_sample_main(service_dir: str, filename: str, mocks: dict) -> t
             ),
             patch.multiple(
                 "server.projects.graphiti_rag.dependencies",
-                Graphiti=mocks.get("graphiti", AsyncMock),
+                Graphiti=mocks.get("graphiti", Mock),
             ),
             patch.multiple(
                 "server.projects.calendar.dependencies",
@@ -111,8 +111,8 @@ async def execute_sample_main(service_dir: str, filename: str, mocks: dict) -> t
             patch.multiple(
                 "server.projects.persona.dependencies",
                 AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),
-                openai=mocks.get("openai", Mock()),
             ),
+            patch("openai.AsyncOpenAI", mocks.get("openai", Mock())),
             patch.multiple(
                 "server.projects.openwebui_export.dependencies",
                 AsyncMongoClient=mocks.get("mongodb_client", AsyncMock),

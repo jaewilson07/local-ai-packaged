@@ -340,8 +340,8 @@ def get_infisical_secrets() -> dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
                 if "=" in line:
@@ -353,7 +353,7 @@ def get_infisical_secrets() -> dict[str, str]:
                     ):
                         value = value[1:-1]
                     secrets_dict[key] = value
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError):
         pass
     return secrets_dict
 
@@ -368,9 +368,9 @@ def get_env_var(key: str, default: str = "") -> str:
 
 def get_auth_headers():
     """Get authentication headers for Cloudflare API."""
-    API_TOKEN = get_env_var("CLOUDFLARE_API_TOKEN", "")
-    CLOUDFLARE_EMAIL = get_env_var("CLOUDFLARE_EMAIL", "")
-    CLOUDFLARE_API_KEY = get_env_var("CLOUDFLARE_API_KEY", "")
+    API_TOKEN = get_env_var("CLOUDFLARE_API_TOKEN", "")  # noqa: N806
+    CLOUDFLARE_EMAIL = get_env_var("CLOUDFLARE_EMAIL", "")  # noqa: N806
+    CLOUDFLARE_API_KEY = get_env_var("CLOUDFLARE_API_KEY", "")  # noqa: N806
 
     if API_TOKEN and API_TOKEN.strip():
         return {
@@ -446,17 +446,17 @@ def create_or_get_standard_reusable_policy(headers, account_id):
             return policy.get("id")
 
     # Get configuration from environment
-    ALLOWED_EMAILS_STR = get_env_var("CLOUDFLARE_ACCESS_EMAILS", "")
-    ALLOWED_EMAILS = ALLOWED_EMAILS_STR.split(",") if ALLOWED_EMAILS_STR else []
-    ALLOWED_EMAIL_DOMAIN = get_env_var("CLOUDFLARE_ACCESS_EMAIL_DOMAIN", "")
-    GOOGLE_IDP_ID = get_env_var("GOOGLE_IDP_ID", "")
+    ALLOWED_EMAILS_STR = get_env_var("CLOUDFLARE_ACCESS_EMAILS", "")  # noqa: N806
+    ALLOWED_EMAILS = ALLOWED_EMAILS_STR.split(",") if ALLOWED_EMAILS_STR else []  # noqa: N806
+    ALLOWED_EMAIL_DOMAIN = get_env_var("CLOUDFLARE_ACCESS_EMAIL_DOMAIN", "")  # noqa: N806
+    GOOGLE_IDP_ID = get_env_var("GOOGLE_IDP_ID", "")  # noqa: N806
 
     # Build include rules
     include_rules = []
 
     if ALLOWED_EMAILS and ALLOWED_EMAILS[0]:
-        for email in ALLOWED_EMAILS:
-            email = email.strip()
+        for raw_email in ALLOWED_EMAILS:
+            email = raw_email.strip()
             if email:
                 include_rules.append({"email": {"email": email}})
 

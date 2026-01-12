@@ -385,7 +385,7 @@ def check_infisical_cli() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -402,7 +402,7 @@ def check_infisical_auth() -> bool:
         # If not authenticated, it will show auth error
         output = (result.stdout or result.stderr or "").lower()
         return not ("authenticate" in output or "login" in output)
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -443,8 +443,8 @@ def get_infisical_secrets() -> dict[str, str]:
 
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 
@@ -519,8 +519,8 @@ def sync_infisical_to_env(env_path: Path) -> bool:
 
         # Parse Infisical secrets
         infisical_secrets = {}
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
+        for raw_line in result.stdout.strip().split("\n"):
+            line = raw_line.strip()
             if not line or line.startswith("#"):
                 continue
 
@@ -539,7 +539,7 @@ def sync_infisical_to_env(env_path: Path) -> bool:
         if not env_path.exists():
             return False
 
-        with open(env_path, encoding="utf-8") as f:
+        with env_path.open(encoding="utf-8") as f:
             lines = f.readlines()
 
         # Update .env file with Infisical secrets
@@ -578,7 +578,7 @@ def sync_infisical_to_env(env_path: Path) -> bool:
                 updated_keys.add(key)
 
         # Write updated .env file
-        with open(env_path, "w", encoding="utf-8") as f:
+        with env_path.open("w", encoding="utf-8") as f:
             f.writelines(new_lines)
 
         if updated_keys:
@@ -682,7 +682,8 @@ CLOUDFLARE_TUNNEL_TOKEN=
 # COMFYUI_HOSTNAME=
 # INFISICAL_HOSTNAME=
 """
-    with open(env_path, "w") as f:
+    env_path_obj = Path(env_path)
+    with env_path_obj.open("w") as f:
         f.write(template)
     print(f"Created basic .env template at {env_path}")
 
@@ -777,7 +778,7 @@ def main():
 
     # Read existing lines
     try:
-        with open(env_path) as f:
+        with env_path.open() as f:
             lines = f.readlines()
     except Exception as e:
         print(f"Error reading .env file: {e}", file=sys.stderr)
@@ -790,7 +791,7 @@ def main():
         print("Warning: .env file appears to be empty or only contains comments.")
         print("Creating basic template...")
         create_basic_env_template(env_path)
-        with open(env_path) as f:
+        with env_path.open() as f:
             lines = f.readlines()
 
     # Get existing secrets from Infisical if using it
@@ -1191,13 +1192,13 @@ def main():
 
         # Write new content (only if not using Infisical, or if Infisical sync didn't update everything)
         if not use_infisical:
-            with open(env_path, "w") as f:
+            with env_path.open("w") as f:
                 f.writelines(new_lines)
             print(f"Updated {generated_count} passwords in .env")
         else:
             # Re-read .env after Infisical sync to preserve any updates
             # But we still need to write non-secret config updates
-            with open(env_path, encoding="utf-8") as f:
+            with env_path.open(encoding="utf-8") as f:
                 current_lines = f.readlines()
 
             # Merge non-secret updates from new_lines into current .env
@@ -1230,7 +1231,7 @@ def main():
                     ]:
                         merged_lines.append(line)
 
-            with open(env_path, "w", encoding="utf-8") as f:
+            with env_path.open("w", encoding="utf-8") as f:
                 f.writelines(merged_lines)
 
             print(f"Updated {generated_count} passwords (set in Infisical, synced to .env)")

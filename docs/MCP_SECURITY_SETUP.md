@@ -4,7 +4,7 @@
 
 When exposing the Lambda MCP server externally via `https://api.datacrew.space/mcp`, you **must** implement authentication to prevent unauthorized access.
 
-**Current Status**: 
+**Current Status**:
 - ✅ Cloudflare Tunnel is already configured for `api.datacrew.space`
 - ✅ Traffic is routing through Caddy to the Lambda server
 - ⚠️ **Cloudflare Access authentication is NOT yet enabled** (API is currently publicly accessible)
@@ -111,9 +111,9 @@ If you prefer API key authentication at the application level, you can add it to
    from fastapi import HTTPException, Security
    from fastapi.security import APIKeyHeader
    from server.config import settings
-   
+
    api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-   
+
    async def verify_api_key(api_key: str = Security(api_key_header)):
        if not settings.api_key:
            return None  # No API key required if not configured
@@ -126,7 +126,7 @@ If you prefer API key authentication at the application level, you can add it to
    ```python
    # In 04-lambda/server/main.py
    from server.core.auth import verify_api_key
-   
+
    # Apply to MCP mount (requires FastMCP support for middleware)
    # Or apply at Caddy level with header validation
    ```
@@ -244,4 +244,3 @@ python3 00-infrastructure/scripts/manage-cloudflare-access.py --list
 - [Cloudflare Access Setup](../00-infrastructure/scripts/manage-cloudflare-access.py)
 - [Lambda API Cloudflare Setup](./API_CLOUDFLARE_SETUP.md)
 - [MCP Connection Troubleshooting](./MCP_CONNECTION_TROUBLESHOOTING.md)
-

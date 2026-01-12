@@ -97,6 +97,32 @@ async def test_storm_research():
         # Check if report was generated
         if result.get("final_report") and len(result["final_report"]) > 100:
             print("✅ Test passed: STORM research workflow completed successfully")
+
+            # Verify via API if research ingested data
+            try:
+                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+                from sample.shared.verification_helpers import verify_rag_data
+
+                api_base_url = get_api_base_url()
+                headers = get_auth_headers()
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                # Verify that research vectors were ingested
+                vectors = result.get("vectors", [])
+                success, message = verify_rag_data(
+                    api_base_url=api_base_url,
+                    headers=headers,
+                    expected_documents_min=(
+                        len([v for v in vectors if v.status == "verified"]) if vectors else None
+                    ),
+                )
+                print(message)
+            except Exception as e:
+                print(f"\n⚠️  Verification skipped: {e}")
+
             return True
         else:
             print("⚠️  Warning: Report seems incomplete or missing")

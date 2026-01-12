@@ -67,7 +67,7 @@ class LoRASyncService:
             comfyui_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write file to ComfyUI data directory
-            with open(comfyui_path, "wb") as f:
+            with comfyui_path.open("wb") as f:
                 f.write(file_data)
 
             logger.info(f"Synced LoRA to ComfyUI: {comfyui_path}")
@@ -164,7 +164,7 @@ class LoRASyncService:
             comfyui_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write file to ComfyUI data directory
-            with open(comfyui_path, "wb") as f:
+            with comfyui_path.open("wb") as f:
                 f.write(file_data)
 
             logger.info(f"Synced LoRA from Google Drive to ComfyUI: {comfyui_path}")

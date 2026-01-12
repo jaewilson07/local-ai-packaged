@@ -112,10 +112,11 @@ def ensure_network_exists(network_name="ai-network"):
 def load_env_file(env_path=".env"):
     """Load environment variables from .env file."""
     env_vars = {}
-    if os.path.exists(env_path):
-        with open(env_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
+    env_path_obj = Path(env_path)
+    if env_path_obj.exists():
+        with env_path_obj.open(encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     key = key.strip()
@@ -126,17 +127,18 @@ def load_env_file(env_path=".env"):
 
 def is_dhi_authenticated():
     """Check if already authenticated to dhi.io registry."""
-    docker_config_path = os.path.expanduser("~/.docker/config.json")
+    docker_config_path_str = os.path.expanduser("~/.docker/config.json")
     if platform.system() == "Windows":
-        docker_config_path = os.path.join(
+        docker_config_path_str = os.path.join(
             os.environ.get("USERPROFILE", ""), ".docker", "config.json"
         )
 
-    if not os.path.exists(docker_config_path):
+    docker_config_path = Path(docker_config_path_str)
+    if not docker_config_path.exists():
         return False
 
     try:
-        with open(docker_config_path, encoding="utf-8") as f:
+        with docker_config_path.open(encoding="utf-8") as f:
             config = json.load(f)
             auths = config.get("auths", {})
             # Check if dhi.io is in the auths
@@ -362,7 +364,7 @@ def stop_services(stack="all", environment="private"):
                             check=False,
                             timeout=10,
                         )
-            except Exception:
+            except (subprocess.SubprocessError, OSError):
                 # Continue even if individual container removal fails
                 pass
 
@@ -716,7 +718,8 @@ def generate_searxng_secret_key():
         random_key = secrets.token_hex(32)
 
         # Read the settings file
-        with open(settings_path) as f:
+        settings_path_obj = Path(settings_path)
+        with settings_path_obj.open() as f:
             content = f.read()
 
         # Check if the placeholder key still exists
@@ -730,18 +733,18 @@ def generate_searxng_secret_key():
         # Write the updated content back to the file
         # Use atomic write: write to a temporary file in the same directory, then rename
         # This ensures the file is either fully written or not changed at all
-        temp_path = settings_path + ".tmp"
+        temp_path = settings_path_obj.with_suffix(settings_path_obj.suffix + ".tmp")
         try:
-            with open(temp_path, "w") as f:
+            with temp_path.open("w") as f:
                 f.write(content)
             # Atomic rename (works on Unix-like systems and Windows)
-            os.replace(temp_path, settings_path)
+            temp_path.replace(settings_path_obj)
         except (OSError, PermissionError):
             # If atomic write fails, try direct write as fallback
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+            if temp_path.exists():
+                temp_path.unlink()
             # Direct write (may be less safe but works if directory permissions allow)
-            with open(settings_path, "w") as f:
+            with settings_path_obj.open("w") as f:
                 f.write(content)
 
         print("SearXNG secret key generated successfully.")
@@ -811,7 +814,7 @@ def check_infisical_cli() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -821,6 +824,7 @@ def check_infisical_auth() -> bool:
         result = subprocess.run(
             ["infisical", "secrets"],
             capture_output=True,
+            text=True,
             timeout=10,
             check=False,
         )
@@ -828,7 +832,7 @@ def check_infisical_auth() -> bool:
         # If not authenticated, it will show auth error
         output = (result.stdout or result.stderr or "").lower()
         return not ("authenticate" in output or "login" in output)
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -903,8 +907,8 @@ def get_infisical_secrets() -> dict[str, str]:
 
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 
@@ -980,7 +984,7 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
     env_vars = {}
     env_lines = []
 
-    with open(env_file_path, encoding="utf-8") as f:
+    with env_file_path.open(encoding="utf-8") as f:
         for line in f:
             env_lines.append(line)
             stripped = line.strip()
@@ -1048,7 +1052,7 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
 
     # Write updated .env file
     try:
-        with open(env_file_path, "w", encoding="utf-8") as f:
+        with env_file_path.open("w", encoding="utf-8") as f:
             f.writelines(new_lines)
 
         if not quiet and (updated_count > 0 or added_count > 0):
@@ -1063,14 +1067,14 @@ def sync_infisical_to_env(env_path: str = ".env", quiet: bool = False) -> bool:
 
 def check_and_fix_docker_compose_for_searxng():
     """Check and modify 03-apps/docker-compose.yml for SearXNG first run."""
-    docker_compose_path = "03-apps/docker-compose.yml"
-    if not os.path.exists(docker_compose_path):
+    docker_compose_path = Path("03-apps/docker-compose.yml")
+    if not docker_compose_path.exists():
         print(f"Warning: Docker Compose file not found at {docker_compose_path}")
         return
 
     try:
         # Read the docker-compose.yml file
-        with open(docker_compose_path) as file:
+        with docker_compose_path.open() as file:
             content = file.read()
 
         # Default to first run
@@ -1129,7 +1133,7 @@ def check_and_fix_docker_compose_for_searxng():
             )
 
             # Write the modified content back
-            with open(docker_compose_path, "w") as file:
+            with docker_compose_path.open("w") as file:
                 file.write(modified_content)
 
             print(
@@ -1149,7 +1153,7 @@ def check_and_fix_docker_compose_for_searxng():
             )
 
             # Write the modified content back
-            with open(docker_compose_path, "w") as file:
+            with docker_compose_path.open("w") as file:
                 file.write(modified_content)
 
     except Exception as e:

@@ -157,6 +157,30 @@ async def run_research(query: str, verbose: bool = False):
         print(f"🔗 Citations: {len(result.data.citations)}")
         print()
 
+        # Verify research results
+        try:
+            from sample.shared.verification_helpers import verify_search_results
+
+            print_section("Verification", "=")
+
+            # Verify that we got sources and an answer
+            sources = result.data.sources if result.data.sources else []
+            success, message = verify_search_results(sources, expected_min=1)
+            print(message)
+
+            if result.data.answer and len(result.data.answer) > 0:
+                print("✅ Answer generated")
+            else:
+                print("❌ No answer generated")
+                success = False
+
+            if success:
+                print("\n✅ Verification passed!")
+            else:
+                print("\n⚠️  Verification failed")
+        except Exception as e:
+            print(f"\n⚠️  Verification error: {e}")
+
         return result
 
     except Exception as e:

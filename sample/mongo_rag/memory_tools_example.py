@@ -69,14 +69,12 @@ async def main():
     # Initialize dependencies with user context (for RLS)
     # In production, these would come from authenticated user session
     from uuid import uuid4
+
     deps_user_id = str(uuid4())  # Simulated user ID for dependencies
     deps_user_email = "demo@example.com"  # Simulated user email
-    
+
     deps = AgentDependencies.from_settings(
-        user_id=deps_user_id,
-        user_email=deps_user_email,
-        is_admin=False,
-        user_groups=[]
+        user_id=deps_user_id, user_email=deps_user_email, is_admin=False, user_groups=[]
     )
     await deps.initialize()
 
@@ -205,6 +203,37 @@ async def main():
         print()
         print("All stored data persists in MongoDB and can be retrieved across sessions.")
         print("=" * 80)
+
+        # Verify via API
+        try:
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_mongodb_data
+
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_mongodb_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                collection="memory_messages",
+                expected_count_min=1,
+            )
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed (data may need time to propagate)")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
 
     except Exception as e:
         logger.exception(f"❌ Error during memory tools demo: {e}")

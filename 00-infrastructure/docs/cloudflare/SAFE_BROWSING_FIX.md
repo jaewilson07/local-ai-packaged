@@ -122,7 +122,3 @@ docker logs n8n --tail 50
 - ✅ Service logs reviewed - no issues
 - ✅ Security headers configured - proper
 - ⏳ Google Safe Browsing review - pending user action
-
-
-
-

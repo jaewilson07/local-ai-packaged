@@ -246,16 +246,51 @@ async def main():
 
     print(f"\n{'=' * 80}")
 
+    # Verify via API
+    try:
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_rag_data
+
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
+
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
+
+        # Get total chunks from results
+        total_chunks = 0
+        if single_result.get("success"):
+            total_chunks += single_result.get("chunks_created", 0)
+        if deep_result.get("success"):
+            total_chunks += deep_result.get("chunks_created", 0)
+
+        success, message = verify_rag_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_documents_min=(
+                1 if (single_result.get("success") or deep_result.get("success")) else None
+            ),
+            expected_chunks_min=total_chunks if total_chunks > 0 else None,
+        )
+        print(message)
+
+        api_verification_passed = success
+    except Exception as e:
+        print(f"\n⚠️  Verification error: {e}")
+        api_verification_passed = False
+
     # Exit code
     if (
         single_result.get("success")
         and deep_result.get("success")
         and validation_result.get("success")
+        and api_verification_passed
     ):
-        print("✅ All operations completed successfully!")
+        print("\n✅ All operations completed successfully!")
         sys.exit(0)
     else:
-        print("⚠️  Some operations failed. Check output above for details.")
+        print("\n⚠️  Some operations failed. Check output above for details.")
         sys.exit(1)
 
 

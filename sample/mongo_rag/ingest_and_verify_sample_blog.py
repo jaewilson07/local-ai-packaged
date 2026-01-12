@@ -22,7 +22,6 @@ Usage:
 
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -88,7 +87,7 @@ async def ingest_document(file_path: Path, clean_before: bool = False) -> dict[s
         params["clean_before"] = "true"
 
     # Read file content
-    with open(file_path, "rb") as f:
+    with file_path.open("rb") as f:
         file_content = f.read()
 
     # Prepare multipart form data
@@ -102,7 +101,7 @@ async def ingest_document(file_path: Path, clean_before: bool = False) -> dict[s
             try:
                 error_json = response.json()
                 error_text = json.dumps(error_json, indent=2)
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 pass
             if HAS_RICH:
                 console.print(f"\n[red]❌ HTTP Error: {response.status_code}[/red]")
@@ -322,35 +321,35 @@ async def verify_graphiti(entity_name: str | None = None) -> dict[str, Any] | No
 async def verify_me_data_api() -> dict[str, Any] | None:
     """
     Verify ingestion results via /api/me/data/rag endpoint.
-    
+
     This shows user-scoped document and chunk counts.
     """
     api_base = get_api_base_url()
     url = f"{api_base}/api/me/data/rag"
     headers = get_auth_headers()
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
-            
+
             if HAS_RICH:
                 console.print("\n[bold cyan]📊 Data Summary (/api/me/data/rag)[/bold cyan]")
-                
+
                 rag_data = data.get("rag", {})
                 mongodb = rag_data.get("mongodb", {})
-                
+
                 table = Table(show_header=True, header_style="bold magenta")
                 table.add_column("Metric", style="cyan")
                 table.add_column("Value", style="green")
-                
+
                 table.add_row("Documents", str(mongodb.get("documents", 0)))
                 table.add_row("Chunks", str(mongodb.get("chunks", 0)))
                 table.add_row("Sources", str(mongodb.get("sources", 0)))
-                
+
                 console.print(table)
-                
+
                 user_email = get_cloudflare_email()
                 if user_email:
                     console.print(f"\n[dim]User: {user_email}[/dim]")
@@ -364,7 +363,7 @@ async def verify_me_data_api() -> dict[str, Any] | None:
                 user_email = get_cloudflare_email()
                 if user_email:
                     print(f"  User: {user_email}")
-            
+
             return data
     except Exception as e:
         if HAS_RICH:
@@ -495,7 +494,7 @@ async def main():
         else:
             print("\nStep 5: Verification via /api/me/data/rag")
         print("=" * 60)
-        
+
         me_data_result = await verify_me_data_api()
 
         # Summary

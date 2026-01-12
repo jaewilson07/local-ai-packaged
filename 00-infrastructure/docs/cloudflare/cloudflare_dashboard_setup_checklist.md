@@ -206,6 +206,3 @@ Once all items are checked:
 2. Add additional users as needed
 3. Create additional service tokens for different integrations
 4. Consider extending Access to other services
-
-
-

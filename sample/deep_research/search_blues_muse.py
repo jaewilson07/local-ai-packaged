@@ -162,6 +162,33 @@ async def main():
     print("Sample completed!")
     print("=" * 80)
 
+    # Verify that queries returned results
+    try:
+        from sample.shared.verification_helpers import verify_search_results
+
+        all_matches = []
+        for query in queries:
+            query_result = await query_knowledge_graph(ctx=ctx, query=query, match_count=5)
+            if query_result.get("success") and query_result.get("matches"):
+                all_matches.extend(query_result["matches"])
+
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
+
+        success, message = verify_search_results(all_matches, expected_min=1)
+        print(message)
+
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n⚠️  Verification failed: No search results found")
+            sys.exit(1)
+    except Exception as e:
+        print(f"\n⚠️  Verification error: {e}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -139,4 +139,3 @@ After securing:
 - [MCP Security Setup Guide](./MCP_SECURITY_SETUP.md)
 - [Cloudflare Access Documentation](https://developers.cloudflare.com/cloudflare-one/policies/access/)
 - [Manage Cloudflare Access Script](../00-infrastructure/scripts/manage-cloudflare-access.py)
-

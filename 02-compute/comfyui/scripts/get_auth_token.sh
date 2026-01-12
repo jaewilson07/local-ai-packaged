@@ -100,4 +100,3 @@ if [ -n "$WEB_PASSWORD_B64" ]; then
 fi
 echo "   export API_BASIC_AUTH=\"$BASIC_AUTH\""
 echo ""
-

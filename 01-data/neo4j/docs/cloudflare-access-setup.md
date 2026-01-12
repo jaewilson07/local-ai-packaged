@@ -128,4 +128,3 @@ After setting up Cloudflare Access:
 - [Data Isolation](data-isolation.md) - User-specific data access patterns
 - [User Management](user-management.md) - Managing Neo4j user accounts
 - [Bolt API Authentication](bolt-api-authentication.md) - Programmatic access guide
-

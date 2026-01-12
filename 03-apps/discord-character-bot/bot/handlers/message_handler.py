@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 import discord
 
@@ -51,7 +50,7 @@ async def handle_message(message: discord.Message, api_client: APIClient, client
 
         # Check if message mentions any character
         message_lower = message.content.lower()
-        mentioned_character: Optional[dict] = None
+        mentioned_character: dict | None = None
 
         for char in characters:
             character_name = (char.get("name") or char.get("character_id", "")).lower()
@@ -120,8 +119,8 @@ async def handle_message(message: discord.Message, api_client: APIClient, client
 
         except Exception as e:
             logger.exception(f"Error generating character response: {e}")
-            # Optionally send error message to user
-            # await message.channel.send(f"❌ Error: {str(e)}")
+            # Optionally send error message to user  # noqa: ERA001
+            # await message.channel.send(f"❌ Error: {str(e)}")  # noqa: ERA001
 
     except Exception as e:
         logger.exception(f"Error handling message: {e}")

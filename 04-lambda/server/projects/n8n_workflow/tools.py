@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from httpx import HTTPStatusError
+from httpx import HTTPStatusError, RequestError
 from pydantic_ai import RunContext
 
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
@@ -395,7 +395,7 @@ async def discover_n8n_nodes(ctx: RunContext[N8nWorkflowDeps], category: str | N
                 if response.status_code == 200:
                     nodes_data = response.json()
                     break
-            except Exception:
+            except (RequestError, HTTPStatusError):
                 continue
 
         if not nodes_data:

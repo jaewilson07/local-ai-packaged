@@ -36,9 +36,7 @@ async def test_orchestrate_conversation_tool(mock_persona_deps):
         patch(
             "server.projects.conversation.agent.ConversationOrchestrator"
         ) as mock_orchestrator_class,
-        patch(
-            "server.projects.conversation.agent.record_interaction", new_callable=AsyncMock
-        ),
+        patch("server.projects.conversation.agent.record_interaction", new_callable=AsyncMock),
     ):
         # Mock voice instructions
         mock_voice.return_value = "Be friendly and helpful"

@@ -2,6 +2,7 @@
 
 import logging
 
+import asyncpg
 from fastapi import APIRouter, Depends
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure
@@ -74,7 +75,7 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
                     {"user_email": user.email}, {"_id": 1}
                 ).to_list(length=None)
                 user_doc_ids = [doc["_id"] for doc in user_document_ids]
-                
+
                 if user_doc_ids:
                     # Count chunks that belong to user's documents
                     mongodb_chunks = await chunks_collection.count_documents(
@@ -91,13 +92,13 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
                 pipeline = [
                     {"$match": {"user_email": user.email}},
                     {"$group": {"_id": "$source"}},
-                    {"$count": "total"}
+                    {"$count": "total"},
                 ]
                 result = await documents_collection.aggregate(pipeline).to_list(length=1)
                 mongodb_sources = result[0]["total"] if result and result[0] else 0
 
             await mongo_client.close()
-        except Exception as e:
+        except (ConnectionFailure, Exception) as e:
             logger.warning(f"Failed to get MongoDB summary: {e}")
 
     # Supabase summary
@@ -115,7 +116,7 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
                         "SELECT COUNT(*) as count FROM items WHERE owner_email = $1", user.email
                     )
                 supabase_items = row["count"] if row else 0
-            except Exception:
+            except (asyncpg.PostgresError, asyncpg.UndefinedTableError):
                 # Table might not exist
                 supabase_items = 0
 
@@ -130,10 +131,10 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
                         user_id,
                     )
                 supabase_workflows = row["count"] if row else 0
-            except Exception:
+            except (asyncpg.PostgresError, asyncpg.UndefinedTableError):
                 # Table might not exist
                 supabase_workflows = 0
-            
+
             # Count workflow runs
             try:
                 if is_admin:
@@ -145,14 +146,20 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
                         user_id,
                     )
                 supabase_workflow_runs = row["count"] if row else 0
-            except Exception:
+            except (asyncpg.PostgresError, asyncpg.UndefinedTableError):
                 # Table might not exist
                 supabase_workflow_runs = 0
-    except Exception as e:
+    except (asyncpg.PostgresError, asyncpg.InterfaceError) as e:
         logger.warning(f"Failed to get Supabase summary: {e}")
         supabase_workflow_runs = 0
 
-    total_data_points = mongodb_documents + mongodb_chunks + supabase_items + supabase_workflows + supabase_workflow_runs
+    total_data_points = (
+        mongodb_documents
+        + mongodb_chunks
+        + supabase_items
+        + supabase_workflows
+        + supabase_workflow_runs
+    )
 
     return RAGSummary(
         mongodb_documents=mongodb_documents,

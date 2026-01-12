@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import RunContext
 from pymongo.errors import OperationFailure
 
+from server.core.exceptions import MongoDBException
 from server.projects.mongo_rag.config import config
 from server.projects.mongo_rag.dependencies import AgentDependencies
 from server.projects.mongo_rag.reranking.reranker import get_reranker, initialize_reranker
@@ -473,5 +474,5 @@ async def hybrid_search(
         try:
             logger.info("Falling back to semantic search only")
             return await semantic_search(ctx, query, match_count)
-        except Exception:
+        except (MongoDBException, RuntimeError, ValueError):
             return []

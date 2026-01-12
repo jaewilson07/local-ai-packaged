@@ -4,6 +4,7 @@ from typing import Any
 
 import openai
 
+from server.core.exceptions import LLMException
 from server.projects.persona.config import config
 from server.projects.persona.models import ConversationContext
 from server.projects.persona.protocols import PersonaStore
@@ -58,7 +59,7 @@ Example: deep_empathy|relationships|4"""
                 topic=topic,
                 depth_level=depth,
             )
-        except Exception:
+        except (LLMException, ValueError, RuntimeError):
             # Fall back to simple analysis
             pass
 

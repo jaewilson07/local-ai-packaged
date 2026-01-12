@@ -33,7 +33,7 @@ The conflict occurs because of how Docker Compose handles included files:
    include:
      - ./supabase/docker/docker-compose.yml
      - ./supabase/docker/docker-compose.s3.yml
-   
+
    services:
      infisical:
        # ... Infisical service definition
@@ -208,7 +208,7 @@ The Infisical frontend sends POST requests to `/api/v1/auth/token` **without the
    # Clear all cookies for infisical.datacrew.space
    # Chrome: Settings → Privacy → Clear browsing data → Cookies
    # Firefox: Settings → Privacy → Clear Data → Cookies
-   
+
    # Then hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
    ```
 
@@ -261,18 +261,18 @@ The Infisical frontend sends POST requests to `/api/v1/auth/token` **without the
    // Temporary Fix for Infisical Missing Content-Type Header
    (function() {
      console.log('🔧 Applying Infisical Content-Type header fix...');
-     
+
      const originalFetch = window.fetch;
      window.fetch = function(...args) {
        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
        const options = args[1] || {};
-       
+
        // Fix POST requests to Infisical API that are missing Content-Type
        if (url.includes('/api/v1/auth/token') && options.method === 'POST') {
          if (!options.headers) {
            options.headers = {};
          }
-         
+
          // Convert Headers object to plain object if needed
          if (options.headers instanceof Headers) {
            const headersObj = {};
@@ -281,17 +281,17 @@ The Infisical frontend sends POST requests to `/api/v1/auth/token` **without the
            });
            options.headers = headersObj;
          }
-         
+
          // Add Content-Type if missing
          if (!options.headers['Content-Type'] && !options.headers['content-type']) {
            options.headers['Content-Type'] = 'application/json';
            console.log('✅ Added Content-Type header to request:', url);
          }
        }
-       
+
        return originalFetch.apply(this, args);
      };
-     
+
      console.log('✅ Fix applied! Try logging in again.');
    })();
    ```
@@ -366,7 +366,7 @@ The Infisical frontend sends POST requests to `/api/v1/auth/token` **without the
 
 1. **Fix SITE_URL Domain Mismatch (For Dual Access):**
    - **Problem:** `SITE_URL=https://infisical.datacrew.space` but accessing via `http://localhost:8020`
-   - **Solution:** 
+   - **Solution:**
      - **Option A (Recommended):** Use `https://infisical.datacrew.space` for login - cookies work correctly
      - **Option B:** Set `INFISICAL_SITE_URL=http://localhost:8020` and `INFISICAL_HTTPS_ENABLED=false` for localhost-only access
      - **Option C:** Accept that localhost access is view-only when `SITE_URL` is set to Cloudflare domain
@@ -430,7 +430,7 @@ The user account exists but has **no organization membership** in the `org_membe
    # Get user ID
    docker exec infisical-db psql -U postgres -d postgres -c \
      "SELECT id, email FROM users WHERE email = 'YOUR_EMAIL@example.com';"
-   
+
    # Get organization ID
    docker exec infisical-db psql -U postgres -d postgres -c \
      "SELECT id, name FROM organizations;"
@@ -744,10 +744,10 @@ Replace:
    ```bash
    # Start database and Redis first
    docker compose up -d infisical-db infisical-redis
-   
+
    # Wait for them to be healthy
    docker ps | grep -E "(infisical-db|infisical-redis)"
-   
+
    # Then start backend
    docker compose up -d infisical-backend
    ```
@@ -1038,7 +1038,7 @@ User experienced an "immediate logout after login" loop. Specifically, after suc
     - However, the `org_memberships` table had **0 rows** for this user, likely lost during a previous volume reset or migration glitch.
     - **Fix:** Manually inserted the membership record into PostgreSQL:
       ```sql
-      INSERT INTO org_memberships ("userId", "orgId", role, status) 
+      INSERT INTO org_memberships ("userId", "orgId", role, status)
       VALUES ('...', '...', 'admin', 'accepted');
       ```
 - **2026-01-03 15:00**: Reverted `HTTPS_ENABLED` back to `true` (Correct setting) and restarted services.
@@ -1272,4 +1272,3 @@ docker run -d \
 - [Usage Guide](./usage.md) - Day-to-day operations and secret management
 - [Design Documentation](./design.md) - Architecture and design decisions
 - [Infisical Official Documentation](https://infisical.com/docs)
-

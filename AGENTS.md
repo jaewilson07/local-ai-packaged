@@ -33,7 +33,7 @@
 - **Monorepo** with stack-based Docker Compose architecture
 - **Orchestration**: Python 3.10+ (`start_services.py`)
 - **Containerization**: Docker Compose with external network (`ai-network`)
-- **Package Management**: 
+- **Package Management**:
   - Python: `uv` (pyproject.toml)
   - Node.js (Supabase): `pnpm` (monorepo with Turbo)
 
@@ -95,7 +95,7 @@ The Lambda server implements a centralized authentication system using Cloudflar
 ### Network Architecture
 - **External Network**: All services use `ai-network` (created by infrastructure stack)
 - **Service Discovery**: Use container names as hostnames (e.g., `ollama:11434`, `supabase-db:5432`)
-- **Port Strategy**: 
+- **Port Strategy**:
   - Private: Expose ports directly
   - Public: Only 80/443 exposed, all traffic via Caddy reverse proxy
 
@@ -354,7 +354,7 @@ await deps.initialize()
 try:
     # Create run context using helper
     ctx = create_run_context(deps)
-    
+
     # Call tools directly
     results = await semantic_search(ctx, query="test")
 finally:

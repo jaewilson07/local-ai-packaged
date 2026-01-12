@@ -65,7 +65,7 @@ async def search_web(deps: DeepResearchDeps, request: SearchWebRequest) -> Searc
         # Convert our request to SearXNG request format
         searxng_request = SearXNGSearchRequest(
             query=request.query,
-            result_count=request.result_count or config.default_result_count,
+            result_count=request.result_count or rag_config.default_result_count,
             categories=None,  # Not in our model yet
             engines=request.engines,
         )

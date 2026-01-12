@@ -39,26 +39,26 @@ graph TB
         REST[ REST API<br/>/api/v1/graphiti/* ]
         MCP[ MCP Tools<br/>search_graphiti, parse_repo, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ graphiti_rag_agent<br/>Pydantic AI Agent ]
         TOOLS[ Graphiti Tools<br/>search, parse, validate, query ]
     end
-    
+
     subgraph "Graphiti Layer"
         GRAPHITI[ Graphiti Instance<br/>Knowledge Graph System ]
         SEARCH[ graph_search<br/>Graph Search Wrapper ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ GraphitiRAGDeps<br/>Neo4j Client, Graphiti ]
         NEO4J[ Neo4j<br/>Graph Database ]
     end
-    
+
     subgraph "External Services"
         GITHUB[ GitHub<br/>Repository Access ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -68,7 +68,7 @@ graph TB
     GRAPHITI --> DEPS
     DEPS --> NEO4J
     TOOLS --> GITHUB
-    
+
     style AGENT fill:#e1f5ff
     style GRAPHITI fill:#fff4e1
     style SEARCH fill:#e1ffe1
@@ -86,7 +86,7 @@ sequenceDiagram
     participant Search as graph_search
     participant Graphiti as Graphiti Instance
     participant Neo4j
-    
+
     Client->>Agent: Search graph (query, match_count)
     Agent->>Tool: search_graphiti(query)
     Tool->>Search: graphiti_search(query, match_count)
@@ -109,7 +109,7 @@ sequenceDiagram
     participant Graphiti as Graphiti Instance
     participant GitHub
     participant Neo4j
-    
+
     Client->>Agent: Parse repository (repo_url)
     Agent->>Tool: parse_github_repository(repo_url)
     Tool->>GitHub: Clone repository
@@ -229,7 +229,7 @@ async def parse_github_repository(
     """Parse GitHub repository into knowledge graph."""
     if not deps.graphiti:
         raise ValueError("Graphiti not initialized")
-    
+
     # Use Graphiti's repository parser
     result = await deps.graphiti.parse_repository(repo_url)
     return {

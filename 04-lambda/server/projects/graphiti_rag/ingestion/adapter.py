@@ -1,15 +1,19 @@
 """Adapter to bridge MongoDB documents with Graphiti ingestion."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from graphiti_core import Graphiti
+
+    GraphitiType = Graphiti
 else:
     try:
         from graphiti_core import Graphiti
+
+        GraphitiType = Graphiti
     except ImportError:
-        Graphiti = None  # type: ignore
+        GraphitiType = Any  # type: ignore
 
 from server.projects.graphiti_rag.ingestion.graph_builder import ingest_to_graphiti
 from server.projects.mongo_rag.ingestion.chunker import DocumentChunk
@@ -25,7 +29,7 @@ class GraphitiIngestionAdapter:
     and ingests them into Graphiti for knowledge graph construction.
     """
 
-    def __init__(self, graphiti: Optional[Graphiti] = None):
+    def __init__(self, graphiti: GraphitiType | None = None):
         """
         Initialize adapter.
 

@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -47,8 +48,10 @@ if os.getenv("DEBUG_CLOUDFLARE_SCRIPT"):
 
 
 # Cache for Infisical secrets to avoid multiple CLI calls
-_infisical_secrets_cache: dict[str, str] | None = None
-_infisical_secrets_attempted = False
+# Using a mutable container (list) to avoid global statement warnings
+# Index 0: cached secrets dict (None if not cached yet)
+# Index 1: boolean flag indicating if we've attempted to fetch
+_infisical_cache: list[dict[str, str] | bool] = [None, False]  # type: ignore[list-item]
 
 
 def get_infisical_secrets() -> dict[str, str]:
@@ -59,18 +62,16 @@ def get_infisical_secrets() -> dict[str, str]:
     Returns:
         Dictionary of secret key-value pairs, empty dict if Infisical unavailable
     """
-    global _infisical_secrets_cache, _infisical_secrets_attempted
-
     # Return cached result if available
-    if _infisical_secrets_cache is not None:
-        return _infisical_secrets_cache
+    if _infisical_cache[0] is not None:
+        return _infisical_cache[0]  # type: ignore[return-value]
 
     # If we've already attempted and failed, return empty dict immediately
-    if _infisical_secrets_attempted:
+    if _infisical_cache[1]:  # type: ignore[bool]
         return {}
 
-    secrets_dict = {}
-    _infisical_secrets_attempted = True
+    secrets_dict: dict[str, str] = {}
+    _infisical_cache[1] = True  # type: ignore[assignment]
 
     try:
         # Check if Infisical CLI is available and authenticated
@@ -84,8 +85,8 @@ def get_infisical_secrets() -> dict[str, str]:
 
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 
@@ -105,12 +106,12 @@ def get_infisical_secrets() -> dict[str, str]:
     except FileNotFoundError:
         # Infisical CLI not installed
         pass
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         # Infisical not available or not authenticated - that's okay
         pass
 
     # Cache the result (even if empty)
-    _infisical_secrets_cache = secrets_dict
+    _infisical_cache[0] = secrets_dict
     return secrets_dict
 
 
@@ -227,10 +228,7 @@ def get_account_id(headers):
                 zone_data = response.json()
                 if zone_data.get("success"):
                     account = zone_data.get("result", {}).get("account", {})
-                    if isinstance(account, dict):
-                        account_id = account.get("id")
-                    else:
-                        account_id = account  # Sometimes it's just the ID string
+                    account_id = account.get("id") if isinstance(account, dict) else account
                     if account_id:
                         print(f"[OK] Found Account ID from zone: {account_id}")
                         return account_id
@@ -276,7 +274,7 @@ def configure_public_hostname(subdomain, service_url, account_id, retry_count=3)
                     print(
                         "   Please wait a few minutes and try again, or configure manually in Cloudflare dashboard"
                     )
-                    return False
+                    break  # Exit retry loop, will return False below
             elif response.status_code != 200:
                 print(f"[ERROR] HTTP {response.status_code}")
                 if response.status_code == 401:
@@ -297,18 +295,19 @@ def configure_public_hostname(subdomain, service_url, account_id, retry_count=3)
                         errors = error_data.get("errors", [])
                         if errors:
                             print(f"   {errors[0].get('message', 'Unknown error')}")
-                    except Exception:
+                    except (ValueError, json.JSONDecodeError):
                         print(f"   Response: {response.text[:200]}")
-                return False
-            break  # Success, exit retry loop
+                break  # Exit retry loop, will return False below
+            else:
+                break  # Success, exit retry loop
         except Exception as e:
             if attempt < retry_count - 1:
                 time.sleep(2)
                 continue
             print(f"[ERROR] {e}")
-            return False
+            break  # Exit retry loop, will return False below
 
-    if not response:
+    if not response or response.status_code != 200:
         return False
 
     try:
@@ -354,18 +353,16 @@ def configure_public_hostname(subdomain, service_url, account_id, retry_count=3)
             if result.get("success"):
                 print(f"[OK] Configured {hostname} -> {service_url}")
                 return True
-            else:
-                errors = result.get("errors", [])
-                if errors:
-                    print(f"[ERROR] {hostname}: {errors[0].get('message', 'Unknown error')}")
-                return False
+            errors = result.get("errors", [])
+            if errors:
+                print(f"[ERROR] {hostname}: {errors[0].get('message', 'Unknown error')}")
         else:
             print(f"[ERROR] {hostname}: HTTP {update_response.status_code}")
-            return False
 
     except Exception as e:
         print(f"[ERROR] {hostname}: {e}")
-        return False
+
+    return False
 
 
 def remove_tunnel_route(hostname: str, account_id: str) -> bool:
@@ -425,20 +422,18 @@ def remove_tunnel_route(hostname: str, account_id: str) -> bool:
             if result.get("success"):
                 print(f"[OK] Removed {hostname} from tunnel configuration")
                 return True
-            else:
-                errors = result.get("errors", [])
-                if errors:
-                    print(f"[ERROR] {errors[0].get('message', 'Unknown error')}")
-                return False
+            errors = result.get("errors", [])
+            if errors:
+                print(f"[ERROR] {errors[0].get('message', 'Unknown error')}")
         else:
             print(f"[ERROR] HTTP {update_response.status_code}")
             if update_response.text:
                 print(f"   Response: {update_response.text[:200]}")
-            return False
 
     except Exception as e:
         print(f"[ERROR] {e}")
-        return False
+
+    return False
 
 
 def main():

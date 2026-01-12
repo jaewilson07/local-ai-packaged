@@ -244,4 +244,3 @@ docker stop caddy
 - [Caddyfile Syntax](https://caddyserver.com/docs/caddyfile)
 - [Reverse Proxy Guide](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
 - [Security Headers](https://caddyserver.com/docs/caddyfile/directives/header)
-

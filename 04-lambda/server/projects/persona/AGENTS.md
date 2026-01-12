@@ -38,12 +38,12 @@ graph TB
         REST[ REST API<br/>/api/v1/persona/* ]
         MCP[ MCP Tools<br/>get_voice_instructions, etc. ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ persona_agent<br/>Pydantic AI Agent ]
         TOOLS[ Persona Tools<br/>voice_instructions, record_interaction ]
     end
-    
+
     subgraph "State Management"
         STORE[ PersonaStore<br/>Protocol Interface ]
         MONGOSTORE[ MongoPersonaStore<br/>Implementation ]
@@ -51,16 +51,16 @@ graph TB
         REL[ track_relationship<br/>Relationship Updates ]
         CTX[ track_context<br/>Context Analysis ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ PersonaDeps<br/>MongoDB, OpenAI Client ]
         MONGO[ MongoDB<br/>State Storage ]
     end
-    
+
     subgraph "External Services"
         OLLAMA[ Ollama<br/>LLM Analysis ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -75,7 +75,7 @@ graph TB
     CTX --> DEPS
     DEPS --> MONGO
     DEPS --> OLLAMA
-    
+
     style AGENT fill:#e1f5ff
     style STORE fill:#fff4e1
     style MOOD fill:#e1ffe1
@@ -98,29 +98,29 @@ sequenceDiagram
     participant Ctx as track_context
     participant LLM as Ollama LLM
     participant MongoDB
-    
+
     Client->>Agent: Get voice instructions (user_id, persona_id)
     Agent->>Tool: get_voice_instructions()
     Tool->>Store: Get persona state
     Store->>MongoDB: Query persona document
     MongoDB-->>Store: Persona state (mood, relationship, context)
     Store-->>Tool: State data
-    
+
     Tool->>Mood: Analyze mood from interactions
     Mood->>LLM: Analyze conversation for mood
     LLM-->>Mood: Mood analysis
     Mood->>Store: Update mood state
-    
+
     Tool->>Rel: Analyze relationship state
     Rel->>LLM: Analyze relationship dynamics
     LLM-->>Rel: Relationship analysis
     Rel->>Store: Update relationship state
-    
+
     Tool->>Ctx: Analyze conversation context
     Ctx->>LLM: Extract context topics
     LLM-->>Ctx: Context analysis
     Ctx->>Store: Update context
-    
+
     Tool->>LLM: Generate voice instructions from state
     LLM-->>Tool: Voice instructions (personality, style, tone)
     Tool-->>Agent: Voice instructions string

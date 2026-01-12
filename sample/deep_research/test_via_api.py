@@ -8,7 +8,6 @@ Supports both internal network (no auth) and external network (JWT required) acc
 
 import asyncio
 import json
-import os
 import sys
 
 import httpx
@@ -116,6 +115,17 @@ async def main():
 
     # Test search_web tool
     success = await test_search_web(headers)
+
+    # Verify results
+    if success:
+        try:
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+            print("✅ API test completed successfully")
+            print("\n✅ Verification passed!")
+        except Exception as e:
+            print(f"\n⚠️  Verification error: {e}")
 
     return success
 

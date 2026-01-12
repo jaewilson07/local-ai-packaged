@@ -24,9 +24,9 @@ for endpoint in "${ENDPOINTS[@]}"; do
     RESPONSE=$(docker exec open-webui sh -c "curl -s -w '\n%{http_code}' http://localhost:8080$endpoint 2>&1" | tail -1)
     HTTP_CODE=$(echo "$RESPONSE" | tail -1)
     BODY=$(docker exec open-webui sh -c "curl -s http://localhost:8080$endpoint 2>&1" | head -5)
-    
+
     echo "  HTTP Code: $HTTP_CODE"
-    
+
     # Check if response is valid JSON
     if echo "$BODY" | grep -q "^{"; then
         # Check if it's null or empty object

@@ -20,7 +20,7 @@ def main():
         sys.exit(1)
 
     # Read current config
-    with open(CADDY_BASE_CONFIG) as f:
+    with CADDY_BASE_CONFIG.open() as f:
         content = f.read()
 
     # Check if bypass is already configured in base_config
@@ -28,7 +28,7 @@ def main():
 
     # Create backup
     backup_path = CADDY_BASE_CONFIG.with_suffix(f".backup.{int(__import__('time').time())}")
-    with open(backup_path, "w") as f:
+    with backup_path.open("w") as f:
         f.write(content)
     print(f"Created backup: {backup_path}")
 
@@ -50,12 +50,12 @@ def main():
 
         # Create backup
         backup_path = CADDY_BASE_CONFIG.with_suffix(f".backup.{int(__import__('time').time())}")
-        with open(backup_path, "w") as f:
+        with backup_path.open("w") as f:
             f.write(content)
         print(f"Created backup: {backup_path}")
 
         # Write updated config
-        with open(CADDY_BASE_CONFIG, "w") as f:
+        with CADDY_BASE_CONFIG.open("w") as f:
             f.write(content)
         print("Added @twingate_trusted matcher to base_config")
     else:
@@ -71,7 +71,7 @@ def main():
         if service_config == CADDY_BASE_CONFIG:
             continue
         try:
-            with open(service_config) as f:
+            with service_config.open() as f:
                 service_content = f.read()
 
             # Replace reverse_proxy @authorized with route that checks @twingate_trusted OR @authorized
@@ -100,17 +100,17 @@ def main():
                 backup_path = service_config.with_suffix(
                     f"{service_config.suffix}.backup.{int(__import__('time').time())}"
                 )
-                with open(backup_path, "w") as f:
+                with backup_path.open("w") as f:
                     f.write(original_content)
                 # Write updated content
-                with open(service_config, "w") as f:
+                with service_config.open("w") as f:
                     f.write(service_content)
                 print(f"Updated {service_config.name}")
         except Exception as e:
             print(f"Warning: Could not update {service_config.name}: {e}", file=sys.stderr)
 
     # Write updated config
-    with open(CADDY_BASE_CONFIG, "w") as f:
+    with CADDY_BASE_CONFIG.open("w") as f:
         f.write(content)
 
     print("Successfully added Twingate bypass to Caddy config")

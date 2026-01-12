@@ -16,7 +16,6 @@ Prerequisites:
 """
 
 import json
-import os
 import sys
 import time
 from typing import Any
@@ -198,7 +197,7 @@ def create_workflow(
             try:
                 error_detail = e.response.json()
                 print(f"     Detail: {error_detail}")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
         return None
     except Exception as e:
@@ -247,7 +246,10 @@ def check_lora_exists(api_base_url: str, headers: dict[str, str], lora_filename:
 
 
 def execute_workflow(
-    api_base_url: str, headers: dict[str, str], workflow_id: str, input_params: dict[str, Any] | None = None
+    api_base_url: str,
+    headers: dict[str, str],
+    workflow_id: str,
+    input_params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """
     Execute a workflow via API.
@@ -295,7 +297,7 @@ def execute_workflow(
             try:
                 error_detail = e.response.json()
                 print(f"     Detail: {error_detail}")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
         return None
     except Exception as e:
@@ -304,7 +306,11 @@ def execute_workflow(
 
 
 def poll_workflow_status(
-    api_base_url: str, headers: dict[str, str], run_id: str, max_wait: int = 300, poll_interval: int = 5
+    api_base_url: str,
+    headers: dict[str, str],
+    run_id: str,
+    max_wait: int = 300,
+    poll_interval: int = 5,
 ) -> dict[str, Any] | None:
     """
     Poll workflow status until completion or timeout.
@@ -369,7 +375,7 @@ def poll_workflow_status(
                 try:
                     error_detail = e.response.json()
                     print(f"     Detail: {error_detail}")
-                except:
+                except (ValueError, json.JSONDecodeError):
                     print(f"     Response: {e.response.text}")
             return None
         except Exception as e:
@@ -444,7 +450,10 @@ def extract_lora_from_workflow(workflow_json: dict[str, Any]) -> str | None:
 
 
 def verify_in_me_data(
-    api_base_url: str, headers: dict[str, str], workflow_id: str | None = None, run_id: str | None = None
+    api_base_url: str,
+    headers: dict[str, str],
+    workflow_id: str | None = None,
+    run_id: str | None = None,
 ) -> bool:
     """
     Verify that workflows and runs appear in /api/me/data.
@@ -475,15 +484,11 @@ def verify_in_me_data(
         print(f"  Total workflows: {workflows_count}")
         print(f"  Total workflow runs: {runs_count}")
 
-        if workflow_id and workflows_count > 0:
-            print(f"  ✅ Workflows found in /api/me/data")
-        elif workflows_count > 0:
-            print(f"  ✅ Workflows found in /api/me/data")
+        if (workflow_id and workflows_count > 0) or workflows_count > 0:
+            print("  ✅ Workflows found in /api/me/data")
 
-        if run_id and runs_count > 0:
-            print(f"  ✅ Workflow runs found in /api/me/data")
-        elif runs_count > 0:
-            print(f"  ✅ Workflow runs found in /api/me/data")
+        if (run_id and runs_count > 0) or runs_count > 0:
+            print("  ✅ Workflow runs found in /api/me/data")
 
         return workflows_count > 0 or runs_count > 0
 
@@ -493,7 +498,7 @@ def verify_in_me_data(
             try:
                 error_detail = e.response.json()
                 print(f"     Detail: {error_detail}")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
         return False
     except Exception as e:
@@ -611,8 +616,33 @@ def main():
     # Step 6: Display results
     display_results(final_run_data)
 
-    print("\n✅ Sample execution completed!")
+    # Step 7: Verify in /api/me/data
+    workflow_id = final_run_data.get("workflow_id")
+    run_id = final_run_data.get("id")
+
+    from sample.shared.verification_helpers import verify_rag_data
+
+    print("\n" + "=" * 60)
+    print("Verification")
     print("=" * 60)
+
+    success, message = verify_rag_data(
+        api_base_url=api_base_url,
+        headers=headers,
+        expected_workflows_min=1 if workflow_id else None,
+        expected_workflow_runs_min=1 if run_id else None,
+    )
+
+    print(message)
+
+    if success:
+        print("\n✅ Sample execution and verification completed!")
+        print("=" * 60)
+        sys.exit(0)
+    else:
+        print("\n⚠️  Sample execution completed but verification failed!")
+        print("=" * 60)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

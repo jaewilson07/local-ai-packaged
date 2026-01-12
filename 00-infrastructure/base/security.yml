@@ -39,4 +39,3 @@ x-security-chown: &security-chown
     - SETUID
   security_opt:
     - no-new-privileges:true
-

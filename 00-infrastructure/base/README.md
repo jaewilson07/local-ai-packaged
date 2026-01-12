@@ -141,4 +141,3 @@ For complete details, see:
 Created: 2026-01-04  
 Last Updated: 2026-01-04  
 Docker Compose Version: 2.20+
-

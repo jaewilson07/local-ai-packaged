@@ -5,6 +5,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
@@ -195,7 +196,7 @@ async def list_workflows_endpoint(
                 workflows = response.json()
                 if active_only:
                     workflows = [w for w in workflows if w.get("active", False)]
-            except Exception:
+            except (httpx.RequestError, httpx.HTTPStatusError):
                 pass
 
         return ListWorkflowsResponse(success=True, workflows=workflows, count=len(workflows))

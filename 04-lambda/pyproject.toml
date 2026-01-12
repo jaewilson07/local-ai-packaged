@@ -30,6 +30,7 @@ dependencies = [
     "boto3>=1.34.0",
     "neo4j>=5.0.0",
     "langgraph>=0.2.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -56,4 +57,10 @@ py-modules = []
 [dependency-groups]
 dev = [
     "pytest-json-report>=1.5.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
 ]

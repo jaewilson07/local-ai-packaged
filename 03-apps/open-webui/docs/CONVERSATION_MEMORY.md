@@ -185,4 +185,3 @@ The Lambda server needs access to:
 - [MCP Integration Guide](./MCP_INTEGRATION.md)
 - [Auto Memory Research](./AUTO_MEMORY_RESEARCH.md)
 - Lambda Server API: `04-lambda/docs/API_CLOUDFLARE_SETUP.md`
-

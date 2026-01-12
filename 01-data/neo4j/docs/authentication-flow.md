@@ -116,7 +116,7 @@ openssl rand -hex 32
 
 ### Why Two-Step Authentication?
 
-1. **Cloudflare Access**: 
+1. **Cloudflare Access**:
    - Controls who can access the Neo4j web UI
    - Provides identity-based access control
    - Adds security layer before Neo4j
@@ -167,4 +167,3 @@ If seamless SSO is required, consider upgrading to **Neo4j Enterprise Edition**:
 - [Cloudflare Access Setup](cloudflare-access-setup.md) - Initial setup guide
 - [User Management](user-management.md) - Managing Neo4j user accounts
 - [Data Isolation](data-isolation.md) - User-specific data access
-

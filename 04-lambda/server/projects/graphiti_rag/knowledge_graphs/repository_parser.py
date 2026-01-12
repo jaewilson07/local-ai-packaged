@@ -173,7 +173,7 @@ class Neo4jCodeAnalyzer:
     ) -> dict[str, Any]:
         """Extract structure for direct Neo4j insertion"""
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 content = f.read()
 
             tree = ast.parse(content)
@@ -336,7 +336,11 @@ class Neo4jCodeAnalyzer:
                 return True
 
         # If it's not obviously external, consider it internal
-        return bool(not any(ext in base_module.lower() for ext in ["test", "mock", "fake"]) and not base_module.startswith("_") and len(base_module) > 2)
+        return bool(
+            not any(ext in base_module.lower() for ext in ["test", "mock", "fake"])
+            and not base_module.startswith("_")
+            and len(base_module) > 2
+        )
 
     def _get_importable_module_name(
         self, file_path: Path, repo_root: Path, relative_path: str
@@ -481,7 +485,7 @@ class Neo4jCodeAnalyzer:
                 return "{}"
             else:
                 return "..."
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             return "..."
 
     def _get_name(self, node):
@@ -515,7 +519,7 @@ class Neo4jCodeAnalyzer:
                         try:
                             slice_name = self._get_name(node.slice)
                             return f"{base}[{slice_name}]"
-                        except Exception:
+                        except (AttributeError, TypeError, ValueError):
                             return f"{base}[Any]"
                 return base
             elif isinstance(node, ast.Constant):
@@ -531,7 +535,7 @@ class Neo4jCodeAnalyzer:
             else:
                 # Fallback for complex types - return a simple string representation
                 return "Any"
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             # If anything goes wrong, return a safe default
             return "Any"
 
@@ -554,9 +558,9 @@ class DirectNeo4jExtractor:
         )
 
         # Clear existing data
-        # logger.info("Clearing existing data...")
+        # logger.info("Clearing existing data...")  # noqa: ERA001
         # async with self.driver.session() as session:
-        #     await session.run("MATCH (n) DETACH DELETE n")
+        #     await session.run("MATCH (n) DETACH DELETE n")  # noqa: ERA001
 
         # Create constraints and indexes
         logger.info("Creating constraints and indexes...")
@@ -569,9 +573,9 @@ class DirectNeo4jExtractor:
                 "CREATE CONSTRAINT IF NOT EXISTS FOR (c:Class) REQUIRE c.full_name IS UNIQUE"
             )
             # Remove unique constraints for methods/attributes since they can be duplicated across classes
-            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (m:Method) REQUIRE m.full_name IS UNIQUE")
-            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (f:Function) REQUIRE f.full_name IS UNIQUE")
-            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (a:Attribute) REQUIRE a.full_name IS UNIQUE")
+            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (m:Method) REQUIRE m.full_name IS UNIQUE")  # noqa: ERA001
+            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (f:Function) REQUIRE f.full_name IS UNIQUE")  # noqa: ERA001
+            # await session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (a:Attribute) REQUIRE a.full_name IS UNIQUE")  # noqa: ERA001
 
             # Create indexes for performance
             await session.run("CREATE INDEX IF NOT EXISTS FOR (f:File) ON (f.name)")
@@ -1054,7 +1058,7 @@ async def main():
         await extractor.initialize()
 
         # Analyze repository - direct Neo4j, no LLM processing!
-        # repo_url = "https://github.com/pydantic/pydantic-ai.git"
+        # repo_url = "https://github.com/pydantic/pydantic-ai.git"  # noqa: ERA001
         repo_url = "https://github.com/getzep/graphiti.git"
         await extractor.analyze_repository(repo_url)
 

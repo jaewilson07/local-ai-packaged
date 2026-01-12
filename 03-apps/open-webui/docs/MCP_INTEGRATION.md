@@ -22,7 +22,7 @@ Open WebUI has native support for Model Context Protocol (MCP) servers starting 
    - Click the **"+" (Add Server)** button
    - Set the following:
      - **Type**: `MCP (Streamable HTTP)`
-     - **Server URL**: 
+     - **Server URL**:
        - Internal (Docker): `http://lambda-server:8000/mcp`
        - External (via Caddy): `https://api.datacrew.space/mcp`
      - **Authentication**: Leave empty (or add API key if authentication is enabled)
@@ -165,4 +165,3 @@ MCP tools can trigger conversation exports:
 - [Open WebUI MCP Documentation](https://docs.openwebui.com/features/plugin/tools/)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)
 - Lambda MCP Server: `04-lambda/server/mcp/AGENTS.md`
-

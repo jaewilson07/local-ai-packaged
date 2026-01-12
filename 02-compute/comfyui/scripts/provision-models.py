@@ -8,6 +8,7 @@ This script is idempotent - it skips models that already exist
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 # Try to import yaml, fall back to simple parsing if not available
 try:
@@ -37,9 +38,10 @@ def parse_simple_yaml(yaml_path):
     current_category = None
     current_model = {}
 
-    with open(yaml_path) as f:
-        for line in f:
-            line = line.rstrip()
+    yaml_path_obj = Path(yaml_path)
+    with yaml_path_obj.open() as f:
+        for raw_line in f:
+            line = raw_line.rstrip()
 
             # Skip empty lines and comments
             if not line or line.strip().startswith("#"):
@@ -130,7 +132,8 @@ def main():
     # Load YAML configuration
     try:
         if HAS_YAML:
-            with open(MODELS_YAML) as f:
+            models_yaml_path = Path(MODELS_YAML)
+            with models_yaml_path.open() as f:
                 config = yaml.safe_load(f)
         else:
             # Simple YAML parsing fallback

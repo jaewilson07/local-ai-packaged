@@ -37,7 +37,7 @@ def get_auth_token():
         for line in result.stdout.split("\n"):
             if line.startswith("WEB_TOKEN="):
                 return line.split("=", 1)[1]
-    except Exception:
+    except (subprocess.SubprocessError, OSError, IndexError):
         pass
 
     # Fallback: generate base64 encoded password (used as token)

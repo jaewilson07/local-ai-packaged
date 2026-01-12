@@ -87,6 +87,41 @@ async def main():
         print("  - Conversation context (topics, mode)")
         print("=" * 80)
 
+        # Verify via API
+        try:
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_mongodb_data
+
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_mongodb_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                collection="persona_voice_instructions",
+                expected_count_min=1,
+            )
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            # Voice instructions may not be stored, just verify the tool worked
+            elif voice_instructions and len(voice_instructions) > 0:
+                print("\n✅ Verification passed (voice instructions generated)")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
+
     except Exception as e:
         logger.exception(f"❌ Error generating voice instructions: {e}")
         print(f"\n❌ Fatal error: {e}")

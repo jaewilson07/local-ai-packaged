@@ -317,4 +317,3 @@ Open WebUI (Port 8080)
 - Background worker for auto-export
 - Open WebUI extension integration
 - UI enhancements
-

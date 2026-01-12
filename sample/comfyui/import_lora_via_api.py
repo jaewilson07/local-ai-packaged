@@ -4,12 +4,13 @@ This script uses the REST API to import a LoRA, which handles authentication
 through Cloudflare Zero Trust (supports both internal and external URLs).
 """
 
-import os
+import json
 import sys
 
 import requests
 
 from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+from sample.shared.verification_helpers import verify_loras_data
 
 
 def import_lora_via_api(
@@ -74,65 +75,12 @@ def import_lora_via_api(
             try:
                 error_detail = e.response.json()
                 print(f"   Detail: {error_detail}")
-            except:
+            except (ValueError, json.JSONDecodeError):
                 print(f"   Response: {e.response.text}")
         return None
     except Exception as e:
         print(f"\n✗ Error: {e}")
         return None
-
-
-def verify_in_me_data(api_base_url: str, headers: dict[str, str], lora_id: str) -> bool:
-    """
-    Verify that the imported LoRA appears in /api/me/data.
-
-    Args:
-        api_base_url: Base URL of the API
-        headers: Authentication headers (from get_auth_headers())
-        lora_id: LoRA ID to verify
-
-    Returns:
-        True if LoRA found in /api/me/data, False otherwise
-    """
-    url = f"{api_base_url}/api/me/data"
-
-    print("\nVerifying LoRA appears in /api/me/data...")
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-
-        result = response.json()
-        loras_summary = result.get("loras", {})
-
-        total_models = loras_summary.get("total_models", 0)
-        models = loras_summary.get("models", [])
-
-        print(f"  Total LoRA models: {total_models}")
-
-        # Check if our LoRA is in the list
-        for model in models:
-            if model.get("id") == lora_id:
-                print(f"  ✅ LoRA found in /api/me/data!")
-                print(f"     - Name: {model.get('name')}")
-                print(f"     - Filename: {model.get('filename')}")
-                return True
-
-        print(f"  ⚠️  LoRA not found in /api/me/data (may need to refresh)")
-        return False
-
-    except requests.exceptions.HTTPError as e:
-        print(f"  ✗ HTTP Error: {e}")
-        if e.response is not None:
-            try:
-                error_detail = e.response.json()
-                print(f"     Detail: {error_detail}")
-            except:
-                print(f"     Response: {e.response.text}")
-        return False
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
-        return False
 
 
 def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, offset: int = 0):
@@ -188,7 +136,7 @@ def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, off
             try:
                 error_detail = e.response.json()
                 print(f"   Detail: {error_detail}")
-            except:
+            except (ValueError, json.JSONDecodeError):
                 print(f"   Response: {e.response.text}")
         return None
     except Exception as e:
@@ -249,12 +197,32 @@ def main():
         print("=" * 60)
 
         # Verify it appears in /api/me/data
-        if lora_id:
-            verify_in_me_data(api_base_url, headers, lora_id)
+        print("\n" + "=" * 60)
+        print("Verification")
+        print("=" * 60)
 
-        # List all LoRAs
-        print("\n")
-        list_loras(api_base_url, headers)
+        if lora_id:
+            success, message = verify_loras_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                lora_id=lora_id,
+            )
+            print(message)
+
+            if success:
+                # List all LoRAs
+                print("\n")
+                list_loras(api_base_url, headers)
+                print("\n✅ Import and verification completed successfully!")
+                print("=" * 60)
+                sys.exit(0)
+            else:
+                print("\n⚠️  Import completed but verification failed!")
+                print("=" * 60)
+                sys.exit(1)
+        else:
+            print("⚠️  No LoRA ID returned, skipping verification")
+            sys.exit(1)
     else:
         print("\n" + "=" * 60)
         print("Import failed!")

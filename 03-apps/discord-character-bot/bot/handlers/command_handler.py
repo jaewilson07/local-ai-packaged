@@ -1,7 +1,6 @@
 """Handler for Discord slash commands."""
 
 import logging
-from typing import List, Optional
 
 import discord
 from discord.ui import Button, View
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 class CharacterSelectView(View):
     """View for selecting a character from search results."""
 
-    def __init__(self, characters: List[dict], api_client: APIClient, channel_id: str):
+    def __init__(self, characters: list[dict], api_client: APIClient, channel_id: str):
         super().__init__(timeout=60.0)
         self.characters = characters
         self.api_client = api_client
@@ -132,7 +131,7 @@ async def handle_list_characters(interaction: discord.Interaction, api_client: A
 
 
 async def handle_clear_history(
-    interaction: discord.Interaction, character: Optional[str], api_client: APIClient
+    interaction: discord.Interaction, character: str | None, api_client: APIClient
 ):
     """Handle /clear_history command."""
     await interaction.response.defer(ephemeral=True)

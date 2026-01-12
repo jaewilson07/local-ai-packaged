@@ -8,15 +8,21 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from server.projects.auth.dependencies import User, get_current_user
-from server.projects.auth.services.minio_service import MinIOService
-from server.projects.blob_storage.dependencies import get_minio_service
+from server.projects.blob_storage.dependencies import BlobStorageDeps
 from server.projects.blob_storage.models import (
     DeleteFileResponse,
-    FileMetadata,
     FileUrlResponse,
     ListFilesResponse,
     UploadFileResponse,
 )
+from server.projects.blob_storage.tools import (
+    delete_file_tool,
+    download_file_tool,
+    get_file_url_tool,
+    list_files_tool,
+    upload_file_tool,
+)
+from server.projects.shared.context_helpers import create_run_context
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -26,7 +32,6 @@ logger = logging.getLogger(__name__)
 async def upload_file(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
-    minio_service: MinIOService = Depends(get_minio_service),
 ):
     """
     Upload a file to user's blob storage.
@@ -61,27 +66,31 @@ async def upload_file(
 
     # Read file content
     file_data = await file.read()
-    file_size = len(file_data)
+    filename = file.filename or "unnamed"
 
     # Determine content type
     content_type = file.content_type
     if not content_type:
-        content_type, _ = mimetypes.guess_type(file.filename or "")
+        content_type, _ = mimetypes.guess_type(filename)
 
-    # Upload to MinIO
+    # Use tools pattern
     try:
-        object_key = await minio_service.upload_file(
+        deps = BlobStorageDeps.from_settings()
+        await deps.initialize()
+
+        ctx = create_run_context(deps)
+
+        result = await upload_file_tool(
+            ctx=ctx,
             user_id=user_id,
             file_data=file_data,
-            object_key=file.filename or "unnamed",
+            filename=filename,
             content_type=content_type,
         )
 
-        logger.info(f"Uploaded file {object_key} for user {user_id} ({file_size} bytes)")
+        await deps.cleanup()
 
-        return UploadFileResponse(
-            success=True, key=object_key, filename=file.filename or "unnamed", size=file_size
-        )
+        return result
     except Exception as e:
         logger.exception(f"Failed to upload file for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {e!s}")
@@ -91,7 +100,6 @@ async def upload_file(
 async def list_files(
     prefix: str | None = Query(None, description="Prefix to filter files (within user folder)"),
     user: User = Depends(get_current_user),
-    minio_service: MinIOService = Depends(get_minio_service),
 ):
     """
     List files for the authenticated user.
@@ -131,11 +139,16 @@ async def list_files(
         raise HTTPException(status_code=400, detail="Invalid user ID format")
 
     try:
-        files = await minio_service.list_files(user_id=user_id, prefix=prefix)
+        deps = BlobStorageDeps.from_settings()
+        await deps.initialize()
 
-        file_metadata = [FileMetadata(**file_dict) for file_dict in files]
+        ctx = create_run_context(deps)
 
-        return ListFilesResponse(files=file_metadata, count=len(file_metadata), prefix=prefix)
+        result = await list_files_tool(ctx=ctx, user_id=user_id, prefix=prefix)
+
+        await deps.cleanup()
+
+        return result
     except Exception as e:
         logger.exception(f"Failed to list files for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list files: {e!s}")
@@ -145,7 +158,6 @@ async def list_files(
 async def download_file(
     filename: str,
     user: User = Depends(get_current_user),
-    minio_service: MinIOService = Depends(get_minio_service),
 ):
     """
     Download a file from user's blob storage.
@@ -168,8 +180,14 @@ async def download_file(
         raise HTTPException(status_code=400, detail="Invalid user ID format")
 
     try:
-        # Download file from MinIO
-        file_data = await minio_service.download_file(user_id=user_id, object_key=filename)
+        deps = BlobStorageDeps.from_settings()
+        await deps.initialize()
+
+        ctx = create_run_context(deps)
+
+        file_data = await download_file_tool(ctx=ctx, user_id=user_id, filename=filename)
+
+        await deps.cleanup()
 
         # Determine content type
         content_type, _ = mimetypes.guess_type(filename)
@@ -183,10 +201,11 @@ async def download_file(
             media_type=content_type,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
-    except Exception as e:
-        error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
-        if error_code == "NoSuchKey":
+    except ValueError as e:
+        if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
         logger.exception(f"Failed to download file {filename} for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to download file: {e!s}")
 
@@ -195,7 +214,6 @@ async def download_file(
 async def delete_file(
     filename: str,
     user: User = Depends(get_current_user),
-    minio_service: MinIOService = Depends(get_minio_service),
 ):
     """
     Delete a file from user's blob storage.
@@ -223,19 +241,20 @@ async def delete_file(
         raise HTTPException(status_code=400, detail="Invalid user ID format")
 
     try:
-        deleted = await minio_service.delete_file(user_id=user_id, object_key=filename)
+        deps = BlobStorageDeps.from_settings()
+        await deps.initialize()
 
-        if not deleted:
+        ctx = create_run_context(deps)
+
+        result = await delete_file_tool(ctx=ctx, user_id=user_id, filename=filename)
+
+        await deps.cleanup()
+
+        return result
+    except ValueError as e:
+        if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"File not found: {filename}")
-
-        user_prefix = minio_service._get_user_prefix(user_id)
-        full_key = f"{user_prefix}{filename}"
-
-        logger.info(f"Deleted file {full_key} for user {user_id}")
-
-        return DeleteFileResponse(success=True, key=full_key, message="File deleted successfully")
-    except HTTPException:
-        raise
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception(f"Failed to delete file {filename} for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {e!s}")
@@ -248,7 +267,6 @@ async def get_file_url(
         3600, ge=60, le=604800, description="URL expiration time in seconds (60-604800)"
     ),
     user: User = Depends(get_current_user),
-    minio_service: MinIOService = Depends(get_minio_service),
 ):
     """
     Generate a presigned URL for a file.
@@ -279,19 +297,20 @@ async def get_file_url(
         raise HTTPException(status_code=400, detail="Invalid user ID format")
 
     try:
-        url = await minio_service.get_file_url(
-            user_id=user_id, object_key=filename, expires_in=expires_in
+        deps = BlobStorageDeps.from_settings()
+        await deps.initialize()
+
+        ctx = create_run_context(deps)
+
+        result = await get_file_url_tool(
+            ctx=ctx, user_id=user_id, filename=filename, expires_in=expires_in
         )
 
-        if not url:
-            raise HTTPException(status_code=500, detail="Failed to generate presigned URL")
+        await deps.cleanup()
 
-        user_prefix = minio_service._get_user_prefix(user_id)
-        full_key = f"{user_prefix}{filename}"
-
-        return FileUrlResponse(url=url, expires_in=expires_in, key=full_key)
-    except HTTPException:
-        raise
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception(f"Failed to generate URL for {filename} for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate URL: {e!s}")

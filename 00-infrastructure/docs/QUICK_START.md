@@ -122,4 +122,3 @@ docker volume ls | grep localai
 - **Stack Management**: [STACK_MANAGEMENT.md](./STACK_MANAGEMENT.md)
 - **Infrastructure Status**: [INFRASTRUCTURE_STATUS.md](./INFRASTRUCTURE_STATUS.md)
 - **Migration Notes**: [migration/REFACTOR_SUMMARY.md](./migration/REFACTOR_SUMMARY.md)
-

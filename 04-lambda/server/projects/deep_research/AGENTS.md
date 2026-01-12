@@ -86,12 +86,12 @@ graph TB
         fetch[fetch_page<br/>Crawl4AI]
         parse[parse_document<br/>Docling]
     end
-    
+
     subgraph "MCP Tools Layer - Phase 2"
         ingest[ingest_knowledge<br/>MongoDB + Graphiti]
         query[query_knowledge<br/>Hybrid Search]
     end
-    
+
     subgraph "External Services"
         searxng[SearXNG<br/>03-apps]
         crawl4ai[Crawl4AI<br/>Library]
@@ -99,7 +99,7 @@ graph TB
         mongodb[(MongoDB<br/>01-data)]
         neo4j[(Neo4j<br/>01-data)]
     end
-    
+
     search -->|"REST API"| searxng
     fetch --> crawl4ai
     parse --> docling
@@ -137,7 +137,7 @@ graph TB
 - **Purpose**: Store document chunks in MongoDB (vectors) and Graphiti (knowledge graph)
 - **Parameters**: `chunks` (from parse_document), `session_id`, `source_url`, `title` (optional)
 - **Returns**: `document_id`, `chunks_created`, `facts_added`, `success`, `errors`
-- **Implementation**: 
+- **Implementation**:
   - Generates embeddings for all chunks using OpenAI
   - Stores documents and chunks in MongoDB with session_id in metadata
   - Ingests facts into Graphiti/Neo4j for knowledge graph

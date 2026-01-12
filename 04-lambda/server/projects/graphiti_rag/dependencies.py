@@ -2,17 +2,20 @@
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from graphiti_core import Graphiti
+
     GraphitiType = Graphiti
 else:
     try:
         from graphiti_core import Graphiti
+
         GraphitiType = Graphiti
     except ImportError:
         # When Graphiti is not available, use Any for type annotation
+        Graphiti = None  # Make Graphiti available at module level
         GraphitiType = type(None)  # Use NoneType as fallback
 
 from server.projects.graphiti_rag.config import config

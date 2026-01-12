@@ -15,6 +15,7 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 
 def run_command(cmd, cwd=None, check=True):
@@ -49,10 +50,11 @@ def load_env_file(env_path=None):
             return {}
 
     env_vars = {}
-    if os.path.exists(env_path):
-        with open(env_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
+    if env_path and os.path.exists(env_path):
+        env_path_obj = Path(env_path)
+        with env_path_obj.open(encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     key = key.strip()

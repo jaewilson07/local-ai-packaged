@@ -192,8 +192,3 @@ docker-compose restart
 - [Models Reference](MODELS.md) - Complete model information
 - [Workflows Guide](WORKFLOWS.md) - Workflow management
 - [Troubleshooting Guide](COMFYUI_TROUBLESHOOTING.md) - Common issues and solutions
-
-
-
-
-

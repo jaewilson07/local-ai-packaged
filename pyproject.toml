@@ -11,20 +11,18 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
-[project.optional-dependencies]
+
+# This is not an installable package - just for dependency management
+[tool.setuptools]
+packages = []
+
+[dependency-groups]
 dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "pre-commit>=3.6.0",
 ]
-
-# This is not an installable package - just for dependency management
-[tool.setuptools]
-packages = []
-
-[tool.uv]
-dev-dependencies = []
 
 [tool.ruff]
 line-length = 100
@@ -69,7 +67,14 @@ ignore = [
     "E501",  # Line too long (handled by formatter)
     "PLR0913", # Too many arguments
     "PLR0912", # Too many branches
+    "PLR0915", # Too many statements (complexity - acceptable for some functions)
     "TRY003", # Avoid specifying long messages outside exception class
+    "PLR2004", # Magic values in comparisons (HTTP status codes, timeouts are acceptable)
+    "PLC0415", # Imports not at top-level (many are intentional in tests/conditional imports)
+    "TRY300", # Return statements in try blocks (acceptable pattern in many cases)
+    "B008",  # Function call in default argument (FastAPI Depends() pattern)
+    "PTH110", # os.path.exists (acceptable for compatibility)
+    "PTH118", # os.path.join (acceptable for compatibility)
 ]
 
 [tool.ruff.lint.isort]
@@ -78,4 +83,3 @@ known-first-party = ["server", "tests"]
 [tool.black]
 line-length = 100
 target-version = ["py310"]
-

@@ -104,6 +104,34 @@ async def main():
         print("      Use repository_parsing_example.py to parse a GitHub repository.")
         print("=" * 80)
 
+        # Verify search results
+        try:
+            from sample.shared.verification_helpers import verify_search_results
+
+            all_results = []
+            for query in queries:
+                result = await search_graphiti_knowledge_graph(ctx=ctx, query=query, match_count=10)
+                if result.get("success") and result.get("results"):
+                    all_results.extend(result["results"])
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_search_results(all_results, expected_min=1)
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed: No search results found")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
+
     except Exception as e:
         logger.exception(f"❌ Error during knowledge graph search: {e}")
         print(f"\n❌ Fatal error: {e}")

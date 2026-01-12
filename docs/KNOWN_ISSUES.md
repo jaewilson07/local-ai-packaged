@@ -122,4 +122,3 @@ Add missing variables to `.env` file or use Infisical for secret management.
 ---
 
 Last Updated: 2026-01-04
-

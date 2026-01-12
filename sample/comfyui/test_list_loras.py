@@ -4,12 +4,13 @@ This script demonstrates how to properly call the ComfyUI LoRA endpoints
 with Cloudflare Zero Trust authentication (supports both internal and external URLs).
 """
 
-import os
+import json
 import sys
 
 import requests
 
 from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+from sample.shared.verification_helpers import verify_loras_data
 
 
 def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, offset: int = 0):
@@ -73,7 +74,7 @@ def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, off
             try:
                 error_detail = e.response.json()
                 print(f"   Detail: {error_detail}")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 print(f"   Response: {e.response.text}")
 
             if e.response.status_code == 403:
@@ -88,70 +89,6 @@ def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, off
 
         traceback.print_exc()
         return None
-
-
-def verify_in_me_data(api_base_url: str, headers: dict[str, str], listed_models: list) -> bool:
-    """
-    Verify that listed LoRAs match what's in /api/me/data.
-
-    Args:
-        api_base_url: Base URL of the API
-        headers: Authentication headers (from get_auth_headers())
-        listed_models: List of LoRA models from the list endpoint
-
-    Returns:
-        True if data matches, False otherwise
-    """
-    url = f"{api_base_url}/api/me/data"
-
-    print("\nVerifying LoRAs match /api/me/data...")
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-
-        result = response.json()
-        loras_summary = result.get("loras", {})
-
-        total_models = loras_summary.get("total_models", 0)
-        me_data_models = loras_summary.get("models", [])
-
-        print(f"  LoRAs from list endpoint: {len(listed_models)}")
-        print(f"  LoRAs from /api/me/data: {total_models}")
-
-        if len(listed_models) == total_models:
-            print(f"  ✅ Counts match!")
-        else:
-            print(f"  ⚠️  Count mismatch (may be expected if data was just created)")
-
-        # Check if all listed models are in /api/me/data
-        listed_ids = {model.get("id") for model in listed_models}
-        me_data_ids = {model.get("id") for model in me_data_models}
-
-        if listed_ids == me_data_ids:
-            print(f"  ✅ All LoRAs match /api/me/data!")
-            return True
-        else:
-            missing = listed_ids - me_data_ids
-            extra = me_data_ids - listed_ids
-            if missing:
-                print(f"  ⚠️  LoRAs in list but not in /api/me/data: {missing}")
-            if extra:
-                print(f"  ⚠️  LoRAs in /api/me/data but not in list: {extra}")
-            return False
-
-    except requests.exceptions.HTTPError as e:
-        print(f"  ✗ HTTP Error: {e}")
-        if e.response is not None:
-            try:
-                error_detail = e.response.json()
-                print(f"     Detail: {error_detail}")
-            except:
-                print(f"     Response: {e.response.text}")
-        return False
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
-        return False
 
 
 def main():
@@ -189,11 +126,25 @@ def main():
 
     if models is not None:
         # Verify LoRAs appear in /api/me/data
-        verify_in_me_data(api_base_url, headers, models)
-
         print("\n" + "=" * 60)
-        print("Test completed successfully!")
+        print("Verification")
         print("=" * 60)
+
+        success, message = verify_loras_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_models_min=len(models) if models else 0,
+        )
+        print(message)
+
+        if success:
+            print("\n✅ Test completed successfully!")
+            print("=" * 60)
+            sys.exit(0)
+        else:
+            print("\n⚠️  Test completed but verification failed!")
+            print("=" * 60)
+            sys.exit(1)
     else:
         print("\n" + "=" * 60)
         print("Test failed!")

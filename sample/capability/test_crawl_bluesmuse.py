@@ -133,7 +133,36 @@ async def main():
 
     if success:
         print("\n✅ Test completed successfully!")
-        sys.exit(0)
+
+        # Verify via API
+        try:
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_rag_data
+
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success_verify, message = verify_rag_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                expected_documents_min=1,
+            )
+            print(message)
+
+            if success_verify:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed (data may need time to propagate)")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
     else:
         print("\n❌ Test failed!")
         sys.exit(1)

@@ -22,7 +22,9 @@
 
 ## Exception Handling
 
+- **Prefer loud errors over silent failures**: We would rather have code error loudly (fail fast) than hide errors by catching raw exceptions. This makes debugging easier and ensures issues are discovered immediately.
 - **NEVER use naked exceptions** (bare `except:` clauses). Always catch specific exception types.
+- **Avoid catching `Exception`**: Do not use `except Exception as e:` unless absolutely necessary. Instead, let exceptions bubble up naturally so they can be properly handled at the appropriate level or logged by the framework.
 - **Use the structured exception layer** informed by service and capability:
   - Base exception: `BaseProjectException` from `server.core.exceptions`
   - Service-specific exceptions: `MongoDBException`, `LLMException`, `ConfigurationException`, etc.
@@ -33,6 +35,6 @@
   - Include relevant context (operation, resource, model, etc.) in exception initialization
 - **Exception handling pattern**:
   - Use `@handle_project_errors()` decorator for API endpoints (see `server.core.error_handling`)
-  - Catch specific exceptions, not generic `Exception` unless absolutely necessary
-  - Always log exceptions with context before re-raising or converting to HTTP responses
-  - Use `except Exception as e:` only as a final catch-all with proper logging, never as the primary handler
+  - Catch specific exceptions only when you can meaningfully handle them (e.g., retry logic, fallback behavior)
+  - Let unexpected exceptions propagate to be handled by framework-level error handlers
+  - If you must catch a broad exception, ensure it's logged and re-raised, not silently swallowed

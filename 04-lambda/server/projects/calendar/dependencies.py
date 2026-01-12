@@ -142,7 +142,7 @@ class CalendarDeps(BaseDependencies, MongoDBMixin):
     ) -> "CalendarDeps":
         """
         Create dependencies from application settings.
-        
+
         Args:
             mongo_client: Optional pre-initialized MongoDB client
             session_id: Optional session ID

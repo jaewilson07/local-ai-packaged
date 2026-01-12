@@ -280,6 +280,8 @@ services:
     restart: unless-stopped
     expose:
       - 5432/tcp
+    env_file:
+      - ../../.env
     environment:
       POSTGRES_USER: ${IMMICH_DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
@@ -306,9 +308,11 @@ services:
       - 8108/tcp
       - 8107/tcp
     environment:
-      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY}
       TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${IMMICH_TYPESENSE_API_KEY:-f5d0b063532584436d82f2d49fc51bbbaedb56744beaff0f41aceca860e1961f}
       TYPESENSE_ENABLE_CORS: "true"
+      TYPESENSE_API_PORT: "8108"
+      TYPESENSE_PEERING_PORT: "8107"
     volumes:
       - ../03-apps/immich/data/typesense:/data
     networks:
@@ -337,7 +341,7 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003"]
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/3003' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -471,6 +475,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:2283:2283/tcp"
+    env_file:
+      - ../../.env
     environment:
       DB_HOSTNAME: immich-postgres
       DB_PORT: 5432
@@ -495,7 +501,7 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2283/api/server-info/ping"]
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/2283' || exit 1"]
       <<: *healthcheck-http
     logging: *logging-json
 

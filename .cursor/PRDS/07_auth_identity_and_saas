@@ -200,7 +200,7 @@ MINIO_SECRET_KEY=secret1234
 * **FR-1 (Header Validation):** ✅ **IMPLEMENTED** - The Python backend extracts and verifies the `Cf-Access-Jwt-Assertion` header using Cloudflare's public keys.
   - Location: `04-lambda/server/projects/auth/services/jwt_service.py`
   - Features: Async public key fetching, caching (1-hour TTL), audience validation
-  
+
 * **FR-2 (Auto-Provisioning):** ✅ **IMPLEMENTED** - Upon a successful request from a valid email not yet in the DB:
     * ✅ Create a row in Supabase `profiles` table (`role: "user"`, `tier: "free"`).
       - Location: `04-lambda/server/projects/auth/services/supabase_service.py`
@@ -212,7 +212,7 @@ MINIO_SECRET_KEY=secret1234
       - Location: `04-lambda/server/projects/auth/services/minio_service.py`
       - Method: `provision_user(user_id, email)`
       - Creates folder structure: `user-{uuid}/` in `user-data` bucket
-      
+
 * **FR-3 (Identity Endpoint):** ✅ **IMPLEMENTED** - `GET /api/me` endpoint created that returns:
     ```json
     {
@@ -232,19 +232,19 @@ MINIO_SECRET_KEY=secret1234
     * Implementation: Queries filtered by `owner_email = user.email` in WHERE clause
     * Test Endpoint: `GET /test/my-data` returns HTML table with user's items only
     * Note: RLS policies can be added to Supabase tables for additional database-level security
-    
+
 * **FR-5 (Immich/MinIO Isolation):** ✅ **IMPLEMENTED** - Images/Assets filtered by user ownership.
     * Location: `04-lambda/server/api/auth.py` - `GET /test/my-images` endpoint
     * Implementation: Lists objects from `user-{uuid}/` prefix in MinIO `user-data` bucket
     * Test Endpoint: `GET /test/my-images` renders HTML gallery with *only* files owned by current user
     * Features: Presigned URLs (1-hour expiry) for secure image access
-    
+
 * **FR-6 (Neo4j Graph Security):** ✅ **IMPLEMENTED** - User anchoring pattern implemented.
     * Location: `04-lambda/server/projects/auth/services/neo4j_service.py`
     * Pattern: All queries can be anchored with `MATCH (u:User {email: $email})` before data queries
     * Helper: `provision_user()` ensures user node exists for anchoring
     * Documentation: User anchoring pattern documented in service
-    
+
 * **FR-7 (Admin Override):** ✅ **IMPLEMENTED** - Admin users can view all data across all services.
     * Location: `04-lambda/server/projects/auth/services/auth_service.py` - `is_admin()` method
     * Implementation: Admin checks integrated in all test endpoints
@@ -309,7 +309,7 @@ The following functioning endpoints have been delivered and are ready for testin
     "services_enabled": []
   }
   ```
-* **Features:** 
+* **Features:**
   - JWT validation
   - JIT user provisioning if user doesn't exist
   - Returns user profile from Supabase
@@ -317,11 +317,11 @@ The following functioning endpoints have been delivered and are ready for testin
 2. **`GET /test/my-data` (Supabase Test)** ✅ **IMPLEMENTED**
 * **Location:** `04-lambda/server/api/auth.py`
 * **Output:** HTML table showing rows from `items` table (or any user-scoped table)
-* **Verification:** 
+* **Verification:**
   - ✅ User A sees only Row A
   - ✅ User B sees only Row B
   - ✅ Admin sees all rows (A & B)
-* **Implementation:** 
+* **Implementation:**
   - Queries filtered by `owner_email = user.email`
   - Admin override bypasses filtering
   - Creates sample table structure if needed
@@ -329,7 +329,7 @@ The following functioning endpoints have been delivered and are ready for testin
 3. **`GET /test/my-images` (MinIO/Immich Test)** ✅ **IMPLEMENTED**
 * **Location:** `04-lambda/server/api/auth.py`
 * **Output:** HTML gallery of images with presigned URLs
-* **Verification:** 
+* **Verification:**
   - ✅ User sees only images from their `user-{uuid}/` folder
   - ✅ Admin sees all images from all user folders
   - ✅ No images from other users are rendered for non-admin users
@@ -406,7 +406,7 @@ The following functioning endpoints have been delivered and are ready for testin
 
 2. **Audience Tag:** ✅ **IMPLEMENTED** - JWT validation checks the specific `aud` tag for this application.
    * **Location:** `04-lambda/server/projects/auth/services/jwt_service.py`
-   * **Implementation:** 
+   * **Implementation:**
      - Audience validated in `validate_jwt()` method
      - Configurable via `CLOUDFLARE_AUD_TAG` environment variable
      - Raises `HTTPException(401)` if audience doesn't match

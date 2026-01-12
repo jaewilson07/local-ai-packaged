@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -28,13 +28,14 @@ export function ReactionButtons({ immichAssetId }: ReactionButtonsProps) {
       if (!response.ok) throw new Error('Failed to fetch reactions')
       return response.json()
     },
-    onSuccess: (data) => {
-      if (session?.user?.id) {
-        const userReact = data.find((r) => r.userId === session.user.id)
-        setUserReaction(userReact?.type || null)
-      }
-    },
   })
+
+  useEffect(() => {
+    if (session?.user?.id && reactions.length > 0) {
+      const userReact = reactions.find((r) => r.userId === session.user.id)
+      setUserReaction(userReact?.type || null)
+    }
+  }, [reactions, session?.user?.id])
 
   const heartCount = reactions.filter((r) => r.type === 'heart').length
   const fireCount = reactions.filter((r) => r.type === 'fire').length

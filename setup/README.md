@@ -223,4 +223,3 @@ ComfyUI model provisioning documentation is in the [`comfyui/`](./comfyui/) dire
 
 - **[ComfyUI Model Configuration](./comfyui/README.md)** - How to configure and provision models for ComfyUI
 - Explains `models.yml` format and `provision-models.py` script
-

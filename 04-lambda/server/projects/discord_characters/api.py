@@ -125,7 +125,7 @@ async def list_characters_endpoint(
             responses = []
 
             for char in characters:
-                personality = personality_manager.get(char.character_id)
+                personality = await persona_deps.persona_store.get(char.persona_id)
                 responses.append(
                     CharacterResponse(
                         channel_id=char.channel_id,

@@ -78,8 +78,8 @@ Do not include any other text, just the numbered sub-queries."""
 
         # Parse sub-queries from numbered list
         sub_queries: list[str] = []
-        for line in response_text.split("\n"):
-            line = line.strip()
+        for raw_line in response_text.split("\n"):
+            line = raw_line.strip()
             if not line:
                 continue
             # Remove numbering (1., 2., etc.) and clean up

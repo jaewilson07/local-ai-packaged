@@ -163,9 +163,9 @@ def test_agent_endpoint_with_knowledge_base_query(
         data = response.json()
         assert "query" in data
         assert "response" in data
-        assert len(data["response"]) > 20, (
-            "Response should be substantial when using knowledge base"
-        )
+        assert (
+            len(data["response"]) > 20
+        ), "Response should be substantial when using knowledge base"
     finally:
         app.dependency_overrides.clear()
 

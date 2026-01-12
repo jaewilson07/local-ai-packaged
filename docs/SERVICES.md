@@ -54,7 +54,7 @@ Services are organized into numbered stacks with explicit dependencies:
 - `CADDYFILE` - Caddyfile configuration
 - Service hostnames (e.g., `N8N_HOSTNAME`, `WEBUI_HOSTNAME`)
 
-**Access**: 
+**Access**:
 - Private: `http://localhost:80` (HTTP), `https://localhost:443` (HTTPS)
 - Public: Via domain (e.g., `https://n8n.datacrew.space`)
 
@@ -211,7 +211,7 @@ Services are organized into numbered stacks with explicit dependencies:
 **Configuration**:
 - `NEO4J_AUTH` - Authentication (format: `username/password`)
 
-**Access**: 
+**Access**:
 - HTTP: `http://neo4j:7474` (internal)
 - Bolt: `bolt://neo4j:7687` (internal)
 
@@ -255,7 +255,7 @@ Services are organized into numbered stacks with explicit dependencies:
 - `SUPABASE_MINIO_ROOT_USER` - Root user (default: `supa-storage`)
 - `SUPABASE_MINIO_ROOT_PASSWORD` - Root password (default: `secret1234`)
 
-**Access**: 
+**Access**:
 - API: `http://supabase-minio:9020` (internal)
 - Console: `http://supabase-minio:9021` (internal)
 
@@ -464,7 +464,7 @@ Services are organized into numbered stacks with explicit dependencies:
 **Configuration**:
 - `MINIO_ROOT_PASSWORD` - Root password
 
-**Access**: 
+**Access**:
 - API: `http://minio:9000` (internal)
 - Console: `http://minio:9001` (internal)
 
@@ -568,7 +568,7 @@ Services are organized into numbered stacks with explicit dependencies:
 - `MCP_ENABLED` - Enable MCP server (default: true)
 - `MCP_PORT` - MCP server port (default: 8001)
 
-**Access**: 
+**Access**:
 - MCP: `http://discord-bot:8001/mcp` (internal, if enabled)
 - Discord: Via Discord API
 
@@ -596,7 +596,7 @@ Services are organized into numbered stacks with explicit dependencies:
 - `MIN_TIME_SINCE_LAST_ENGAGEMENT_MINUTES` - Minimum time between engagements (default: 10)
 - `MAX_CHANNEL_CHARACTERS` - Maximum characters per channel (default: 5)
 
-**Access**: 
+**Access**:
 - Discord: Via Discord API
 - Lambda API: `http://lambda-server:8000/api/v1/discord-characters/*`
 

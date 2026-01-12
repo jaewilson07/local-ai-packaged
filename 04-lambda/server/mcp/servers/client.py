@@ -103,7 +103,9 @@ async def call_mcp_tool(tool_name: str, arguments: dict[str, Any]) -> Any:
         # Handle HTTP errors from either httpx or aiohttp
         if httpx and isinstance(http_error, httpx.HTTPStatusError):
             e = http_error
-            logger.exception(f"MCP tool call HTTP error: {e.response.status_code} - {e.response.text}")
+            logger.exception(
+                f"MCP tool call HTTP error: {e.response.status_code} - {e.response.text}"
+            )
             raise ConnectionError(
                 f"MCP server returned error {e.response.status_code}: {e.response.text}"
             )

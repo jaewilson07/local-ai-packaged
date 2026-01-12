@@ -228,7 +228,7 @@ python3 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py
 
 **Error**: `"Invalid token: Missing required audience (CLOUDFLARE_AUD_TAG)"`
 
-**Solution**: 
+**Solution**:
 1. Verify AUD tag is correct:
    ```bash
    python3 00-infrastructure/scripts/get-lambda-api-aud-tag.py

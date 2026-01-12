@@ -92,10 +92,10 @@ def parse_env_file(env_file_path: Path) -> dict[str, str]:
         print(f"Error: .env file not found at {env_file_path}")
         sys.exit(1)
 
-    with open(env_file_path, encoding="utf-8") as f:
-        for line_num, line in enumerate(f, 1):
+    with env_file_path.open(encoding="utf-8") as f:
+        for line_num, raw_line in enumerate(f, 1):
             # Strip whitespace
-            line = line.strip()
+            line = raw_line.strip()
 
             # Skip empty lines and comments
             if not line or line.startswith("#"):
@@ -137,7 +137,7 @@ def check_infisical_cli() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -154,7 +154,7 @@ def check_infisical_auth() -> bool:
         # If not authenticated, it will show auth error
         output = (result.stdout or result.stderr or "").lower()
         return not ("authenticate" in output or "login" in output)
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -179,8 +179,8 @@ def get_infisical_secrets() -> dict[str, str]:
 
         if result.returncode == 0 and result.stdout:
             # Parse the dotenv format output
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 

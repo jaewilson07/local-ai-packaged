@@ -442,16 +442,16 @@ graph TB
         MongoDB[(MongoDB)]
         Neo4j[(Neo4j)]
     end
-    
+
     subgraph Compute["02-compute Stack"]
         Ollama[Ollama LLM]
     end
-    
+
     subgraph Apps["03-apps Stack"]
         N8N[N8N]
         OpenWebUI[Open WebUI]
     end
-    
+
     subgraph Services["Lambda Services"]
         MongoRAG[MongoDB RAG]
         GraphitiRAG[Graphiti RAG]
@@ -462,7 +462,7 @@ graph TB
         N8NWorkflow[N8N Workflow]
         OpenWebUIExport[Open WebUI Export]
     end
-    
+
     MongoRAG --> MongoDB
     MongoRAG --> Ollama
     GraphitiRAG --> Neo4j

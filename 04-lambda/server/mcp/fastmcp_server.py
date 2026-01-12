@@ -97,9 +97,6 @@ async def agent_query(query: str) -> dict:
             "mcp_http_error: agent_query", extra={"status_code": e.status_code, "detail": e.detail}
         )
         raise RuntimeError(f"Agent query failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: agent_query")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 @mcp.tool
@@ -163,9 +160,6 @@ async def search_code_examples(query: str, match_count: int = 5) -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Search failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: search_code_examples")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 @mcp.tool
@@ -188,9 +182,6 @@ async def get_available_sources() -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Failed to get sources: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: get_available_sources")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 # ============================================================================
@@ -229,9 +220,6 @@ async def search_graphiti(query: str, match_count: int = 10) -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Search failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: search_graphiti")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 @mcp.tool
@@ -267,9 +255,6 @@ async def parse_github_repository(repo_url: str) -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Parse failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: parse_github_repository")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 @mcp.tool
@@ -304,9 +289,6 @@ async def check_ai_script_hallucinations(script_path: str) -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Validation failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: check_ai_script_hallucinations")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 @mcp.tool
@@ -338,9 +320,6 @@ async def query_knowledge_graph(command: str) -> dict:
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Query failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: query_knowledge_graph")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 # ============================================================================
@@ -378,8 +357,7 @@ async def crawl_single_page(url: str, chunk_size: int = 1000, chunk_overlap: int
         result = await crawl_single(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: crawl_single_page")
-        raise RuntimeError(f"Crawl failed: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -432,8 +410,7 @@ async def crawl_deep(
         result = await crawl_deep_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: crawl_deep")
-        raise RuntimeError(f"Deep crawl failed: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -480,9 +457,6 @@ async def web_search(
             "mcp_http_error: web_search", extra={"status_code": e.status_code, "detail": e.detail}
         )
         raise RuntimeError(f"Web search failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: web_search")
-        raise RuntimeError(f"An unexpected error occurred: {e}")
 
 
 # ============================================================================
@@ -537,8 +511,7 @@ async def create_n8n_workflow(
         result = await create_workflow_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: create_n8n_workflow")
-        raise RuntimeError(f"Failed to create workflow: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -587,8 +560,7 @@ async def update_n8n_workflow(
         result = await update_workflow_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: update_n8n_workflow")
-        raise RuntimeError(f"Failed to update workflow: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -610,8 +582,7 @@ async def delete_n8n_workflow(workflow_id: str) -> dict:
         result = await delete_workflow_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: delete_n8n_workflow")
-        raise RuntimeError(f"Failed to delete workflow: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -636,8 +607,7 @@ async def activate_n8n_workflow(workflow_id: str, active: bool) -> dict:
         result = await activate_workflow_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: activate_n8n_workflow")
-        raise RuntimeError(f"Failed to activate/deactivate workflow: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -659,8 +629,7 @@ async def list_n8n_workflows(active_only: bool = False) -> dict:
         result = await list_workflows_endpoint(active_only=active_only)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: list_n8n_workflows")
-        raise RuntimeError(f"Failed to list workflows: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -686,8 +655,7 @@ async def execute_n8n_workflow(workflow_id: str, input_data: dict[str, Any] | No
         result = await execute_workflow_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: execute_n8n_workflow")
-        raise RuntimeError(f"Failed to execute workflow: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -756,9 +724,6 @@ async def scrape_event_to_calendar(
         error_detail = e.response.text if e.response else str(e)
         logger.exception(f"mcp_tool_error: scrape_event_to_calendar HTTP {e.response.status_code}")
         raise RuntimeError(f"Calendar sync failed: {error_detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: scrape_event_to_calendar")
-        raise RuntimeError(f"Failed to scrape event to calendar: {e}")
 
 
 @mcp.tool
@@ -911,8 +876,7 @@ async def export_openwebui_conversation(
         result = await export_conversation_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: export_openwebui_conversation")
-        raise RuntimeError(f"Failed to export conversation: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -949,8 +913,7 @@ async def classify_conversation_topics(
         result = await classify_topics_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: classify_conversation_topics")
-        raise RuntimeError(f"Failed to classify topics: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -993,8 +956,7 @@ async def search_conversations(
         result = await search(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: search_conversations")
-        raise RuntimeError(f"Failed to search conversations: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1061,8 +1023,7 @@ async def create_calendar_event(
         result = await create_calendar_event_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: create_calendar_event")
-        raise RuntimeError(f"Failed to create calendar event: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1124,8 +1085,7 @@ async def update_calendar_event(
         result = await update_calendar_event_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: update_calendar_event")
-        raise RuntimeError(f"Failed to update calendar event: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1153,8 +1113,7 @@ async def delete_calendar_event(user_id: str, event_id: str, calendar_id: str = 
         result = await delete_calendar_event_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: delete_calendar_event")
-        raise RuntimeError(f"Failed to delete calendar event: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1193,8 +1152,7 @@ async def list_calendar_events(
         )
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: list_calendar_events")
-        raise RuntimeError(f"Failed to list calendar events: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1220,15 +1178,24 @@ async def extract_events_from_content(
     Returns:
         Dictionary containing extracted events.
     """
-    from server.api.knowledge import ExtractEventsRequest, extract_events_endpoint
+    from server.api.knowledge import extract_events_endpoint
+    from server.projects.knowledge.models import ExtractEventsRequest
 
     try:
         request = ExtractEventsRequest(content=content, url=url, use_llm=use_llm)
         result = await extract_events_endpoint(request)
         return result.dict()
-    except Exception as e:
-        logger.exception("mcp_tool_error: extract_events_from_content")
-        raise RuntimeError(f"Failed to extract events: {e}")
+    except ValidationError as e:
+        logger.warning(
+            "mcp_validation_error: extract_events_from_content", extra={"errors": e.errors()}
+        )
+        raise ValueError(f"Invalid parameters: {e}")
+    except HTTPException as e:
+        logger.warning(
+            "mcp_http_error: extract_events_from_content",
+            extra={"status_code": e.status_code, "detail": e.detail},
+        )
+        raise RuntimeError(f"Event extraction failed: {e.detail}")
 
 
 @mcp.tool
@@ -1247,18 +1214,212 @@ async def extract_events_from_crawled(
     Returns:
         Dictionary containing extracted events.
     """
-    from server.api.knowledge import (
-        ExtractEventsFromCrawledRequest,
-        extract_events_from_crawled_endpoint,
-    )
+    from server.api.knowledge import extract_events_from_crawled_endpoint
+    from server.projects.knowledge.models import ExtractEventsFromCrawledRequest
 
     try:
         request = ExtractEventsFromCrawledRequest(crawled_pages=crawled_pages, use_llm=use_llm)
         result = await extract_events_from_crawled_endpoint(request)
         return result.dict()
-    except Exception as e:
-        logger.exception("mcp_tool_error: extract_events_from_crawled")
-        raise RuntimeError(f"Failed to extract events from crawled pages: {e}")
+    except ValidationError as e:
+        logger.warning(
+            "mcp_validation_error: extract_events_from_crawled", extra={"errors": e.errors()}
+        )
+        raise ValueError(f"Invalid parameters: {e}")
+    except HTTPException as e:
+        logger.warning(
+            "mcp_http_error: extract_events_from_crawled",
+            extra={"status_code": e.status_code, "detail": e.detail},
+        )
+        raise RuntimeError(f"Event extraction failed: {e.detail}")
+
+
+# ============================================================================
+# Blob Storage Tools
+# ============================================================================
+
+
+@mcp.tool
+async def upload_file_to_storage(
+    user_id: str,
+    file_data: str,
+    filename: str,
+    content_type: str | None = None,
+) -> dict:
+    """
+    Upload a file to user's blob storage.
+
+    Files are stored in MinIO under user-specific prefixes for data isolation.
+
+    Args:
+        user_id: User UUID as string
+        file_data: File content as base64-encoded string
+        filename: Filename
+        content_type: Optional content type (auto-detected if not provided)
+
+    Returns:
+        Dictionary containing upload response with file key and metadata.
+    """
+    import base64
+    from uuid import UUID
+
+    from server.api.blob_storage import upload_file_endpoint
+
+    try:
+        user_uuid = UUID(user_id)
+        file_bytes = base64.b64decode(file_data)
+
+        result = await upload_file_endpoint(
+            user_id=user_uuid,
+            file_data=file_bytes,
+            filename=filename,
+            content_type=content_type,
+        )
+        return result.dict()
+    except ValueError as e:
+        logger.warning("mcp_validation_error: upload_file_to_storage", extra={"error": str(e)})
+        raise ValueError(f"Invalid parameters: {e}")
+
+
+@mcp.tool
+async def list_storage_files(
+    user_id: str,
+    prefix: str | None = None,
+) -> dict:
+    """
+    List files for a user in blob storage.
+
+    Args:
+        user_id: User UUID as string
+        prefix: Optional prefix to filter files (e.g., "loras/" for LoRA models)
+
+    Returns:
+        Dictionary containing list of files with metadata.
+    """
+    from uuid import UUID
+
+    from server.api.blob_storage import list_files_endpoint
+
+    try:
+        user_uuid = UUID(user_id)
+
+        result = await list_files_endpoint(
+            user_id=user_uuid,
+            prefix=prefix,
+        )
+        return result.dict()
+    except ValueError as e:
+        logger.warning("mcp_validation_error: list_storage_files", extra={"error": str(e)})
+        raise ValueError(f"Invalid parameters: {e}")
+
+
+@mcp.tool
+async def download_file_from_storage(
+    user_id: str,
+    filename: str,
+) -> dict:
+    """
+    Download a file from user's blob storage.
+
+    Args:
+        user_id: User UUID as string
+        filename: Filename to download
+
+    Returns:
+        Dictionary containing file content as base64-encoded string.
+    """
+    import base64
+    from uuid import UUID
+
+    from server.api.blob_storage import download_file_endpoint
+
+    try:
+        user_uuid = UUID(user_id)
+
+        file_data = await download_file_endpoint(
+            user_id=user_uuid,
+            filename=filename,
+        )
+
+        return {
+            "success": True,
+            "filename": filename,
+            "data": base64.b64encode(file_data).decode("utf-8"),
+            "size": len(file_data),
+        }
+    except ValueError as e:
+        logger.warning("mcp_validation_error: download_file_from_storage", extra={"error": str(e)})
+        raise ValueError(f"Invalid parameters: {e}")
+
+
+@mcp.tool
+async def delete_file_from_storage(
+    user_id: str,
+    filename: str,
+) -> dict:
+    """
+    Delete a file from user's blob storage.
+
+    Args:
+        user_id: User UUID as string
+        filename: Filename to delete
+
+    Returns:
+        Dictionary containing delete response with status.
+    """
+    from uuid import UUID
+
+    from server.api.blob_storage import delete_file_endpoint
+
+    try:
+        user_uuid = UUID(user_id)
+
+        result = await delete_file_endpoint(
+            user_id=user_uuid,
+            filename=filename,
+        )
+        return result.dict()
+    except ValueError as e:
+        logger.warning("mcp_validation_error: delete_file_from_storage", extra={"error": str(e)})
+        raise ValueError(f"Invalid parameters: {e}")
+
+
+@mcp.tool
+async def get_storage_file_url(
+    user_id: str,
+    filename: str,
+    expires_in: int = 3600,
+) -> dict:
+    """
+    Generate a presigned URL for a file in blob storage.
+
+    Args:
+        user_id: User UUID as string
+        filename: Filename to generate URL for
+        expires_in: URL expiration time in seconds (default: 3600, max: 604800)
+
+    Returns:
+        Dictionary containing presigned URL response.
+    """
+    from uuid import UUID
+
+    from server.api.blob_storage import get_file_url_endpoint
+
+    try:
+        user_uuid = UUID(user_id)
+
+        if expires_in < 60 or expires_in > 604800:
+            raise ValueError("expires_in must be between 60 and 604800 seconds")
+
+        result = await get_file_url_endpoint(
+            user_id=user_uuid,
+            filename=filename,
+            expires_in=expires_in,
+        )
+        return result.dict()
+    except ValueError as e:
+        logger.warning("mcp_validation_error: get_storage_file_url", extra={"error": str(e)})
+        raise ValueError(f"Invalid parameters: {e}")
 
 
 # ============================================================================
@@ -1286,8 +1447,7 @@ async def record_message(user_id: str, persona_id: str, content: str, role: str 
         result = await record_message_endpoint(user_id, persona_id, content, role)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: record_message")
-        raise RuntimeError(f"Failed to record message: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1309,8 +1469,7 @@ async def get_context_window(user_id: str, persona_id: str, limit: int = 20) -> 
         result = await get_context_window_endpoint(user_id, persona_id, limit)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: get_context_window")
-        raise RuntimeError(f"Failed to get context window: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1335,8 +1494,7 @@ async def store_fact(
         result = await store_fact_endpoint(user_id, persona_id, fact, tags)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: store_fact")
-        raise RuntimeError(f"Failed to store fact: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1359,8 +1517,7 @@ async def search_facts(user_id: str, persona_id: str, query: str, limit: int = 1
         result = await search_facts_endpoint(user_id, persona_id, query, limit)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: search_facts")
-        raise RuntimeError(f"Failed to search facts: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1396,8 +1553,7 @@ async def store_web_content(
         )
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: store_web_content")
-        raise RuntimeError(f"Failed to store web content: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1447,8 +1603,7 @@ async def enhanced_search(
         )
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: enhanced_search")
-        raise RuntimeError(f"Failed to perform enhanced search: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1479,8 +1634,7 @@ async def get_persona_voice_instructions(user_id: str, persona_id: str) -> dict:
         result = await get_voice_instructions_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: get_persona_voice_instructions")
-        raise RuntimeError(f"Failed to get persona voice instructions: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1512,8 +1666,7 @@ async def record_persona_interaction(
         result = await record_interaction_endpoint(request)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: record_persona_interaction")
-        raise RuntimeError(f"Failed to record persona interaction: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1534,8 +1687,7 @@ async def get_persona_state(user_id: str, persona_id: str) -> dict:
         result = await get_persona_state_endpoint(user_id, persona_id)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: get_persona_state")
-        raise RuntimeError(f"Failed to get persona state: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1567,8 +1719,7 @@ async def update_persona_mood(
         result = await update_mood_endpoint(request)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: update_persona_mood")
-        raise RuntimeError(f"Failed to update persona mood: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1600,8 +1751,7 @@ async def orchestrate_conversation(user_id: str, persona_id: str, message: str) 
         result = await orchestrate_conversation_endpoint(request)
         return result.dict()
     except Exception as e:
-        logger.exception("mcp_tool_error: orchestrate_conversation")
-        raise RuntimeError(f"Failed to orchestrate conversation: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1630,8 +1780,7 @@ async def add_discord_character(
         result = await add_discord_character_tool(channel_id, character_id, persona_id)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: add_discord_character")
-        raise RuntimeError(f"Failed to add Discord character: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1652,8 +1801,7 @@ async def remove_discord_character(channel_id: str, character_id: str) -> dict:
         result = await remove_discord_character_tool(channel_id, character_id)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: remove_discord_character")
-        raise RuntimeError(f"Failed to remove Discord character: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1673,8 +1821,7 @@ async def list_discord_characters(channel_id: str) -> list[dict]:
         result = await list_discord_characters_tool(channel_id)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: list_discord_characters")
-        raise RuntimeError(f"Failed to list Discord characters: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1695,8 +1842,7 @@ async def clear_discord_history(channel_id: str, character_id: str | None = None
         result = await clear_discord_history_tool(channel_id, character_id)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: clear_discord_history")
-        raise RuntimeError(f"Failed to clear Discord history: {e}")
+        return {"error": str(e), "success": False}
 
 
 @mcp.tool
@@ -1721,8 +1867,7 @@ async def chat_with_discord_character(
         result = await chat_with_discord_character_tool(channel_id, character_id, user_id, message)
         return result
     except Exception as e:
-        logger.exception("mcp_tool_error: chat_with_discord_character")
-        raise RuntimeError(f"Failed to generate character response: {e}")
+        return {"error": str(e), "success": False}
 
 
 # ============================================================================
@@ -1768,9 +1913,6 @@ async def search_web(query: str, engines: list[str] | None = None, result_count:
     except ValidationError as e:
         logger.warning("mcp_validation_error: search_web", extra={"errors": e.errors()})
         raise ValueError(f"Invalid parameters: {e}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: search_web")
-        raise RuntimeError(f"Web search failed: {e}")
 
 
 @mcp.tool
@@ -1809,9 +1951,6 @@ async def fetch_page(url: str) -> dict:
             "mcp_http_error: fetch_page", extra={"status_code": e.status_code, "detail": e.detail}
         )
         raise RuntimeError(f"Fetch failed: {e.detail}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: fetch_page")
-        raise RuntimeError(f"Page fetch failed: {e}")
 
 
 @mcp.tool
@@ -1849,9 +1988,6 @@ async def parse_document(
     except ValidationError as e:
         logger.warning("mcp_validation_error: parse_document", extra={"errors": e.errors()})
         raise ValueError(f"Invalid parameters: {e}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: parse_document")
-        raise RuntimeError(f"Document parsing failed: {e}")
 
 
 @mcp.tool
@@ -1896,9 +2032,6 @@ async def ingest_knowledge(
     except ValidationError as e:
         logger.warning("mcp_validation_error: ingest_knowledge", extra={"errors": e.errors()})
         raise ValueError(f"Invalid parameters: {e}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: ingest_knowledge")
-        raise RuntimeError(f"Knowledge ingestion failed: {e}")
 
 
 @mcp.tool
@@ -1950,6 +2083,3 @@ async def query_knowledge(
     except ValidationError as e:
         logger.warning("mcp_validation_error: query_knowledge", extra={"errors": e.errors()})
         raise ValueError(f"Invalid parameters: {e}")
-    except Exception as e:
-        logger.exception("mcp_tool_error: query_knowledge")
-        raise RuntimeError(f"Knowledge query failed: {e}")

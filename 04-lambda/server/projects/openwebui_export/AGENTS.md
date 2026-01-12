@@ -38,27 +38,27 @@ graph TB
         REST[ REST API<br/>/api/v1/openwebui/export ]
         MCP[ MCP Tools<br/>export_conversation ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ openwebui_export_agent<br/>Pydantic AI Agent ]
         TOOL[ export_conversation<br/>Export Tool ]
     end
-    
+
     subgraph "Export Processing"
         FORMAT[ _format_conversation_text<br/>Message Formatter ]
         CHUNK[ Chunking<br/>Text Splitting ]
         EMBED[ Embedding<br/>Vector Generation ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ OpenWebUIExportDeps<br/>MongoDB Client ]
         MONGO[ MongoDB<br/>RAG Storage ]
     end
-    
+
     subgraph "External Services"
         OLLAMA[ Ollama<br/>Embeddings ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOL
@@ -68,7 +68,7 @@ graph TB
     CHUNK --> DEPS
     EMBED --> OLLAMA
     DEPS --> MONGO
-    
+
     style AGENT fill:#e1f5ff
     style FORMAT fill:#fff4e1
     style CHUNK fill:#e1ffe1
@@ -89,25 +89,25 @@ sequenceDiagram
     participant Embed as Embedding
     participant MongoDB
     participant Ollama
-    
+
     Client->>Agent: Export conversation (conversation_id, messages)
     Agent->>Tool: export_conversation(request)
     Tool->>Format: _format_conversation_text(messages)
     Format-->>Tool: Formatted conversation text
-    
+
     Tool->>Chunk: Split into chunks (chunk_size, overlap)
     Chunk-->>Tool: Document chunks
-    
+
     loop For each chunk
         Tool->>Embed: Generate embedding
         Embed->>Ollama: POST /embeddings
         Ollama-->>Embed: Vector embedding
         Embed-->>Tool: Embedding vector
-        
+
         Tool->>MongoDB: Store chunk + embedding + metadata
         MongoDB-->>Tool: Chunk stored
     end
-    
+
     Tool-->>Agent: Export result (chunks created)
     Agent-->>Client: Export response
 ```

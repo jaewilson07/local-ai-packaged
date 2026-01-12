@@ -29,7 +29,7 @@ include:
 
 This caused conflicts when:
 - Starting services independently
-- Using `docker compose down` 
+- Using `docker compose down`
 - Trying to start Infisical separately
 - Updating Supabase compose files
 
@@ -191,7 +191,7 @@ All stacks share the external `ai-network` for inter-service communication.
 - **Project Name**: `localai-apps`
 - **Services**: `n8n`, `flowise`, `open-webui`, `searxng`, `langfuse-web`, `langfuse-worker`, `clickhouse`
 - **Network**: Uses external `ai-network`
-- **Dependencies**: 
+- **Dependencies**:
   - n8n → `ollama:11434`, `supabase-db:5432`, `redis:6379`
   - open-webui → `ollama:11434`, `searxng:8080`
   - langfuse → `supabase-db:5432`, `minio:9000`, `redis:6379`, `clickhouse:8123`
@@ -229,7 +229,7 @@ All stacks share the external Docker network `ai-network`:
 
 - **Services**: `n8n`, `flowise`, `open-webui`, `searxng`, `langfuse-web`, `langfuse-worker`, `clickhouse`, `mongodb`, `minio`
 - **Network**: Uses external `ai-network`
-- **Dependencies**: 
+- **Dependencies**:
   - n8n → `ollama:11434`, `supabase-db:5432`
   - open-webui → `ollama:11434`, `searxng:8080`
   - langfuse → `supabase-db:5432`, `minio:9000`, `redis:6379`, `clickhouse:8123`

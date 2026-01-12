@@ -55,7 +55,7 @@ var main = /* @__PURE__ */ __name(async ({
   server.setValidatorCompiler(validatorCompiler);
   server.setSerializerCompiler(serializerCompiler);
   server.decorate("redis", redis);
-  
+
   // PATCH: Custom application/json parser that accepts empty bodies
   // Fixes FST_ERR_CTP_EMPTY_JSON_BODY error when frontend sends POST with no body
   // This overrides Fastify's default JSON parser
@@ -75,7 +75,7 @@ var main = /* @__PURE__ */ __name(async ({
   });
   console.log("[PATCH] Applied empty JSON body fix for Fastify");
   // END PATCH
-  
+
   server.addContentTypeParser("application/scim+json", { parseAs: "string" }, (_, body, done) => {
     try {
       const strBody = body instanceof Buffer ? body.toString() : body;
@@ -155,4 +155,3 @@ export {
   main
 };
 //# sourceMappingURL=app.mjs.map
-

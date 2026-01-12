@@ -43,8 +43,8 @@ def load_env_file(env_path=".env"):
     env_path_obj = Path(env_path)
     if env_path_obj.exists():
         with env_path_obj.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
+            for raw_line in f:
+                line = raw_line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     key = key.strip()
@@ -138,7 +138,18 @@ def execute_sql_command(sql, db_user, db_name, capture_output=True):
     """Execute a SQL command in the Infisical database container."""
     psql_flags = ["-t", "-A"] if capture_output else []
 
-    cmd = ["docker", "exec", "-i", "infisical-db", "psql", "-U", db_user, "-d", db_name, *psql_flags]
+    cmd = [
+        "docker",
+        "exec",
+        "-i",
+        "infisical-db",
+        "psql",
+        "-U",
+        db_user,
+        "-d",
+        db_name,
+        *psql_flags,
+    ]
 
     process = subprocess.Popen(
         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
@@ -357,14 +368,14 @@ def main():
     parser = argparse.ArgumentParser(description="Manage Infisical state and data.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Subcommand: reset-infra
+    # Subcommand: reset-infra  # noqa: ERA001
     parser_infra = subparsers.add_parser(
         "reset-infra", help="Nuclear reset of infrastructure (deletes volumes)."
     )
     parser_infra.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
     parser_infra.set_defaults(func=reset_infrastructure)
 
-    # Subcommand: reset-data
+    # Subcommand: reset-data  # noqa: ERA001
     parser_data = subparsers.add_parser(
         "reset-data", help="Surgical reset of organization data (preserves users by default)."
     )

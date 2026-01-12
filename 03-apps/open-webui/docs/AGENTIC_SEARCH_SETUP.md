@@ -293,4 +293,3 @@ For issues or questions:
 2. Verify services: `docker ps`
 3. Test endpoints: Use curl commands above
 4. Review MCP integration: See [MCP Integration Guide](./MCP_INTEGRATION.md)
-

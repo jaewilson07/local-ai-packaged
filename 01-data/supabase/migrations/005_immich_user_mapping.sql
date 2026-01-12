@@ -3,11 +3,11 @@
 -- Created: 2025
 
 -- Add Immich fields to profiles table
-ALTER TABLE profiles 
+ALTER TABLE profiles
 ADD COLUMN IF NOT EXISTS immich_user_id TEXT,
 ADD COLUMN IF NOT EXISTS immich_api_key TEXT;
 
 -- Create index for Immich lookups
-CREATE INDEX IF NOT EXISTS idx_profiles_immich_user_id 
-ON profiles(immich_user_id) 
+CREATE INDEX IF NOT EXISTS idx_profiles_immich_user_id
+ON profiles(immich_user_id)
 WHERE immich_user_id IS NOT NULL;

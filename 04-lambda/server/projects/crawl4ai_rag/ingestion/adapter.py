@@ -106,8 +106,8 @@ class CrawledContentIngester:
         """
         # Try to find markdown title
         lines = markdown.split("\n")
-        for line in lines[:10]:  # Check first 10 lines
-            line = line.strip()
+        for raw_line in lines[:10]:  # Check first 10 lines
+            line = raw_line.strip()
             if line.startswith("# "):
                 return line[2:].strip()
 

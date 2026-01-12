@@ -3,6 +3,7 @@ Document embedding generation for vector search.
 """
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 
 import openai
@@ -76,7 +77,8 @@ class EmbeddingGenerator:
         """
         # Truncate texts if too long
         processed_texts = []
-        for text in texts:
+        for raw_text in texts:
+            text = raw_text
             if len(text) > self.config["max_tokens"] * 4:
                 text = text[: self.config["max_tokens"] * 4]
             processed_texts.append(text)
@@ -86,7 +88,7 @@ class EmbeddingGenerator:
         return [data.embedding for data in response.data]
 
     async def embed_chunks(
-        self, chunks: list[DocumentChunk], progress_callback: callable | None = None
+        self, chunks: list[DocumentChunk], progress_callback: Callable | None = None
     ) -> list[DocumentChunk]:
         """
         Generate embeddings for document chunks.

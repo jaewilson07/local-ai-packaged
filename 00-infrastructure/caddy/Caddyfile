@@ -1,7 +1,7 @@
 {
     # Global options
     auto_https off
-    
+
     # Trust Cloudflare IP ranges for X-Forwarded-* headers
     servers {
         trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
@@ -94,7 +94,7 @@
         format json
         level {$CADDY_LOG_LEVEL:INFO}
     }
-    
+
     # Route based on Host header
     @infisical host infisical.datacrew.space
     handle @infisical {
@@ -103,7 +103,7 @@
         # Caddy's CSP conflicts with Infisical's built-in CSP headers
         import security_headers_base
         import infisical_cors
-        
+
         # NOTE: Rate limiting requires a third-party Caddy module (e.g., caddy-rate-limit)
         # To enable rate limiting:
         # 1. Build custom Caddy with: xcaddy build --with github.com/mholt/caddy-ratelimit
@@ -121,12 +121,12 @@
         # }
         #
         # Alternative: Use Cloudflare's rate limiting at the edge (recommended for production)
-        
+
         # Global request body size limit for Infisical
         request_body {
             max_size 10MB
         }
-        
+
         # FIX: Infisical frontend bug - add missing Content-Type header for API POST requests
         # The frontend's XHR requests don't set Content-Type, causing 415 errors
         # Note: Fastify patch in 00-infrastructure/infisical/patches/app.mjs handles empty bodies
@@ -135,23 +135,23 @@
             path /api/*
         }
         request_header @api_post Content-Type application/json
-        
+
         # Route to Infisical backend
         reverse_proxy infisical-backend:8080 {
             import proxy_with_origin
-            
+
             # CRITICAL: Force HTTPS protocol header to satisfy NextAuth.js Secure cookie requirements
             # This ensures Infisical sets Secure cookies even though backend receives HTTP
             header_up X-Forwarded-Proto https
-            
+
             # Ensure Origin header matches SITE_URL for Infisical access validation
             header_up Origin {$INFISICAL_SITE_URL:https://infisical.datacrew.space}
-            
+
             # Extended timeouts for Infisical operations
             import extended_timeouts
         }
     }
-    
+
     # n8n route for Cloudflare Tunnel
     @n8n host n8n.datacrew.space
     handle @n8n {
@@ -165,7 +165,7 @@
             import extended_timeouts  # n8n workflows can take time
         }
     }
-    
+
     # ComfyUI route for Cloudflare Tunnel
     @comfyui host comfyui.datacrew.space
     handle @comfyui {
@@ -180,7 +180,7 @@
             # flush_interval -1 # Uncomment if you see ComfyUI progress bars freezing
         }
     }
-    
+
     # Neo4j route for Cloudflare Tunnel
     @neo4j host neo4j.datacrew.space
     handle @neo4j {
@@ -194,7 +194,7 @@
             import standard_timeouts
         }
     }
-    
+
     # Supabase route for Cloudflare Tunnel
     @supabase host supabase.datacrew.space
     handle @supabase {
@@ -208,7 +208,7 @@
             import standard_timeouts
         }
     }
-    
+
     # MongoDB route for Cloudflare Tunnel (MongoDB Express)
     @mongodb host mongodb.datacrew.space
     handle @mongodb {
@@ -222,7 +222,7 @@
             import standard_timeouts
         }
     }
-    
+
     # Qdrant route for Cloudflare Tunnel (Web UI at /dashboard)
     @qdrant host qdrant.datacrew.space
     handle @qdrant {
@@ -236,7 +236,7 @@
             import standard_timeouts
         }
     }
-    
+
     # Open WebUI route for Cloudflare Tunnel
     @openwebui host openwebui.datacrew.space
     handle @openwebui {
@@ -250,7 +250,7 @@
             import extended_timeouts  # LLM responses can take time
         }
     }
-    
+
     # Ollama route for Cloudflare Tunnel
     @ollama host ollama.datacrew.space
     handle @ollama {
@@ -263,7 +263,7 @@
             import extended_timeouts  # Model inference takes time
         }
     }
-    
+
     # Lambda API route for Cloudflare Tunnel (MongoDB RAG API)
     @lambda_api host api.datacrew.space
     handle @lambda_api {
@@ -276,7 +276,7 @@
             import extended_timeouts  # RAG operations and LLM responses can take time
         }
     }
-    
+
     # Immich route for Cloudflare Tunnel
     @immich host immich.datacrew.space
     handle @immich {
@@ -290,7 +290,7 @@
             import extended_timeouts  # Video transcoding takes time
         }
     }
-    
+
     # Frontend route for Cloudflare Tunnel
     @frontend host frontend.datacrew.space
     handle @frontend {
@@ -304,14 +304,14 @@
             import extended_timeouts
         }
     }
-    
+
     # Postman Documentation route for Cloudflare Tunnel
     @postman host postman.datacrew.space
     handle @postman {
         # Redirect to Postman documentation
         redir https://documenter.getpostman.com/view/5049119/UyxbppB2 permanent
     }
-    
+
     # Default handler - routes to services based on Host header
     handle {
         # Return 404 for unmatched hostnames

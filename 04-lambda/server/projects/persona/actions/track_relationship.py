@@ -5,6 +5,7 @@ from typing import Any
 
 import openai
 
+from server.core.exceptions import LLMException
 from server.projects.persona.config import config
 from server.projects.persona.models import RelationshipState
 from server.projects.persona.protocols import PersonaStore
@@ -73,7 +74,7 @@ Example: 0.1|0.05"""
 
             affection = max(-1.0, min(1.0, affection + affection_change))
             trust = max(0.0, min(1.0, trust + trust_change))
-        except Exception:
+        except (LLMException, ValueError, RuntimeError):
             # Fall back to simple analysis
             pass
 

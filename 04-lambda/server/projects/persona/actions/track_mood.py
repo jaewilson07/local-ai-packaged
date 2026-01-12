@@ -5,6 +5,7 @@ from typing import Any
 
 import openai
 
+from server.core.exceptions import LLMException
 from server.projects.persona.config import config
 from server.projects.persona.models import MoodState
 from server.projects.persona.protocols import PersonaStore
@@ -71,7 +72,7 @@ Example: happy|0.7"""
                 intensity=intensity,
                 timestamp=datetime.now(),
             )
-        except Exception:
+        except (LLMException, ValueError, RuntimeError):
             # Fall back to simple analysis
             pass
 

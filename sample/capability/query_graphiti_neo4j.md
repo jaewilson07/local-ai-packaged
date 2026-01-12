@@ -98,7 +98,7 @@ LIMIT 20
 
 ```cypher
 MATCH (n)
-RETURN 
+RETURN
   labels(n)[0] as node_type,
   count(n) as count,
   collect(DISTINCT keys(n))[0] as properties

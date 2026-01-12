@@ -136,9 +136,7 @@ async def chat_with_discord_character_tool(
             }
 
         # Get conversation context
-        await deps.character_manager.get_conversation_context(
-            channel_id, character_id, limit=20
-        )
+        await deps.character_manager.get_conversation_context(channel_id, character_id, limit=20)
 
         # Call conversation service
         from server.projects.conversation.services.orchestrator import ConversationOrchestrator

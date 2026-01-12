@@ -1,7 +1,7 @@
 """HTTP client for Lambda API services."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import aiohttp
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class APIClient:
     """Client for making HTTP requests to Lambda API."""
 
-    def __init__(self, base_url: str, api_key: Optional[str] = None):
+    def __init__(self, base_url: str, api_key: str | None = None):
         """
         Initialize API client.
 
@@ -21,7 +21,7 @@ class APIClient:
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -35,7 +35,7 @@ class APIClient:
             await self.session.close()
             self.session = None
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers."""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -43,8 +43,8 @@ class APIClient:
         return headers
 
     async def _request(
-        self, method: str, endpoint: str, json_data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, method: str, endpoint: str, json_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Make an HTTP request.
 
@@ -72,8 +72,8 @@ class APIClient:
             raise
 
     async def add_character(
-        self, channel_id: str, character_id: str, persona_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, channel_id: str, character_id: str, persona_id: str | None = None
+    ) -> dict[str, Any]:
         """Add a character to a channel."""
         return await self._request(
             "POST",
@@ -85,7 +85,7 @@ class APIClient:
             },
         )
 
-    async def remove_character(self, channel_id: str, character_id: str) -> Dict[str, Any]:
+    async def remove_character(self, channel_id: str, character_id: str) -> dict[str, Any]:
         """Remove a character from a channel."""
         return await self._request(
             "POST",
@@ -93,15 +93,15 @@ class APIClient:
             {"channel_id": channel_id, "character_id": character_id},
         )
 
-    async def list_characters(self, channel_id: str) -> List[Dict[str, Any]]:
+    async def list_characters(self, channel_id: str) -> list[dict[str, Any]]:
         """List all characters in a channel."""
         return await self._request(
             "GET", f"/api/v1/discord/characters/list?channel_id={channel_id}"
         )
 
     async def clear_history(
-        self, channel_id: str, character_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, channel_id: str, character_id: str | None = None
+    ) -> dict[str, Any]:
         """Clear conversation history."""
         return await self._request(
             "POST",
@@ -115,8 +115,8 @@ class APIClient:
         character_id: str,
         user_id: str,
         message: str,
-        message_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        message_id: str | None = None,
+    ) -> dict[str, Any]:
         """Generate a character response."""
         return await self._request(
             "POST",
@@ -131,8 +131,8 @@ class APIClient:
         )
 
     async def check_engagement(
-        self, channel_id: str, character_id: str, recent_messages: List[str]
-    ) -> Dict[str, Any]:
+        self, channel_id: str, character_id: str, recent_messages: list[str]
+    ) -> dict[str, Any]:
         """Check if a character should engage."""
         return await self._request(
             "POST",
@@ -144,6 +144,6 @@ class APIClient:
             },
         )
 
-    async def query_knowledge_store(self, query: str) -> Dict[str, Any]:
+    async def query_knowledge_store(self, query: str) -> dict[str, Any]:
         """Query the RAG knowledge base using the conversational agent."""
         return await self._request("POST", "/api/v1/rag/agent", {"query": query})

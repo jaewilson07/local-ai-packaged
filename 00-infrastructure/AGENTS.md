@@ -12,7 +12,7 @@
 ## Folder Structure
 
 **Stack-Level Files**:
-- `docker-compose.yml` - Stack-level compose (caddy, infisical-backend, infisical-db, infisical-redis, redis)
+- `docker-compose.yml` - Stack-level compose (cloudflared, caddy, redis)
 - `AGENTS.md` - This file (stack-specific rules)
 - `README.md` - Infrastructure overview
 - `docs/` - Stack-wide documentation and ADRs
@@ -26,11 +26,15 @@
 - `cloudflared/` - Cloudflare Tunnel service
   - `docs/` - Cloudflare Tunnel-specific documentation
   - (Note: Service defined in stack-level compose, folder for organization)
+- `infisical/` - **LEGACY/UNUSED**: Infisical has been moved to external standalone project
+  - This directory is kept for reference but services are managed externally
+  - Caddy still routes to `infisical-backend:8080` if Infisical is running externally
 
 **Refactoring Notes**:
-- Services in stack-level compose (caddy, infisical, redis) don't need individual folders unless they have service-specific configs/docs
+- Services in stack-level compose (cloudflared, caddy, redis) don't need individual folders unless they have service-specific configs/docs
 - Service-specific folders (like `cloudflared/`) should contain service-specific documentation and configs
 - When adding new services, decide: stack-level compose (shared) vs service-specific folder (independent)
+- **Infisical**: Moved to external standalone project at `/home/jaewilson07/GitHub/infisical-standalone`
 
 ## Services
 
@@ -86,27 +90,14 @@
 
 **Documentation**: See [Cloudflare Access Setup Guide](../docs/CLOUDFLARE_ACCESS_CLI_SETUP.md)
 
-### Infisical (Secrets Management)
-- **Image**: `infisical/infisical:latest`
-- **Container**: `infisical-backend`
-- **Database**: Dedicated PostgreSQL (`infisical-db`)
-- **Cache**: Dedicated Redis (`infisical-redis`)
-- **Port**: 8080 (internal), exposed via Caddy
-- **Key Files**:
-  - `00-infrastructure/infisical/docs/` - Setup documentation
+### Infisical (Secrets Management) - **EXTERNAL PROJECT**
+- **Status**: Moved to external standalone project
+- **Location**: `/home/jaewilson07/GitHub/infisical-standalone`
+- **Management**: Handled separately by `start_services.py` or `start_infisical.py`
+- **Caddy Routing**: Still configured in Caddyfile to route `infisical.datacrew.space` → `infisical-backend:8080`
+- **Environment Variable**: `INFISICAL_SITE_URL` still used by Caddy for CORS headers
 
-**Patterns**:
-- **Encryption Key**: `INFISICAL_ENCRYPTION_KEY` (16-byte hex)
-- **Auth Secret**: `INFISICAL_AUTH_SECRET` (32-byte base64)
-- **Database**: Separate from Supabase (dedicated PostgreSQL instance)
-- **Health Check**: `/api/health` endpoint
-- **Trust Proxy**: Enabled for reverse proxy support
-- **HTTPS**: Enabled (behind Cloudflare Tunnel)
-
-**Integration**:
-- CLI authentication: `infisical login` (interactive) or machine identity (env vars)
-- Secret export: `infisical export --format=dotenv` (used by `start_services.py`)
-- Web UI: First user creates admin account at `/admin/signup`
+**Note**: The `00-infrastructure/infisical/` directory is legacy/unused. Infisical services are now managed from the external project but can still be accessed via Caddy routing if running.
 
 ### Redis (Valkey)
 - **Image**: `valkey/valkey:8`
@@ -264,4 +255,3 @@ docker exec redis redis-cli ping
 ---
 
 **See Also**: [../AGENTS.md](../AGENTS.md) for universal rules
-

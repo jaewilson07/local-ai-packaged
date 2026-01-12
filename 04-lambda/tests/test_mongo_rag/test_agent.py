@@ -1,6 +1,10 @@
 """Tests for MongoDB RAG agent."""
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
+
+from server.projects.mongo_rag.agent import RAGState, rag_agent
 
 # Skip agent tests for now - they require full agent initialization
 # which has complex dependencies. These can be enabled once the

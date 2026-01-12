@@ -32,8 +32,8 @@ def get_infisical_secrets() -> dict[str, str]:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
                 if "=" in line:
@@ -45,7 +45,7 @@ def get_infisical_secrets() -> dict[str, str]:
                     ):
                         value = value[1:-1]
                     secrets_dict[key] = value
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError):
         pass
     return secrets_dict
 
@@ -99,9 +99,9 @@ def check_email_access_to_app(
 
 def get_auth_headers():
     """Get authentication headers for Cloudflare API."""
-    API_TOKEN = get_env_var("CLOUDFLARE_API_TOKEN", "")
-    CLOUDFLARE_EMAIL = get_env_var("CLOUDFLARE_EMAIL", "")
-    CLOUDFLARE_API_KEY = get_env_var("CLOUDFLARE_API_KEY", "")
+    API_TOKEN = get_env_var("CLOUDFLARE_API_TOKEN", "")  # noqa: N806
+    CLOUDFLARE_EMAIL = get_env_var("CLOUDFLARE_EMAIL", "")  # noqa: N806
+    CLOUDFLARE_API_KEY = get_env_var("CLOUDFLARE_API_KEY", "")  # noqa: N806
 
     if API_TOKEN and API_TOKEN.strip():
         return {

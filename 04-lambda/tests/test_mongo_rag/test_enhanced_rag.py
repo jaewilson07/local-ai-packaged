@@ -103,7 +103,7 @@ async def test_document_grading(mock_llm_response):
 
     mock_client.chat.completions.create = AsyncMock(side_effect=[response1, response2])
 
-    # Execute - returns (filtered_docs, scores)
+    # Execute - returns (filtered_docs, scores)  # noqa: ERA001
     filtered_docs, scores = await grade_documents(query, search_results, mock_client)
 
     # Assert

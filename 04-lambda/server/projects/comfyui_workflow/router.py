@@ -26,13 +26,13 @@ from server.projects.comfyui_workflow.models import (
     WorkflowRunResponse,
 )
 from server.projects.comfyui_workflow.services.comfyui_service import ComfyUIService
+from server.projects.comfyui_workflow.services.immich_service import ImmichService
 from server.projects.comfyui_workflow.services.lora_resolution_service import LoRAResolutionService
 from server.projects.comfyui_workflow.services.lora_sync_service import LoRASyncService
 from server.projects.comfyui_workflow.services.parameter_service import (
     ParameterService,
     ParameterValidationError,
 )
-from server.projects.comfyui_workflow.services.immich_service import ImmichService
 from server.projects.comfyui_workflow.stores.supabase_store import SupabaseWorkflowStore
 
 router = APIRouter()
@@ -67,9 +67,8 @@ async def create_workflow(
             parameter_schema=request.parameter_schema,
         )
         return workflow
-    except Exception as e:
-        logger.error(f"Failed to create workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create workflow: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.get("/workflows", response_model=ListWorkflowsResponse)
@@ -93,9 +92,8 @@ async def list_workflows(
             user_id=user_id, is_public=is_public, limit=limit, offset=offset
         )
         return ListWorkflowsResponse(workflows=workflows, count=len(workflows))
-    except Exception as e:
-        logger.error(f"Failed to list workflows: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list workflows: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.get("/workflows/{workflow_id}", response_model=WorkflowResponse)
@@ -119,9 +117,6 @@ async def get_workflow(
         return workflow
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to get workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get workflow: {e!s}")
 
 
 @router.put("/workflows/{workflow_id}", response_model=WorkflowResponse)
@@ -156,9 +151,6 @@ async def update_workflow(
         return workflow
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to update workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update workflow: {e!s}")
 
 
 @router.delete("/workflows/{workflow_id}")
@@ -182,9 +174,6 @@ async def delete_workflow(
         return {"success": True, "message": "Workflow deleted"}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to delete workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete workflow: {e!s}")
 
 
 # Workflow publishing endpoints
@@ -204,9 +193,8 @@ async def list_published_workflows(
     try:
         workflows = await store.list_published_workflows(limit=limit, offset=offset, tags=tags)
         return ListWorkflowsResponse(workflows=workflows, count=len(workflows))
-    except Exception as e:
-        logger.error(f"Failed to list published workflows: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list published workflows: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.put("/workflows/{workflow_id}/publish", response_model=WorkflowResponse)
@@ -230,9 +218,6 @@ async def publish_workflow(
         return workflow
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to publish workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to publish workflow: {e!s}")
 
 
 @router.put("/workflows/{workflow_id}/unpublish", response_model=WorkflowResponse)
@@ -256,9 +241,6 @@ async def unpublish_workflow(
         return workflow
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to unpublish workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to unpublish workflow: {e!s}")
 
 
 # Workflow execution endpoints
@@ -327,9 +309,6 @@ async def run_workflow(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to run workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to run workflow: {e!s}")
 
 
 @router.post("/workflows/{workflow_id}/generate", response_model=WorkflowRunResponse)
@@ -436,9 +415,6 @@ async def generate_workflow(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"Failed to generate workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate workflow: {e!s}")
 
 
 @router.get("/workflows/{workflow_id}/runs", response_model=ListWorkflowRunsResponse)
@@ -462,9 +438,8 @@ async def list_workflow_runs(
             user_id=user_id, workflow_id=workflow_id, limit=limit, offset=offset
         )
         return ListWorkflowRunsResponse(runs=runs, count=len(runs))
-    except Exception as e:
-        logger.error(f"Failed to list workflow runs: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list workflow runs: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.get("/runs/{run_id}", response_model=WorkflowRunResponse)
@@ -503,7 +478,7 @@ async def get_workflow_run(
                 new_status = status.get("status", run.status)
                 output_images = status.get("output_images", [])
                 error_message = status.get("error")
-                
+
                 # If workflow completed, download images, store in MinIO, and upload to Immich
                 minio_image_paths = []
                 if new_status == "completed" and output_images and not run.output_images:
@@ -513,27 +488,27 @@ async def get_workflow_run(
                         async with pool.acquire() as conn:
                             row = await conn.fetchrow(
                                 "SELECT immich_user_id, immich_api_key, email FROM profiles WHERE id = $1",
-                                user_id
+                                user_id,
                             )
                             immich_user_id = row.get("immich_user_id") if row else None
                             immich_api_key = row.get("immich_api_key") if row else None
                             user_email = row.get("email") if row else user.email
-                        
+
                         # Initialize Immich service if credentials exist
                         immich_service = None
-                        immich_base_url = os.getenv("IMMICH_SERVER_URL", "http://immich-server:2283")
+                        immich_base_url = os.getenv(
+                            "IMMICH_SERVER_URL", "http://immich-server:2283"
+                        )
                         immich_admin_key = os.getenv("IMMICH_API_KEY")
-                        
+
                         if immich_api_key:
                             immich_service = ImmichService(
-                                base_url=immich_base_url,
-                                admin_api_key=immich_admin_key
+                                base_url=immich_base_url, admin_api_key=immich_admin_key
                             )
                         elif immich_admin_key:
                             # Try to get or create Immich user
                             immich_service = ImmichService(
-                                base_url=immich_base_url,
-                                admin_api_key=immich_admin_key
+                                base_url=immich_base_url, admin_api_key=immich_admin_key
                             )
                             immich_user = await immich_service.get_or_create_user(user_email)
                             if immich_user:
@@ -543,46 +518,50 @@ async def get_workflow_run(
                                 async with pool.acquire() as conn2:
                                     await conn2.execute(
                                         "UPDATE profiles SET immich_user_id = $1, immich_api_key = $2 WHERE id = $3",
-                                        immich_user_id, immich_api_key, user_id
+                                        immich_user_id,
+                                        immich_api_key,
+                                        user_id,
                                     )
-                        
+
                         # Download and store images
                         for idx, image_url in enumerate(output_images):
                             # Download image from ComfyUI
                             image_data = await comfyui_service.download_image(image_url)
                             if image_data:
                                 filename = f"workflow_{run_id}_{idx}.png"
-                                
+
                                 # Store in MinIO
                                 minio_path = await deps.minio_service.upload_file(
                                     user_id=user_id,
                                     file_data=image_data,
                                     object_key=f"comfyui-outputs/{run_id}/{filename}",
-                                    content_type="image/png"
+                                    content_type="image/png",
                                 )
                                 minio_image_paths.append(minio_path)
-                                
+
                                 # Upload to Immich if service is available
                                 if immich_service and immich_api_key:
                                     try:
-                                        description = f"ComfyUI workflow run {run_id} - Image {idx + 1}"
+                                        description = (
+                                            f"ComfyUI workflow run {run_id} - Image {idx + 1}"
+                                        )
                                         await immich_service.upload_image(
                                             image_data=image_data,
                                             filename=filename,
                                             api_key=immich_api_key,
-                                            description=description
+                                            description=description,
                                         )
-                                        logger.info(f"Uploaded image {idx + 1} to Immich for user {user_id}")
+                                        logger.info(
+                                            f"Uploaded image {idx + 1} to Immich for user {user_id}"
+                                        )
                                     except Exception as e:
-                                        logger.warning(f"Failed to upload image to Immich: {e}")
-                                        
+                                        logger.error(f"Failed to upload image to Immich: {e}")
+
                         if immich_service:
                             await immich_service.close()
-                            
                     except Exception as e:
-                        logger.exception(f"Error processing workflow images: {e}")
-                        # Don't fail the request if image processing fails
-                
+                        logger.error(f"Failed to process workflow images: {e}")
+
                 # Update run with status and image paths
                 updated_run = await store.update_workflow_run(
                     run_id=run_id,
@@ -599,9 +578,6 @@ async def get_workflow_run(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to get workflow run: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get workflow run: {e!s}")
 
 
 # LoRA model endpoints
@@ -636,9 +612,8 @@ async def create_lora_model(
             object_key=f"loras/{filename}",
             content_type=file.content_type,
         )
-    except Exception as e:
-        logger.error(f"Failed to upload LoRA to MinIO: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload LoRA: {e!s}")
+    except HTTPException:
+        raise
 
     # Create metadata in Supabase
     store = SupabaseWorkflowStore(deps.supabase_service)
@@ -655,9 +630,8 @@ async def create_lora_model(
             character_name=character_name,
         )
         return lora_model
-    except Exception as e:
-        logger.error(f"Failed to create LoRA metadata: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create LoRA metadata: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.post("/loras/import-from-google-drive", response_model=LoRAModelResponse)
@@ -721,9 +695,6 @@ async def import_lora_from_google_drive(
     except ValueError as e:
         logger.error(f"Failed to import LoRA from Google Drive: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to import LoRA: {e!s}")
-    except Exception as e:
-        logger.error(f"Failed to import LoRA from Google Drive: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to import LoRA: {e!s}")
 
 
 @router.get("/loras", response_model=ListLoRAModelsResponse)
@@ -744,9 +715,8 @@ async def list_lora_models(
     try:
         models = await store.list_lora_models(user_id=user_id, limit=limit, offset=offset)
         return ListLoRAModelsResponse(models=models, count=len(models))
-    except Exception as e:
-        logger.error(f"Failed to list LoRA models: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list LoRA models: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.get("/loras/by-character/{character_name}", response_model=ListLoRAModelsResponse)
@@ -770,9 +740,8 @@ async def list_loras_by_character(
             user_id=user_id, character_name=character_name, limit=limit, offset=offset
         )
         return ListLoRAModelsResponse(models=models, count=len(models))
-    except Exception as e:
-        logger.error(f"Failed to list LoRAs by character: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list LoRAs by character: {e!s}")
+    except HTTPException:
+        raise
 
 
 @router.get("/loras/{lora_id}", response_model=LoRAModelResponse)
@@ -796,9 +765,6 @@ async def get_lora_model(
         return model
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to get LoRA model: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get LoRA model: {e!s}")
 
 
 @router.delete("/loras/{lora_id}")
@@ -832,6 +798,3 @@ async def delete_lora_model(
         return {"success": True, "message": "LoRA model deleted"}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to delete LoRA model: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete LoRA model: {e!s}")

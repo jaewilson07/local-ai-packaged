@@ -9,6 +9,7 @@ to 01-data/supabase/docker-compose.yml, preserving network configuration and vol
 
 import os
 import sys
+from pathlib import Path
 
 
 def update_supabase_compose():
@@ -32,7 +33,8 @@ def update_supabase_compose():
     print(f"Copying {source_main} to {target}...")
 
     # Read the source file
-    with open(source_main, encoding="utf-8") as f:
+    source_main_path = Path(source_main)
+    with source_main_path.open(encoding="utf-8") as f:
         content = f.read()
 
     # Remove the name field if present
@@ -67,7 +69,8 @@ volumes:
     # If S3 file exists, merge its storage configuration
     if os.path.exists(source_s3):
         print(f"Merging S3 configuration from {source_s3}...")
-        with open(source_s3, encoding="utf-8") as f:
+        source_s3_path = Path(source_s3)
+        with source_s3_path.open(encoding="utf-8") as f:
             s3_content = f.read()
 
         # Extract supabase-minio and supabase-minio-createbucket services
@@ -114,8 +117,9 @@ volumes:
                     content = content[:depends_end] + insert_text + content[depends_end:]
 
     # Write the updated content
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    with open(target, "w", encoding="utf-8") as f:
+    target_path = Path(target)
+    os.makedirs(target_path.parent, exist_ok=True)
+    with target_path.open("w", encoding="utf-8") as f:
         f.write(content)
 
     print(f"Successfully updated {target}")

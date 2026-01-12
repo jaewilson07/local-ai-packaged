@@ -86,7 +86,7 @@ def import_sample_file(
         spec.loader.exec_module(module)
 
         return True
-    except Exception:
+    except (ImportError, SyntaxError, AttributeError, TypeError):
         return False
     finally:
         # Clean up: remove lambda_path if we added it

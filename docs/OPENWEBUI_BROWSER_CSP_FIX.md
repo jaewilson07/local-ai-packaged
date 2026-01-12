@@ -87,4 +87,3 @@ If Cloudflare Access is not configured, the API is publicly accessible. Consider
 - [MCP Security Setup](./MCP_SECURITY_SETUP.md)
 - [FastMCP REST API Setup](./FASTMCP_REST_API_SETUP.md)
 - [Open WebUI Lambda Authentication](./OPENWEBUI_LAMBDA_AUTHENTICATION.md)
-

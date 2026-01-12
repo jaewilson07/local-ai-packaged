@@ -24,7 +24,8 @@ from pathlib import Path
 def read_google_credentials(file_path: str) -> tuple[str, str]:
     """Read Google OAuth2 credentials from JSON file."""
     try:
-        with open(file_path) as f:
+        file_path_obj = Path(file_path)
+        with file_path_obj.open() as f:
             data = json.load(f)
 
         # Handle both "web" and "installed" app types
@@ -62,9 +63,9 @@ def read_env_file(env_file: Path) -> dict[str, str]:
     """Read environment variables from .env file."""
     env_vars = {}
     if env_file.exists():
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
+        with env_file.open() as f:
+            for raw_line in f:
+                line = raw_line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     env_vars[key.strip()] = value.strip()
@@ -77,7 +78,7 @@ def write_env_file(env_file: Path, env_vars: dict[str, str]):
 
     # Read existing file to preserve comments and order
     if env_file.exists():
-        with open(env_file) as f:
+        with env_file.open() as f:
             for line in f:
                 stripped = line.strip()
                 if stripped and not stripped.startswith("#") and "=" in stripped:
@@ -99,7 +100,7 @@ def write_env_file(env_file: Path, env_vars: dict[str, str]):
         for key, value in env_vars.items():
             lines.append(f"{key}={value}\n")
 
-    with open(env_file, "w") as f:
+    with env_file.open("w") as f:
         f.writelines(lines)
 
 

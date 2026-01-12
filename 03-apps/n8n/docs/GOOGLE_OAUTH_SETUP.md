@@ -123,7 +123,7 @@ OPENID_PROVIDER_URL=https://accounts.google.com/.well-known/openid-configuration
 ### OIDC Option Not Available in Settings
 
 - **Cause**: OIDC may require n8n Enterprise edition, or your n8n version may not support it
-- **Solution**: 
+- **Solution**:
   1. Check your n8n version: `docker exec n8n n8n --version`
   2. Verify OIDC support in your n8n edition
   3. Update n8n if needed: `docker pull n8nio/n8n:latest`
@@ -131,7 +131,7 @@ OPENID_PROVIDER_URL=https://accounts.google.com/.well-known/openid-configuration
 ### "Redirect URI Mismatch" Error
 
 - **Cause**: The redirect URI in Google Cloud Console doesn't match n8n's expected callback URL
-- **Solution**: 
+- **Solution**:
   1. Check the redirect URL displayed in n8n Settings > SSO
   2. Ensure it exactly matches the URI in Google Cloud Console
   3. The correct path is `/rest/sso/oidc/callback` (not `/rest/oauth2-credential/callback`)
@@ -139,7 +139,7 @@ OPENID_PROVIDER_URL=https://accounts.google.com/.well-known/openid-configuration
 ### "Invalid Client ID or Secret" Error
 
 - **Cause**: The Client ID or Secret entered in n8n UI doesn't match your Google OAuth credentials
-- **Solution**: 
+- **Solution**:
   1. Verify `CLIENT_ID_GOOGLE_LOGIN` and `CLIENT_SECRET_GOOGLE_LOGIN` in your `.env` file
   2. Copy the exact values (no extra spaces) into n8n Settings > SSO
   3. Ensure you're using the same OAuth client in Google Cloud Console
@@ -147,7 +147,7 @@ OPENID_PROVIDER_URL=https://accounts.google.com/.well-known/openid-configuration
 ### OIDC Button Not Appearing on Login Page
 
 - **Cause**: OIDC may not be activated, or configuration is incomplete
-- **Solution**: 
+- **Solution**:
   1. Check n8n Settings > SSO to ensure OIDC is activated
   2. Verify all required fields are filled in
   3. Restart n8n: `docker compose -p localai-apps restart n8n`
@@ -156,7 +156,7 @@ OPENID_PROVIDER_URL=https://accounts.google.com/.well-known/openid-configuration
 ### Discovery Endpoint Error
 
 - **Cause**: The `OPENID_PROVIDER_URL` may be incorrect or unreachable
-- **Solution**: 
+- **Solution**:
   1. Verify `OPENID_PROVIDER_URL` in your `.env` file
   2. It should be: `https://accounts.google.com/.well-known/openid-configuration`
   3. Test the URL in a browser to ensure it's accessible

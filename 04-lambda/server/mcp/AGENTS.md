@@ -317,8 +317,8 @@ When possible, provide partial results or fallbacks:
 # If hybrid search fails, try semantic-only
 try:
     results = await hybrid_search(...)
-except:
-    logger.warning("Hybrid search failed, falling back to semantic")
+except (MongoDBException, RuntimeError) as e:
+    logger.warning(f"Hybrid search failed: {e}, falling back to semantic")
     results = await semantic_search(...)
 ```
 
@@ -1057,4 +1057,3 @@ The generated modules use `server.mcp.servers.client.call_mcp_tool()` which:
 11. **Security First**: Validate all inputs, log security events, sanitize errors
 
 Following these practices ensures maintainable, consistent, secure, and reliable MCP functions that integrate seamlessly with our REST API infrastructure and enable efficient agent interactions through code execution.
-

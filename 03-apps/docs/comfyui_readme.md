@@ -337,4 +337,3 @@ If you need to download private models:
 - [ComfyUI Documentation](https://github.com/comfyanonymous/ComfyUI)
 - [Stable Diffusion Models](https://huggingface.co/models?library=diffusers)
 - [YAML Syntax Guide](https://yaml.org/spec/1.2.2/)
-

@@ -39,33 +39,33 @@ graph TB
         REST[ REST API<br/>/api/v1/crawl/* ]
         MCP[ MCP Tools<br/>crawl_single_page, crawl_deep ]
     end
-    
+
     subgraph "Agent Layer"
         AGENT[ crawl4ai_agent<br/>Pydantic AI Agent ]
         TOOLS[ Agent Tools<br/>crawl_and_ingest_single_page<br/>crawl_and_ingest_deep ]
     end
-    
+
     subgraph "Crawling Service"
         CRAWLER[ Crawler Service<br/>crawl_single_page<br/>crawl_deep ]
         CRAWL4AI[ Crawl4AI Library<br/>AsyncWebCrawler ]
     end
-    
+
     subgraph "Ingestion Layer"
         INGESTER[ CrawledContentIngester<br/>Ingestion Adapter ]
         CHUNK[ Chunking<br/>Text Splitting ]
         EMBED[ Embedding<br/>Vector Generation ]
     end
-    
+
     subgraph "Dependencies"
         DEPS[ Crawl4AIDependencies<br/>Crawler, MongoDB Client ]
         MONGO[ MongoDB<br/>RAG Storage ]
     end
-    
+
     subgraph "External Services"
         WEB[ Web Pages<br/>HTTP/HTTPS ]
         OLLAMA[ Ollama<br/>Embeddings ]
     end
-    
+
     REST --> AGENT
     MCP --> AGENT
     AGENT --> TOOLS
@@ -79,7 +79,7 @@ graph TB
     EMBED --> OLLAMA
     DEPS --> MONGO
     CHUNK --> MONGO
-    
+
     style AGENT fill:#e1f5ff
     style CRAWLER fill:#fff4e1
     style INGESTER fill:#e1ffe1
@@ -101,7 +101,7 @@ sequenceDiagram
     participant Chunk as Chunking
     participant Embed as Embedding
     participant MongoDB
-    
+
     Client->>Agent: POST /crawl/single with URL
     Agent->>Tool: crawl_and_ingest_single_page(url)
     Tool->>Crawler: crawl_single_page(url)
@@ -109,18 +109,18 @@ sequenceDiagram
     Crawl4AI->>Crawl4AI: Fetch page, extract content
     Crawl4AI-->>Crawler: CrawledPage (markdown, metadata)
     Crawler-->>Tool: CrawledPage result
-    
+
     Tool->>Ingester: ingest_crawled_content(crawled_page)
     Ingester->>Chunk: Split into chunks
     Chunk-->>Ingester: Document chunks
-    
+
     loop For each chunk
         Ingester->>Embed: Generate embedding
         Embed->>Embed: Call Ollama API
         Embed-->>Ingester: Vector embedding
         Ingester->>MongoDB: Store chunk + embedding
     end
-    
+
     Ingester-->>Tool: Ingestion result
     Tool-->>Agent: Crawl + ingest summary
     Agent-->>Client: Success with page/chunk counts
@@ -136,14 +136,14 @@ sequenceDiagram
     participant Crawl4AI as AsyncWebCrawler
     participant Ingester as CrawledContentIngester
     participant MongoDB
-    
+
     Agent->>Tool: crawl_and_ingest_deep(url, max_depth=3)
     Tool->>Crawler: crawl_deep(url, max_depth, allowed_domains)
-    
+
     Crawler->>Crawler: Initialize visited set, queue
     Crawler->>Crawl4AI: Crawl starting page
     Crawl4AI-->>Crawler: Page + links
-    
+
     loop For each depth level
         loop For each URL in queue
             Crawler->>Crawler: Check domain/subdomain filters
@@ -152,14 +152,14 @@ sequenceDiagram
             Crawler->>Crawler: Add new links to queue
         end
     end
-    
+
     Crawler-->>Tool: List of CrawledPage objects
-    
+
     loop For each crawled page
         Tool->>Ingester: ingest_crawled_content(page)
         Ingester->>MongoDB: Store chunks + embeddings
     end
-    
+
     Tool-->>Agent: Summary (pages crawled, chunks created)
 ```
 

@@ -50,7 +50,7 @@ Complete Bluesky social media integration:
 - **Bluesky Agent** - Specialized agent for Bluesky operations
 - **MCP Tools** - Expose Bluesky capabilities via MCP
 
-**Location**: 
+**Location**:
 - `bot/agents/bluesky_agent.py` - Agent implementation
 - `bot/mcp/tools/bluesky_tools.py` - MCP tools
 

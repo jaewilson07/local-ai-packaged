@@ -106,9 +106,9 @@ INFISICAL_HTTPS_ENABLED=true
 # - https://infisical.datacrew.space (via Cloudflare Tunnel → Caddy) - Full functionality including login
 ```
 
-**Important:** 
+**Important:**
 - The `SITE_URL` environment variable must match your Infisical URL exactly (including protocol) for OAuth redirects and cookies to work correctly.
-- **For dual access (localhost + Cloudflare):** 
+- **For dual access (localhost + Cloudflare):**
   - Set `INFISICAL_SITE_URL=https://infisical.datacrew.space` and `INFISICAL_HTTPS_ENABLED=true` in `.env`
   - **Use Cloudflare domain (`https://infisical.datacrew.space`) for login** - cookies/sessions work correctly
   - Localhost (`http://localhost:8020`) can be used for viewing/management, but login may fail due to cookie domain mismatch
@@ -174,7 +174,7 @@ Should show: `infisical-backend`, `infisical-db`, `infisical-redis`
    - Access via **BOTH**:
      - `http://localhost:8020` (direct port mapping) - **Use for viewing/managing, but login via Cloudflare**
      - `https://infisical.datacrew.space` (via Cloudflare Tunnel) - **Use for login and full functionality**
-   - **Important:** 
+   - **Important:**
      - **Use `http://localhost:8020` NOT `https://localhost:8020`** - there's no SSL for localhost
      - **Login via Cloudflare domain** (`https://infisical.datacrew.space`) - cookies work correctly
      - Localhost access works for viewing/managing secrets, but login may fail due to cookie domain mismatch
@@ -266,7 +266,7 @@ Once the tunnel is working, update Infisical to use the domain:
    ```bash
    # Change from:
    INFISICAL_SITE_URL=http://localhost:8020
-   
+
    # To:
    INFISICAL_SITE_URL=https://infisical.datacrew.space
    ```

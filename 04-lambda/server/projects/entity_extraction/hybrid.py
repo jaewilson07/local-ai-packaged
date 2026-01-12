@@ -8,7 +8,7 @@ from fuzzywuzzy import fuzz
 
 from .base import EntityExtractor
 from .llm import LLMExtractor
-from .models import Entity, EntityExtractionResult
+from .models import Entity, EntityExtractionResult, EntityType
 from .ner import NERExtractor
 
 

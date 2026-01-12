@@ -576,7 +576,7 @@ infisical secrets set CLOUDFLARE_AUD_TAG=e869f0dbb027893e1c9ded98f81e6c85420c574
 
 **Error: "Token audience does not match expected"**
 - **Cause**: The JWT token's `aud` claim doesn't match your `CLOUDFLARE_AUD_TAG`
-- **Solution**: 
+- **Solution**:
   1. Verify you're using the correct AUD tag for your application
   2. Make sure the token is from the correct Cloudflare Access application
   3. Check that the application is linked to the correct tunnel route
@@ -678,7 +678,7 @@ uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 ### MongoDB RAG (Retrieval Augmented Generation)
 - **Location**: `server/projects/mongo_rag/`
 - **Inspiration**: Based on [MongoDB-RAG-Agent](https://github.com/coleam00/MongoDB-RAG-Agent)
-- **Features**: 
+- **Features**:
   - **Docling Integration**: Production-grade document processing with DocumentConverter and HybridChunker for intelligent document conversion and chunking
   - **Multi-Format Support**: PDF, Word, PowerPoint, Excel, HTML, Markdown, Audio (transcribed with Whisper ASR via Docling)
   - Hybrid search (semantic + text using Reciprocal Rank Fusion)

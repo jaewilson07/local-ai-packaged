@@ -59,10 +59,10 @@ async def call_tool(request: Dict[str, Any]):
     """Call an MCP tool via REST API."""
     tool_name = request.get("name")
     arguments = request.get("arguments", {})
-    
+
     if not tool_name:
         raise HTTPException(status_code=400, detail="Tool name is required")
-    
+
     try:
         # Call the tool via FastMCP
         result = await mcp.call_tool(tool_name, arguments)

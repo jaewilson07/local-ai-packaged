@@ -64,7 +64,28 @@ async def test_search():
         else:
             print("  No results returned")
 
-        return result.success and result.count > 0
+        success = result.success and result.count > 0
+
+        # Verify results
+        if success:
+            try:
+                from sample.shared.verification_helpers import verify_search_results
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                verify_success, message = verify_search_results(result.results, expected_min=1)
+                print(message)
+
+                if verify_success:
+                    print("\n✅ Verification passed!")
+                else:
+                    print("\n⚠️  Verification failed")
+            except Exception as e:
+                print(f"\n⚠️  Verification error: {e}")
+
+        return success
 
     finally:
         await deps.cleanup()

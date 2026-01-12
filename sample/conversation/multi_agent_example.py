@@ -101,6 +101,29 @@ async def main():
         print("  - Generated a comprehensive, context-aware response")
         print("=" * 80)
 
+        # Verify that orchestration completed successfully
+        try:
+            from sample.shared.verification_helpers import verify_search_results
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            # Check if response was generated
+            success, message = verify_search_results([response] if response else [], expected_min=1)
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed: No response generated")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
+
     except Exception as e:
         logger.exception(f"❌ Error during multi-agent coordination: {e}")
         print(f"\n❌ Fatal error: {e}")

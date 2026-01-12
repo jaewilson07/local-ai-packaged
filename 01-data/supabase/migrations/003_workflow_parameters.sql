@@ -3,7 +3,7 @@
 -- Created: 2025
 
 -- Add parameter_schema JSONB field
-ALTER TABLE comfyui_workflows 
+ALTER TABLE comfyui_workflows
 ADD COLUMN IF NOT EXISTS parameter_schema JSONB;
 
 -- Example parameter_schema structure:

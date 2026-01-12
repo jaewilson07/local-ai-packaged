@@ -181,4 +181,3 @@ docker exec open-webui curl -X POST http://lambda-server:8000/api/v1/mcp/tools/c
 - [FastMCP Multiple Transports](./FASTMCP_MULTIPLE_TRANSPORTS.md)
 - [Open WebUI MCP Integration](../03-apps/open-webui/docs/MCP_INTEGRATION.md)
 - [MCP Connection Troubleshooting](./MCP_CONNECTION_TROUBLESHOOTING.md)
-

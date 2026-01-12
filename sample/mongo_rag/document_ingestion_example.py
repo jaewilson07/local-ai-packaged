@@ -27,9 +27,9 @@ os.environ.setdefault("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
 # Default credentials: admin/admin123 (can be overridden via MONGODB_URI env var)
 if "MONGODB_URI" not in os.environ:
     # Try with authentication first
-    os.environ["MONGODB_URI"] = (
-        "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin"
-    )
+    os.environ[
+        "MONGODB_URI"
+    ] = "mongodb://admin:admin123@localhost:27017/?directConnection=true&authSource=admin"
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
@@ -90,15 +90,16 @@ async def main():
     # Initialize pipeline with user context (for RLS)
     # In production, these would come from authenticated user session
     from uuid import uuid4
+
     user_id = str(uuid4())  # Simulated user ID
     user_email = "demo@example.com"  # Simulated user email
-    
+
     pipeline = DocumentIngestionPipeline(
         config=config,
         documents_folder=documents_folder,
         clean_before_ingest=False,  # Set to True to clear existing data
         user_id=user_id,
-        user_email=user_email
+        user_email=user_email,
     )
 
     try:
@@ -164,6 +165,35 @@ async def main():
             print("   Check the errors above and ensure MongoDB is running.")
 
         print("=" * 80)
+
+        # Verify via API
+        if successful > 0:
+            try:
+                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+                from sample.shared.verification_helpers import verify_rag_data
+
+                api_base_url = get_api_base_url()
+                headers = get_auth_headers()
+
+                print("\n" + "=" * 80)
+                print("Verification")
+                print("=" * 80)
+
+                success, message = verify_rag_data(
+                    api_base_url=api_base_url,
+                    headers=headers,
+                    expected_documents_min=successful,
+                    expected_chunks_min=total_chunks,
+                )
+                print(message)
+
+                if success:
+                    print("\n✅ Verification passed!")
+                else:
+                    print("\n⚠️  Verification failed (data may need time to propagate)")
+            except Exception as e:
+                logger.warning(f"Verification error: {e}")
+                print(f"\n⚠️  Verification error: {e}")
 
     except Exception as e:
         logger.exception(f"❌ Error during ingestion: {e}")

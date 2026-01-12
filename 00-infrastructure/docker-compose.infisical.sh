@@ -39,4 +39,3 @@ export INFISICAL_AUTH_SECRET
 # Run docker-compose with all arguments
 cd "$SCRIPT_DIR"
 docker compose "$@"
-

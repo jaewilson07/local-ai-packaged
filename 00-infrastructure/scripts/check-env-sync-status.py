@@ -72,7 +72,7 @@ def check_infisical_cli() -> bool:
         return result.returncode == 0
     except FileNotFoundError:
         return False
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -87,7 +87,7 @@ def check_infisical_auth() -> bool:
         )
         output = (result.stdout or result.stderr or "").lower()
         return not ("authenticate" in output or "login" in output)
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -110,8 +110,8 @@ def get_infisical_secrets() -> dict[str, str]:
         )
 
         if result.returncode == 0 and result.stdout:
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
+            for raw_line in result.stdout.strip().split("\n"):
+                line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
 

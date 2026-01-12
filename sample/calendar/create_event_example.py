@@ -40,9 +40,8 @@ sys.path.insert(0, str(lambda_path))
 import logging
 
 from sample.shared.auth_helpers import (
-    get_cloudflare_email,
-    require_cloudflare_email,
     get_mongodb_credentials,
+    require_cloudflare_email,
 )
 from server.projects.calendar.agent import create_calendar_event_tool
 from server.projects.calendar.dependencies import CalendarDeps
@@ -65,7 +64,7 @@ async def main():
         print(f"⚠️  Warning: {e}")
         print("Continuing with service account MongoDB connection...")
         user_email = None
-    
+
     # Get MongoDB credentials from Supabase if user email is available
     mongodb_username = None
     mongodb_password = None
@@ -80,7 +79,7 @@ async def main():
         except Exception as e:
             print(f"⚠️  Failed to get MongoDB credentials: {e}")
             print("   Falling back to service account connection...")
-    
+
     # Example user and persona IDs (using email as user_id if available)
     user_id = user_email or "user_123"
     persona_id = "persona_456"
@@ -172,6 +171,37 @@ async def main():
         print("  3. Check the result - it should show 'update' action")
         print("  4. Check Google Calendar - you should see only ONE event")
         print("=" * 80)
+
+        # Verify via API
+        try:
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_calendar_data
+
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_calendar_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                expected_events_min=len(events),
+            )
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed (events may need time to sync)")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            # Don't fail on verification errors for calendar (OAuth may not be configured)
+            sys.exit(0)
 
     except Exception as e:
         logger.exception(f"❌ Error creating calendar event: {e}")

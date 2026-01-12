@@ -138,6 +138,37 @@ async def main():
         print("  - Find imports: MATCH (f:File)-[:IMPORTS]->(i) RETURN f.name, i.name")
         print("=" * 80)
 
+        # Verify query results
+        try:
+            from sample.shared.verification_helpers import verify_search_results
+
+            # Collect results from the queries we ran
+            all_results = []
+            if repos_result.get("success") and repos_result.get("repositories"):
+                all_results.extend(repos_result.get("repositories", []))
+            if explore_result.get("success") and explore_result.get("statistics"):
+                all_results.append(explore_result.get("statistics", {}))
+            if query_result.get("success") and query_result.get("results"):
+                all_results.extend(query_result.get("results", []))
+
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
+
+            success, message = verify_search_results(all_results, expected_min=1)
+            print(message)
+
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n⚠️  Verification failed: No query results found")
+                sys.exit(1)
+        except Exception as e:
+            logger.warning(f"Verification error: {e}")
+            print(f"\n⚠️  Verification error: {e}")
+            sys.exit(1)
+
     except Exception as e:
         logger.exception(f"❌ Error during Cypher query: {e}")
         print(f"\n❌ Fatal error: {e}")

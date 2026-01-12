@@ -137,3 +137,129 @@ class ConfigurationException(BaseProjectException):
         """
         super().__init__(message, status_code=500, details=details)
         self.config_key = config_key
+
+
+class HTTPClientException(BaseProjectException):
+    """Exception raised for HTTP client errors."""
+
+    def __init__(
+        self,
+        message: str,
+        url: str | None = None,
+        status_code: int | None = None,
+        method: str | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize HTTP client exception.
+
+        Args:
+            message: Error message
+            url: URL that failed
+            status_code: HTTP status code (if available)
+            method: HTTP method (e.g., "GET", "POST")
+            details: Optional additional error details
+        """
+        super().__init__(message, status_code=status_code or 500, details=details)
+        self.url = url
+        self.status_code = status_code
+        self.method = method
+
+
+class DatabaseException(BaseProjectException):
+    """Exception raised for database operation errors."""
+
+    def __init__(
+        self,
+        message: str,
+        operation: str | None = None,
+        query: str | None = None,
+        database_name: str | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize database exception.
+
+        Args:
+            message: Error message
+            operation: Database operation that failed (e.g., "query", "insert")
+            query: SQL or query string that failed
+            database_name: Name of the database
+            details: Optional additional error details
+        """
+        super().__init__(message, status_code=500, details=details)
+        self.operation = operation
+        self.query = query
+        self.database_name = database_name
+
+
+class JSONException(BaseProjectException):
+    """Exception raised for JSON parsing errors."""
+
+    def __init__(
+        self,
+        message: str,
+        json_string: str | None = None,
+        position: int | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize JSON exception.
+
+        Args:
+            message: Error message
+            json_string: JSON string that failed to parse
+            position: Character position where parsing failed
+            details: Optional additional error details
+        """
+        super().__init__(message, status_code=400, details=details)
+        self.json_string = json_string
+        self.position = position
+
+
+class FileException(BaseProjectException):
+    """Exception raised for file operation errors."""
+
+    def __init__(
+        self,
+        message: str,
+        file_path: str | None = None,
+        operation: str | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize file exception.
+
+        Args:
+            message: Error message
+            file_path: Path to the file that failed
+            operation: File operation that failed (e.g., "read", "write", "delete")
+            details: Optional additional error details
+        """
+        super().__init__(message, status_code=500, details=details)
+        self.file_path = file_path
+        self.operation = operation
+
+
+class ParseException(BaseProjectException):
+    """Exception raised for parsing errors (date/time, AST, etc.)."""
+
+    def __init__(
+        self,
+        message: str,
+        parse_type: str | None = None,
+        input_value: str | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize parse exception.
+
+        Args:
+            message: Error message
+            parse_type: Type of parsing that failed (e.g., "datetime", "ast", "json")
+            input_value: Input value that failed to parse
+            details: Optional additional error details
+        """
+        super().__init__(message, status_code=400, details=details)
+        self.parse_type = parse_type
+        self.input_value = input_value

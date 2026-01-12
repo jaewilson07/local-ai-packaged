@@ -176,4 +176,3 @@ No additional configuration required. Uses existing:
 - Node discovery handles multiple N8n API endpoint variations
 - All tools follow existing error handling patterns
 - System prompt emphasizes RAG usage for better results
-

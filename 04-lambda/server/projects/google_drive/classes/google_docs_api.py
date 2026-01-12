@@ -179,7 +179,7 @@ class GoogleDoc(GoogleDrive):
         """Get tabs metadata with fallback."""
         try:
             return self.get_tabs_metadata(document_id)
-        except Exception:
+        except HttpError:
             # If Docs API tabs are unavailable, proceed without metadata
             return []
 

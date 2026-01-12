@@ -37,22 +37,22 @@ graph TB
     subgraph "API Layer"
         REST[ REST API<br/>/api/v1/knowledge/extract-events ]
     end
-    
+
     subgraph "Extraction Service"
         EXTRACTOR[ EventExtractor<br/>Core Extraction Logic ]
         REGEX[ Regex Extraction<br/>Pattern Matching ]
         LLM[ LLM Extraction<br/>Structured Output ]
     end
-    
+
     subgraph "Dependencies"
         OLLAMA[ Ollama<br/>LLM for Extraction ]
     end
-    
+
     REST --> EXTRACTOR
     EXTRACTOR --> REGEX
     EXTRACTOR --> LLM
     LLM --> OLLAMA
-    
+
     style EXTRACTOR fill:#fff4e1
     style REGEX fill:#e1ffe1
     style LLM fill:#e1ffe1
@@ -69,10 +69,10 @@ sequenceDiagram
     participant Regex as Regex Patterns
     participant LLM as Ollama LLM
     participant RAG as MongoDB RAG
-    
+
     Client->>API: Extract events (content, url, use_llm)
     API->>Extractor: extract_events_from_content(content, url)
-    
+
     alt use_llm = False
         Extractor->>Regex: Apply regex patterns
         Regex-->>Extractor: Extracted fields
@@ -80,11 +80,11 @@ sequenceDiagram
         Extractor->>LLM: Extract events with structured output
         LLM-->>Extractor: Structured event data
     end
-    
+
     Extractor->>Extractor: Validate and format events
     Extractor-->>API: List of events
     API-->>Client: Events response
-    
+
     opt Store as facts
         API->>RAG: Store events as facts
         RAG-->>API: Facts stored
@@ -177,7 +177,7 @@ async def extract_events_from_content(
     """Extract events and store as facts."""
     extractor = EventExtractor(use_llm=False)
     events = extractor.extract_events_from_content(content, url)
-    
+
     # Store as facts in MongoDB RAG
     deps = AgentDependencies()
     await deps.initialize()
@@ -189,13 +189,13 @@ async def extract_events_from_content(
                 fact_text += f" on {event.date}"
             if event.location:
                 fact_text += f" at {event.location}"
-            
+
             memory_tools.store_fact(
                 user_id, persona_id, fact_text, tags=["event", "extracted"]
             )
     finally:
         await deps.cleanup()
-    
+
     return {"events": [e.dict() for e in events]}
 ```
 
