@@ -63,18 +63,18 @@ def email_matches_rule(email: str, rule: dict) -> bool:
     if "email" in rule:
         rule_email = rule["email"].get("email", "")
         return email.lower() == rule_email.lower()
-    elif "email_domain" in rule:
+    if "email_domain" in rule:
         domain = rule["email_domain"].get("domain", "")
         if domain.startswith("@"):
             domain = domain[1:]
         return email.lower().endswith(f"@{domain.lower()}")
-    elif "everyone" in rule:
+    if "everyone" in rule:
         return True  # Everyone rule matches all emails
     return False
 
 
 def check_email_access_to_app(
-    email: str, app: dict, policies: list[dict]
+    email: str, _app: dict, policies: list[dict]
 ) -> tuple[bool, list[str]]:
     """Check if email has access to an application based on policies.
 
@@ -108,7 +108,7 @@ def get_auth_headers():
             "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json",
         }
-    elif (
+    if (
         CLOUDFLARE_EMAIL
         and CLOUDFLARE_EMAIL.strip()
         and CLOUDFLARE_API_KEY
@@ -119,8 +119,7 @@ def get_auth_headers():
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError("Either API token or email+API key must be provided")
+    raise ValueError("Either API token or email+API key must be provided")
 
 
 def main():

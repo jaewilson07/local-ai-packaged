@@ -107,24 +107,23 @@ def submit_comfyui_workflow(
         if response.status_code == 202:
             result = response.json()
             return result.get("id")
-        elif response.status_code == 401:
+        if response.status_code == 401:
             print("❌ Authentication failed!")
             if "CF-Access-Token" in session.headers:
                 print("   Check that COMFYUI_ACCESS_TOKEN is correct")
             else:
                 print("   For remote access, set COMFYUI_ACCESS_TOKEN environment variable")
             return None
-        elif response.status_code == 403:
+        if response.status_code == 403:
             print("❌ Access denied (403 Forbidden)")
             print("   This usually means:")
             print("   1. Cloudflare Access is blocking the request")
             print("   2. Service token is missing or invalid")
             print("   3. Access policy doesn't allow this token")
             return None
-        else:
-            print(f"❌ Failed to submit workflow (status: {response.status_code})")
-            print(f"   Response: {response.text[:200]}")
-            return None
+        print(f"❌ Failed to submit workflow (status: {response.status_code})")
+        print(f"   Response: {response.text[:200]}")
+        return None
     except requests.exceptions.ConnectionError:
         print(f"❌ Cannot connect to ComfyUI API at {url}")
         print("   Is the service running?")
@@ -166,11 +165,10 @@ def check_comfyui_result(
 
         if response.status_code == 200:
             return response.json()
-        elif response.status_code == 404:
+        if response.status_code == 404:
             return None  # Request not found (may still be processing)
-        else:
-            print(f"⚠️  Unexpected status code: {response.status_code}")
-            return None
+        print(f"⚠️  Unexpected status code: {response.status_code}")
+        return None
     except Exception as e:
         print(f"⚠️  Error checking result: {e}")
         return None

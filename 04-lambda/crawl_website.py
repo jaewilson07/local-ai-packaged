@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Direct script to crawl a website using crawl4ai-rag."""
+"""Direct script to crawl a website using crawl4ai-rag.
+
+This script uses the unified ingestion architecture via ContentIngestionService.
+"""
 
 import asyncio
 import os
@@ -8,13 +11,14 @@ import sys
 # Add server to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "server"))
 
-from server.projects.crawl4ai_rag.crawler import crawl_deep
+from pydantic_ai import RunContext
+
 from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.ingestion.adapter import CrawledContentIngester
+from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep
 
 
 async def main():
-    """Crawl a website and ingest into MongoDB."""
+    """Crawl a website and ingest into MongoDB using centralized ingestion."""
     if len(sys.argv) < 2:
         print("Usage: python crawl_website.py <url> [max_depth] [allowed_domains]")
         print("Example: python crawl_website.py https://www.bluesmuse.dance/ 3")
@@ -28,64 +32,35 @@ async def main():
     if allowed_domains:
         print(f"Allowed domains: {allowed_domains}")
 
-    deps = Crawl4AIDependencies()
+    # Create dependencies - no MongoDB needed since we use ContentIngestionService
+    deps = Crawl4AIDependencies.from_settings(skip_mongodb=True, skip_openai=True)
     await deps.initialize()
 
     try:
-        # Perform deep crawl
-        crawled_pages = await crawl_deep(
-            crawler=deps.crawler,
+        # Use the unified crawl_and_ingest_deep function
+        ctx = RunContext(deps=deps)
+        result = await crawl_and_ingest_deep(
+            ctx=ctx,
             start_url=url,
             max_depth=max_depth,
             allowed_domains=allowed_domains,
             allowed_subdomains=None,
+            chunk_size=1000,
+            chunk_overlap=200,
             max_concurrent=10,
         )
 
-        if not crawled_pages:
-            print("❌ No pages were crawled")
+        if not result["success"]:
+            print(f"❌ Crawl failed: {result.get('errors', [])}")
             return
 
-        print(f"✓ Crawled {len(crawled_pages)} pages")
-
-        # Ingest all crawled pages
-        ingester = CrawledContentIngester()
-        total_chunks = 0
-        document_ids = []
-        errors = []
-
-        for page_data in crawled_pages:
-            try:
-                result = await ingester.ingest(
-                    url=page_data["url"],
-                    markdown=page_data["markdown"],
-                    chunk_size=1000,
-                    chunk_overlap=200,
-                    crawl_metadata=page_data.get("metadata"),
-                )
-
-                if result:
-                    total_chunks += result.get("chunks_created", 0)
-                    if result.get("document_id"):
-                        document_ids.append(result["document_id"])
-                    print(
-                        f"  ✓ Ingested: {page_data['url']} ({result.get('chunks_created', 0)} chunks)"
-                    )
-                else:
-                    errors.append(f"Failed to ingest {page_data['url']}")
-                    print(f"  ✗ Failed to ingest: {page_data['url']}")
-            except Exception as e:
-                error_msg = f"Error ingesting {page_data['url']}: {e!s}"
-                errors.append(error_msg)
-                print(f"  ✗ {error_msg}")
-
         print("\n✅ Crawl complete!")
-        print(f"   Pages crawled: {len(crawled_pages)}")
-        print(f"   Chunks created: {total_chunks}")
-        print(f"   Documents created: {len(document_ids)}")
-        if errors:
-            print(f"   Errors: {len(errors)}")
-            for error in errors[:5]:  # Show first 5 errors
+        print(f"   Pages crawled: {result['pages_crawled']}")
+        print(f"   Chunks created: {result['chunks_created']}")
+        print(f"   Documents created: {len(result.get('document_ids', []))}")
+        if result.get("errors"):
+            print(f"   Errors: {len(result['errors'])}")
+            for error in result["errors"][:5]:  # Show first 5 errors
                 print(f"     - {error}")
 
     finally:

@@ -22,13 +22,13 @@ sys.path.insert(0, str(project_root))  # Add project root for sample.shared impo
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from sample.shared.auth_helpers import (
+from sample.shared.auth_helpers import (  # noqa: E402
     get_mongodb_credentials,
     require_cloudflare_email,
 )
-from server.projects.calendar.dependencies import CalendarDeps
+from server.projects.calendar.dependencies import CalendarDeps  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -183,51 +183,40 @@ async def main():
         print("=" * 80)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_calendar_data, verify_mongodb_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_calendar_data, verify_mongodb_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            # Verify calendar events
-            cal_success, cal_message = verify_calendar_data(
-                api_base_url=api_base_url,
-                headers=headers,
-            )
-            print("Calendar Events:")
-            print(cal_message)
+        # Verify calendar events
+        cal_success, cal_message = verify_calendar_data(
+            api_base_url=api_base_url,
+            headers=headers,
+        )
+        print("Calendar Events:")
+        print(cal_message)
 
-            # Verify sync state in MongoDB
-            mongo_success, mongo_message = verify_mongodb_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                collection="calendar_sync_states",
-                expected_count_min=1,
-            )
-            print("\nSync States:")
-            print(mongo_message)
+        # Verify sync state in MongoDB
+        mongo_success, mongo_message = verify_mongodb_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            collection="calendar_sync_states",
+            expected_count_min=1,
+        )
+        print("\nSync States:")
+        print(mongo_message)
 
-            if cal_success or mongo_success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (data may need time to sync)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
-            # Don't fail on verification errors for calendar (OAuth may not be configured)
+        if cal_success or mongo_success:
+            print("\n✅ Verification passed!")
             sys.exit(0)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during sync state demo: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
+        else:
+            print("\n❌ Verification failed (data may need time to sync)")
+            sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

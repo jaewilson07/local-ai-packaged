@@ -20,6 +20,7 @@ from server.projects.deep_research.tools import (
     query_knowledge,
     search_web,
 )
+from tests.conftest import async_iter
 
 # ============================================================================
 # search_web Tests
@@ -180,8 +181,11 @@ async def test_fetch_page_success(mock_deep_research_deps, sample_fetch_response
 
     request = FetchPageRequest(url=HttpUrl("https://example.com/test-article"))
 
-    with patch("server.projects.deep_research.tools.crawl_single_page") as mock_crawl:
+    with patch(
+        "server.projects.deep_research.tools.crawl_single_page", new_callable=AsyncMock
+    ) as mock_crawl:
         mock_crawl.return_value = {
+            "url": "https://example.com/test-article",
             "markdown": sample_fetch_response["content"],
             "metadata": sample_fetch_response["metadata"],
         }
@@ -226,7 +230,9 @@ async def test_fetch_page_connection_error(mock_deep_research_deps):
 
     request = FetchPageRequest(url=HttpUrl("https://example.com/test"))
 
-    with patch("server.projects.deep_research.tools.crawl_single_page") as mock_crawl:
+    with patch(
+        "server.projects.deep_research.tools.crawl_single_page", new_callable=AsyncMock
+    ) as mock_crawl:
         mock_crawl.side_effect = ConnectionError("Connection failed")
 
         response = await fetch_page(mock_deep_research_deps, request)
@@ -241,8 +247,11 @@ async def test_fetch_page_metadata_extraction(mock_deep_research_deps, sample_fe
 
     request = FetchPageRequest(url=HttpUrl("https://example.com/test-article"))
 
-    with patch("server.projects.deep_research.tools.crawl_single_page") as mock_crawl:
+    with patch(
+        "server.projects.deep_research.tools.crawl_single_page", new_callable=AsyncMock
+    ) as mock_crawl:
         mock_crawl.return_value = {
+            "url": "https://example.com/test-article",
             "markdown": sample_fetch_response["content"],
             "metadata": sample_fetch_response["metadata"],
         }
@@ -279,17 +288,18 @@ async def test_parse_document_html(mock_deep_research_deps, sample_fetch_respons
         mock_chunker_instance.chunk_document = AsyncMock(return_value=[mock_chunk])
         mock_chunker.return_value = mock_chunker_instance
 
-        with patch("server.projects.deep_research.tools.DocumentConverter") as mock_converter:
-            mock_doc = Mock()
-            mock_doc.document = Mock()
-            mock_converter_instance = Mock()
-            mock_converter_instance.convert.return_value = mock_doc
-            mock_converter.return_value = mock_converter_instance
+        # Mock document_converter on deps
+        mock_doc = Mock()
+        mock_doc.document = Mock()
+        mock_doc.document.export_to_markdown = Mock(return_value="# Test\n\nContent")
+        mock_converter_instance = Mock()
+        mock_converter_instance.convert.return_value = mock_doc
+        mock_deep_research_deps.document_converter = mock_converter_instance
 
-            response = await parse_document(mock_deep_research_deps, request)
+        response = await parse_document(mock_deep_research_deps, request)
 
-            assert response.success is True
-            assert len(response.chunks) > 0
+        assert response.success is True
+        assert len(response.chunks) > 0
 
 
 @pytest.mark.asyncio
@@ -320,16 +330,17 @@ Content here.
         mock_chunker_instance.chunk_document = AsyncMock(return_value=[mock_chunk])
         mock_chunker.return_value = mock_chunker_instance
 
-        with patch("server.projects.deep_research.tools.DocumentConverter") as mock_converter:
-            mock_doc = Mock()
-            mock_doc.document = Mock()
-            mock_converter_instance = Mock()
-            mock_converter_instance.convert.return_value = mock_doc
-            mock_converter.return_value = mock_converter_instance
+        # Mock document_converter on deps
+        mock_doc = Mock()
+        mock_doc.document = Mock()
+        mock_doc.document.export_to_markdown = Mock(return_value=markdown_content)
+        mock_converter_instance = Mock()
+        mock_converter_instance.convert.return_value = mock_doc
+        mock_deep_research_deps.document_converter = mock_converter_instance
 
-            response = await parse_document(mock_deep_research_deps, request)
+        response = await parse_document(mock_deep_research_deps, request)
 
-            assert response.success is True
+        assert response.success is True
 
 
 @pytest.mark.asyncio
@@ -353,17 +364,18 @@ async def test_parse_document_text(mock_deep_research_deps):
         mock_chunker_instance.chunk_document = AsyncMock(return_value=[mock_chunk])
         mock_chunker.return_value = mock_chunker_instance
 
-        with patch("server.projects.deep_research.tools.DocumentConverter") as mock_converter:
-            mock_doc = Mock()
-            mock_doc.document = Mock()
-            mock_converter_instance = Mock()
-            mock_converter_instance.convert.return_value = mock_doc
-            mock_converter.return_value = mock_converter_instance
+        # Mock document_converter on deps
+        mock_doc = Mock()
+        mock_doc.document = Mock()
+        mock_doc.document.export_to_markdown = Mock(return_value=text_content)
+        mock_converter_instance = Mock()
+        mock_converter_instance.convert.return_value = mock_doc
+        mock_deep_research_deps.document_converter = mock_converter_instance
 
-            response = await parse_document(mock_deep_research_deps, request)
+        response = await parse_document(mock_deep_research_deps, request)
 
-            assert response.success is True
-            assert len(response.chunks) > 0
+        assert response.success is True
+        assert len(response.chunks) > 0
 
 
 @pytest.mark.asyncio
@@ -391,17 +403,18 @@ async def test_parse_document_chunking(mock_deep_research_deps):
         mock_chunker_instance.chunk_document = AsyncMock(return_value=chunks)
         mock_chunker.return_value = mock_chunker_instance
 
-        with patch("server.projects.deep_research.tools.DocumentConverter") as mock_converter:
-            mock_doc = Mock()
-            mock_doc.document = Mock()
-            mock_converter_instance = Mock()
-            mock_converter_instance.convert.return_value = mock_doc
-            mock_converter.return_value = mock_converter_instance
+        # Mock document_converter on deps
+        mock_doc = Mock()
+        mock_doc.document = Mock()
+        mock_doc.document.export_to_markdown = Mock(return_value=content)
+        mock_converter_instance = Mock()
+        mock_converter_instance.convert.return_value = mock_doc
+        mock_deep_research_deps.document_converter = mock_converter_instance
 
-            response = await parse_document(mock_deep_research_deps, request)
+        response = await parse_document(mock_deep_research_deps, request)
 
-            assert response.success is True
-            assert len(response.chunks) == 5
+        assert response.success is True
+        assert len(response.chunks) == 5
 
 
 @pytest.mark.asyncio
@@ -613,21 +626,20 @@ async def test_query_knowledge_semantic(mock_deep_research_deps, sample_mongo_ch
     )
 
     # Mock MongoDB vector search
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "chunk_id": sample_mongo_chunk["_id"],
-                    "document_id": sample_mongo_chunk["document_id"],
-                    "content": sample_mongo_chunk["content"],
-                    "similarity": 0.95,
-                    "metadata": sample_mongo_chunk["metadata"],
-                    "document_title": "Test Document",
-                    "document_source": "https://example.com/test",
-                }
-            ]
-        )
+    from tests.conftest import async_iter
+
+    mock_cursor = async_iter(
+        [
+            {
+                "chunk_id": sample_mongo_chunk["_id"],
+                "document_id": sample_mongo_chunk["document_id"],
+                "content": sample_mongo_chunk["content"],
+                "similarity": 0.95,
+                "metadata": sample_mongo_chunk["metadata"],
+                "document_title": "Test Document",
+                "document_source": "https://example.com/test",
+            }
+        ]
     )
 
     mock_deep_research_deps.db["chunks"].aggregate = AsyncMock(return_value=mock_cursor)
@@ -653,21 +665,18 @@ async def test_query_knowledge_text(mock_deep_research_deps, sample_mongo_chunk)
     )
 
     # Mock MongoDB text search
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "chunk_id": sample_mongo_chunk["_id"],
-                    "document_id": sample_mongo_chunk["document_id"],
-                    "content": sample_mongo_chunk["content"],
-                    "similarity": 0.88,
-                    "metadata": sample_mongo_chunk["metadata"],
-                    "document_title": "Test Document",
-                    "document_source": "https://example.com/test",
-                }
-            ]
-        )
+    mock_cursor = async_iter(
+        [
+            {
+                "chunk_id": sample_mongo_chunk["_id"],
+                "document_id": sample_mongo_chunk["document_id"],
+                "content": sample_mongo_chunk["content"],
+                "similarity": 0.88,
+                "metadata": sample_mongo_chunk["metadata"],
+                "document_title": "Test Document",
+                "document_source": "https://example.com/test",
+            }
+        ]
     )
 
     mock_deep_research_deps.db["chunks"].aggregate = AsyncMock(return_value=mock_cursor)
@@ -692,21 +701,18 @@ async def test_query_knowledge_hybrid(mock_deep_research_deps, sample_mongo_chun
     )
 
     # Mock both vector and text search results
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "chunk_id": sample_mongo_chunk["_id"],
-                    "document_id": sample_mongo_chunk["document_id"],
-                    "content": sample_mongo_chunk["content"],
-                    "similarity": 0.95,
-                    "metadata": sample_mongo_chunk["metadata"],
-                    "document_title": "Test Document",
-                    "document_source": "https://example.com/test",
-                }
-            ]
-        )
+    mock_cursor = async_iter(
+        [
+            {
+                "chunk_id": sample_mongo_chunk["_id"],
+                "document_id": sample_mongo_chunk["document_id"],
+                "content": sample_mongo_chunk["content"],
+                "similarity": 0.95,
+                "metadata": sample_mongo_chunk["metadata"],
+                "document_title": "Test Document",
+                "document_source": "https://example.com/test",
+            }
+        ]
     )
 
     mock_deep_research_deps.db["chunks"].aggregate = AsyncMock(return_value=mock_cursor)
@@ -733,26 +739,25 @@ async def test_query_knowledge_with_graphiti(
         use_graphiti=True,
     )
 
-    # Mock Graphiti search
-    with patch("server.projects.deep_research.tools.graphiti_search") as mock_graphiti_search:
+    # Mock Graphiti search - patch at the source module
+    with patch(
+        "server.projects.graphiti_rag.search.graph_search.graphiti_search", new_callable=AsyncMock
+    ) as mock_graphiti_search:
         mock_graphiti_search.return_value = [sample_graphiti_result]
 
         # Mock MongoDB operations
-        mock_cursor = AsyncMock()
-        mock_cursor.__aiter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "chunk_id": ObjectId(sample_graphiti_result.metadata["chunk_id"]),
-                        "document_id": ObjectId(sample_graphiti_result.metadata["document_id"]),
-                        "content": sample_mongo_chunk["content"],
-                        "similarity": 0.95,
-                        "metadata": sample_mongo_chunk["metadata"],
-                        "document_title": "Test Document",
-                        "document_source": "https://example.com/test",
-                    }
-                ]
-            )
+        mock_cursor = async_iter(
+            [
+                {
+                    "chunk_id": ObjectId(sample_graphiti_result.metadata["chunk_id"]),
+                    "document_id": ObjectId(sample_graphiti_result.metadata["document_id"]),
+                    "content": sample_mongo_chunk["content"],
+                    "similarity": 0.95,
+                    "metadata": sample_mongo_chunk["metadata"],
+                    "document_title": "Test Document",
+                    "document_source": "https://example.com/test",
+                }
+            ]
         )
 
         mock_deep_research_deps.db["chunks"].find_one = AsyncMock(return_value=sample_mongo_chunk)
@@ -778,21 +783,18 @@ async def test_query_knowledge_session_filtering(mock_deep_research_deps, sample
     )
 
     # Mock MongoDB vector search with session filter
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "chunk_id": sample_mongo_chunk["_id"],
-                    "document_id": sample_mongo_chunk["document_id"],
-                    "content": sample_mongo_chunk["content"],
-                    "similarity": 0.95,
-                    "metadata": sample_mongo_chunk["metadata"],
-                    "document_title": "Test Document",
-                    "document_source": "https://example.com/test",
-                }
-            ]
-        )
+    mock_cursor = async_iter(
+        [
+            {
+                "chunk_id": sample_mongo_chunk["_id"],
+                "document_id": sample_mongo_chunk["document_id"],
+                "content": sample_mongo_chunk["content"],
+                "similarity": 0.95,
+                "metadata": sample_mongo_chunk["metadata"],
+                "document_title": "Test Document",
+                "document_source": "https://example.com/test",
+            }
+        ]
     )
 
     mock_deep_research_deps.db["chunks"].aggregate = AsyncMock(return_value=mock_cursor)
@@ -819,8 +821,7 @@ async def test_query_knowledge_empty_results(mock_deep_research_deps):
     )
 
     # Mock empty results
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__ = Mock(return_value=iter([]))
+    mock_cursor = async_iter([])
 
     mock_deep_research_deps.db["chunks"].aggregate = AsyncMock(return_value=mock_cursor)
 
@@ -842,8 +843,10 @@ async def test_query_knowledge_graph_only(mock_deep_research_deps, sample_graphi
         use_graphiti=True,
     )
 
-    # Mock Graphiti search
-    with patch("server.projects.deep_research.tools.graphiti_search") as mock_graphiti_search:
+    # Mock Graphiti search - patch at the source module
+    with patch(
+        "server.projects.graphiti_rag.search.graph_search.graphiti_search", new_callable=AsyncMock
+    ) as mock_graphiti_search:
         mock_graphiti_search.return_value = [sample_graphiti_result]
 
         # Mock MongoDB fetch

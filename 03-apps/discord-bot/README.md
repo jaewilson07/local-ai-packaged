@@ -52,29 +52,43 @@ Discord bot that bridges Discord uploads to Immich, manages user face mapping, a
 4. Copy the generated URL and open it in a browser
 5. Select your server and authorize
 
-### 4. Get Channel ID
+### 4. Get Channel ID (Optional)
+
+If you want to restrict uploads to a specific channel:
 
 1. In Discord, enable **Developer Mode**:
    - User Settings → Advanced → Developer Mode
-2. Right-click on the `#event-uploads` channel
+2. Right-click on the channel (e.g., `#event-uploads`)
 3. Click **Copy ID**
 4. Add to `.env` file as `DISCORD_UPLOAD_CHANNEL_ID`
 
+**Note**: If `DISCORD_UPLOAD_CHANNEL_ID` is empty, the bot will allow uploads from any channel.
+
 ### 5. Configure Environment Variables
 
-Copy `config/.env.example` to your root `.env` file and fill in:
+Add these to your root `.env` file:
 
 ```bash
+# Required
 DISCORD_BOT_TOKEN=your_discord_bot_token_here
-DISCORD_UPLOAD_CHANNEL_ID=your_channel_id_here
-IMMICH_API_KEY=your_immich_api_key_here
+
+# Optional - Channel restriction (leave empty to allow uploads from any channel)
+DISCORD_UPLOAD_CHANNEL_ID=
+
+# Immich Configuration
 IMMICH_SERVER_URL=http://immich-server:2283
+
+# Optional - For user-specific Immich API keys (requires Discord account linking)
+# LAMBDA_API_URL=http://lambda-server:8000  # Defaults to internal network
+# CLOUDFLARE_EMAIL=your-email@example.com   # Your Cloudflare Access email
 
 # Optional: MCP Server Configuration
 MCP_ENABLED=true
 MCP_PORT=8001
 MCP_HOST=0.0.0.0
 ```
+
+**Note**: `IMMICH_API_KEY` is no longer required. The bot will use user-specific API keys when available, or fall back to a global key if configured.
 
 ## Starting the Bot
 
@@ -92,14 +106,30 @@ python start_services.py --profile cpu
 
 ### Upload Files to Immich
 
-1. Upload a file (jpg, png, mp4, mov) to the `#event-uploads` channel
+1. Upload a file (jpg, png, mp4, mov) to any channel (or specific channel if `DISCORD_UPLOAD_CHANNEL_ID` is set)
 2. Bot will automatically:
    - Download the file
-   - Upload it to Immich
+   - Upload it to your Immich account (if Discord account is linked) or global account
    - Set description: "Uploaded by [YourName]"
    - Reply with confirmation
 
 **Note**: Files larger than 25MB (Discord limit) will be rejected with an error message.
+
+### Link Discord Account to Cloudflare Auth
+
+To enable user-specific Immich uploads:
+
+1. Authenticate via Cloudflare Access (visit `https://api.datacrew.space/api/me`)
+2. Link your Discord account:
+   ```bash
+   curl -X POST https://api.datacrew.space/api/me/discord/link \
+     -H "Cf-Access-Jwt-Assertion: <your-jwt-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"discord_user_id": "your-discord-user-id"}'
+   ```
+3. Uploads from your Discord account will now go to your personal Immich account
+
+**Note**: If your Discord account is not linked, uploads will use the global Immich API key (if configured) or fail.
 
 ### Link Your Face
 
@@ -163,11 +193,30 @@ discord-bot/
 │   ├── config.py            # Configuration
 │   ├── database.py          # SQLite operations
 │   ├── immich_client.py     # Immich API client
+│   ├── api_client.py        # Lambda API client
 │   ├── utils.py             # Utility functions
-│   ├── handlers/
-│   │   ├── upload_handler.py      # File upload handling
-│   │   ├── command_handler.py     # Slash commands
-│   │   └── notification_task.py   # Background polling
+│   ├── capabilities/        # Capability-based extensibility system
+│   │   ├── __init__.py           # Public exports
+│   │   ├── base.py               # BaseCapability class
+│   │   ├── registry.py           # CapabilityRegistry + event bus
+│   │   ├── echo.py               # Echo capability
+│   │   ├── upload.py             # Upload + face claiming capability
+│   │   ├── character_commands.py # Character management commands
+│   │   ├── character_mention.py  # Character mention responses
+│   │   └── character.py          # DEPRECATED (split into above)
+│   ├── agents/              # Agent-based background workers
+│   │   ├── __init__.py           # Public exports
+│   │   ├── base.py               # BaseAgent class
+│   │   ├── manager.py            # AgentManager
+│   │   ├── discord_comm.py       # Discord communication layer
+│   │   ├── bluesky_agent.py      # Bluesky integration
+│   │   ├── tumblr_agent.py       # Tumblr integration
+│   │   ├── supabase_event_agent.py  # Supabase events
+│   │   └── character_engagement_agent.py  # Character engagement
+│   ├── handlers/            # Legacy handlers (migration planned)
+│   │   ├── upload_handler.py      # DEPRECATED - use UploadCapability
+│   │   ├── command_handler.py     # DEPRECATED - use UploadCapability
+│   │   └── notification_task.py   # Legacy (migration to Agent planned)
 │   └── mcp/                  # MCP server implementation
 │       ├── server.py         # FastMCP server setup
 │       ├── models.py         # Pydantic models
@@ -279,13 +328,13 @@ tests/
 ├── unit/                    # Unit tests with mocks
 │   ├── test_database.py
 │   ├── test_immich_client.py
-│   ├── test_upload_handler.py
-│   ├── test_command_handler.py
+│   ├── test_upload_capability.py
+│   ├── test_claim_face_capability.py
 │   ├── test_notification_task.py
 │   └── test_utils.py
 ├── integration/            # Integration tests with real database
-│   ├── test_upload_flow.py
-│   ├── test_claim_face_flow.py
+│   ├── test_upload_capability_flow.py
+│   ├── test_claim_face_capability_flow.py
 │   └── test_notification_flow.py
 └── manual/                 # Manual testing utilities
     ├── test_immich_connection.py
@@ -304,7 +353,7 @@ cd 03-apps/discord-bot
 pytest tests/unit -v
 
 # Run specific test file
-pytest tests/unit/test_upload_handler.py -v
+pytest tests/unit/test_upload_capability.py -v
 
 # Run with coverage
 pytest --cov=bot --cov-report=html tests/unit
@@ -317,7 +366,7 @@ pytest --cov=bot --cov-report=html tests/unit
 pytest tests/integration -v
 
 # Run specific integration test
-pytest tests/integration/test_upload_flow.py -v
+pytest tests/integration/test_upload_capability_flow.py -v
 ```
 
 #### All Tests

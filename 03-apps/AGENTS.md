@@ -59,8 +59,163 @@
 - **ClickHouse** - Time-series database (for Langfuse)
 
 ### Discord Integration
-- **discord-bot** - Discord bot for Immich integration
-- **discord-character-bot** - Discord bot for AI character interactions
+- **discord-bot** - Discord bot for Immich integration and AI character interactions (unified bot with capability-based architecture)
+
+## Discord Bot Architecture
+
+The Discord bot uses two complementary extensibility systems: **Capabilities** and **Agents**. Understanding when to use each is critical for maintaining clean separation of concerns.
+
+### Capabilities vs Agents: Decision Guide
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        WHEN TO USE EACH SYSTEM                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  USE CAPABILITIES WHEN:                USE AGENTS WHEN:                     │
+│  ─────────────────────                 ───────────────────                  │
+│  • Responding to Discord messages      • Polling external services          │
+│  • Registering slash commands          • Background tasks (Bluesky, Tumblr) │
+│  • Priority-based message routing      • Event-driven external integrations │
+│  • User-facing Discord features        • Supabase realtime subscriptions    │
+│  • Needs access to Discord message     • Does NOT need Discord message obj  │
+│                                                                             │
+│  LIFECYCLE:                            LIFECYCLE:                           │
+│  on_ready() → on_message() → cleanup() on_start() → process_task() → stop()│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Capabilities (`bot/capabilities/`)
+
+**Purpose**: Handle Discord events and user interactions
+
+**Key Characteristics**:
+- Triggered by Discord events (messages, slash commands)
+- Process in priority order (lower number = higher priority)
+- Return `True` from `on_message()` to stop chain, `False` to continue
+- Have direct access to `discord.Message` objects
+- Support dependency validation via `requires` field
+- Inter-capability communication via event bus pattern
+
+**Base Class**: `BaseCapability`
+```python
+class BaseCapability(ABC):
+    name: str = "base"           # Unique identifier for config
+    description: str = "..."     # Human-readable description  
+    priority: int = 100          # Message routing order
+    requires: list[str] = []     # Dependency capabilities (validated at load)
+
+    async def on_ready(self, tree) -> None: ...   # Register commands
+    async def on_message(self, message) -> bool: ... # Handle messages
+    async def cleanup(self) -> None: ...          # Shutdown cleanup
+
+    # Event bus methods for inter-capability communication
+    async def emit_event(self, event_type: str, data: dict) -> None: ...
+    def subscribe_to_event(self, event_type: str, handler: callable) -> None: ...
+    def unsubscribe_from_event(self, event_type: str) -> None: ...
+```
+
+**Available Capabilities**:
+| Name | Priority | Description |
+|------|----------|-------------|
+| `echo` | 50 | Responds to @mentions with echo |
+| `character_commands` | 65 | Character management slash commands (/add_character, /remove_character, etc.) |
+| `character_mention` | 60 | AI character responses when mentioned by name (requires: character_commands) |
+| `upload` | 100 | Uploads media to Immich, includes `/claim_face` command |
+
+**Deprecated Capabilities**:
+| Name | Status | Replacement |
+|------|--------|-------------|
+| `character` | DEPRECATED | Split into `character_commands`, `character_mention`, and `CharacterEngagementAgent` |
+
+**Legacy Handlers** (migration planned):
+| Name | Status | Future |
+|------|--------|--------|
+| `notification_task` | Legacy | Planned migration to `NotificationAgent` |
+
+**Configuration**: Via `ENABLED_CAPABILITIES` env var or Lambda API `/admin/discord/config`
+
+**Note**: When `character` is specified in `ENABLED_CAPABILITIES`, it automatically loads `character_commands`, `character_mention`, and registers `CharacterEngagementAgent`.
+
+### Agents (`bot/agents/`)
+
+**Purpose**: Background workers for external service integrations
+
+**Key Characteristics**:
+- Long-running background tasks
+- Task queue-based processing
+- Communicate via `DiscordCommunicationLayer` (not direct message objects)
+- Independent of Discord message flow
+
+**Base Class**: `BaseAgent`
+```python
+class BaseAgent(ABC):
+    agent_id: str               # Unique identifier
+    name: str                   # Human-readable name
+    discord_channel_id: str     # Output channel for notifications
+
+    async def on_start(self) -> None: ...        # Agent startup
+    async def process_task(self, task) -> dict: ... # Task processing
+    async def on_stop(self) -> None: ...         # Agent shutdown
+```
+
+**Available Agents**:
+| Agent ID | Description |
+|----------|-------------|
+| `bluesky` | Posts to Bluesky, monitors mentions |
+| `tumblr` | Reposts content to Tumblr |
+| `supabase-event` | Listens to Supabase realtime events |
+| `character_engagement` | Background spontaneous character engagement (polls channels) |
+
+**Communication**: Agents use `DiscordCommunicationLayer` to send messages:
+```python
+discord_comm = agent_manager.get_discord_comm()
+await discord_comm.send_message(channel_id, content="...")
+```
+
+### Inter-System Communication
+
+Capabilities and agents can coordinate through multiple mechanisms:
+
+1. **Capability → Agent**: Use `agent_manager.route_task(agent_id, task_dict)`
+2. **Agent → Capability**: Agents post to Discord channels; capabilities can react to those messages
+3. **Capability → Capability**: Use the event bus pattern:
+   ```python
+   # Emit an event
+   await self.emit_event("upload_complete", {"filename": "photo.jpg", "asset_id": "abc123"})
+
+   # Subscribe to events (in on_ready)
+   self.subscribe_to_event("upload_complete", self.handle_upload_complete)
+   ```
+
+**Event Bus Pattern**:
+- `CapabilityEvent`: Dataclass with `event_type`, `source`, `data`, `timestamp`
+- Events are emitted asynchronously to all subscribers (except source)
+- Subscribers are called concurrently with error isolation
+
+### Adding New Features: Decision Tree
+
+```
+Does it respond to Discord messages/commands?
+├── YES → Create a Capability
+│   └── Does it need background polling?
+│       └── YES → Also create a companion Agent
+└── NO → Is it a background integration?
+    ├── YES → Create an Agent
+    └── NO → Probably doesn't belong in discord-bot
+```
+
+### Best Practices
+
+1. **Single Responsibility**: Each capability/agent should do one thing well
+2. **Delegate Heavy Logic**: Move API calls to service classes (`APIClient`, etc.)
+3. **Priority Ordering**: Use meaningful priorities (50=core, 100=supplemental)
+4. **Graceful Cleanup**: Always implement `cleanup()`/`on_stop()` for resource management
+5. **Configuration-Driven**: Support enable/disable via config, not code changes
+6. **Declare Dependencies**: Use `requires` field to declare capability dependencies
+7. **Use Shared Resources**: Use shared `APIClient` instance instead of creating multiple clients
+8. **Event-Driven Communication**: Use event bus for inter-capability communication instead of direct coupling
 
 ## n8n
 
@@ -70,6 +225,12 @@
 - **Port**: 5678 (internal)
 - **Database**: PostgreSQL (via Supabase, `supabase-db:5432`)
 - **Storage**: `./n8n/data/home` (bind mount) + `./n8n/data/backup` (runtime) + `./n8n/config/import` (seeds)
+
+### n8n-import Service
+- **Purpose**: One-time import of credentials and workflows from `config/import/` directory
+- **Restart Policy**: `restart: "no"` - Prevents blocking startup if Docker Desktop/WSL mount issues occur
+- **Behavior**: Runs import command and exits (does not restart on failure)
+- **Note**: If mount fails, service exits but doesn't block other services from starting
 
 ### Configuration
 - **Database Type**: `DB_TYPE=postgresdb`
@@ -272,6 +433,9 @@ curl http://flowise:3001/api/v1/ping
 # Open WebUI
 curl http://open-webui:8080/health
 
+# Frontend (Next.js)
+curl http://127.0.0.1:3000/api/health  # Use 127.0.0.1, not localhost (IPv6 issue)
+
 # SearXNG
 curl http://searxng:8080/
 
@@ -281,6 +445,11 @@ curl http://langfuse-web:3000/api/public/health
 # ClickHouse
 curl http://clickhouse:8123/ping
 ```
+
+**Health Check Patterns**:
+- **Use `127.0.0.1` instead of `localhost`** for health checks to avoid IPv6 connection issues
+- **Frontend**: Health check uses `http://127.0.0.1:3000/api/health` (Next.js binds to IPv4 only)
+- **Discord Bot**: MCP server port (8001) uses `expose` not `ports` (internal only, avoids Caddy port conflict)
 
 ## Do's and Don'ts
 

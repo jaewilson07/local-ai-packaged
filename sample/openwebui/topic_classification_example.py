@@ -18,11 +18,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.openwebui_topics.agent import classify_topics_tool
-from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.openwebui_topics.agent import classify_topics_tool  # noqa: E402
+from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -97,38 +97,28 @@ async def main():
         print("=" * 80)
 
         # Verify that topics were classified
-        try:
-            from sample.shared.verification_helpers import verify_search_results
+        from sample.shared.verification_helpers import verify_search_results
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            # Check if result contains topics (result might be string or dict)
-            if isinstance(result, dict):
-                topics = result.get("topics", [])
-            else:
-                # If result is a string, assume it contains topics
-                topics = [result] if result else []
+        # Check if result contains topics (result might be string or dict)
+        if isinstance(result, dict):
+            topics = result.get("topics", [])
+        else:
+            # If result is a string, assume it contains topics
+            topics = [result] if result else []
 
-            success, message = verify_search_results(topics, expected_min=1)
-            print(message)
+        success, message = verify_search_results(topics, expected_min=1)
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed: No topics classified")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed: No topics classified")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error classifying topics: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

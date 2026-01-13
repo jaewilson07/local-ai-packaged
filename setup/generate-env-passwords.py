@@ -395,6 +395,7 @@ def check_infisical_auth() -> bool:
         result = subprocess.run(
             ["infisical", "secrets"],
             capture_output=True,
+            text=True,
             timeout=10,
             check=False,
         )
@@ -484,10 +485,9 @@ def set_infisical_secret(key: str, value: str) -> bool:
 
         if result.returncode == 0:
             return True
-        else:
-            error_msg = result.stderr or result.stdout or "Unknown error"
-            print(f"  Warning: Error setting {key} in Infisical: {error_msg.strip()}")
-            return False
+        error_msg = result.stderr or result.stdout or "Unknown error"
+        print(f"  Warning: Error setting {key} in Infisical: {error_msg.strip()}")
+        return False
     except subprocess.TimeoutExpired:
         print(f"  Warning: Timeout setting {key} in Infisical")
         return False
@@ -603,18 +603,83 @@ N8N_USER_MANAGEMENT_JWT_SECRET=
 # Supabase Secrets
 ############
 POSTGRES_PASSWORD=
+POSTGRES_HOST=supabase-db
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
 JWT_SECRET=
+JWT_EXPIRY=3600
 ANON_KEY=
 SERVICE_ROLE_KEY=
 DASHBOARD_USERNAME=admin
 DASHBOARD_PASSWORD=
+SECRET_KEY_BASE=
+VAULT_ENC_KEY=
+PG_META_CRYPTO_KEY=
+LOGFLARE_PUBLIC_ACCESS_TOKEN=
+LOGFLARE_PRIVATE_ACCESS_TOKEN=
 POOLER_TENANT_ID=
+POOLER_DEFAULT_POOL_SIZE=20
+POOLER_MAX_CLIENT_CONN=100
+POOLER_DB_POOL_SIZE=10
+POOLER_PROXY_PORT_TRANSACTION=6543
 
 ############
 # Supabase Storage (S3 Compatible)
 ############
-SUPABASE_MINIO_ROOT_USER=
-SUPABASE_MINIO_ROOT_PASSWORD=
+SUPABASE_MINIO_ROOT_USER=supa-storage
+SUPABASE_MINIO_ROOT_PASSWORD=secret1234
+
+############
+# Supabase Configuration
+############
+# API and Site URLs (update for production with your domain)
+API_EXTERNAL_URL=http://localhost:8011
+SITE_URL=http://localhost:3000
+SUPABASE_PUBLIC_URL=http://localhost:8011
+
+# Kong Gateway Ports
+KONG_HTTP_PORT=8011
+KONG_HTTPS_PORT=8443
+
+# Studio Configuration
+STUDIO_DEFAULT_ORGANIZATION=Default Organization
+STUDIO_DEFAULT_PROJECT=Default Project
+
+# PostgREST Configuration
+PGRST_DB_SCHEMAS=public,storage,graphql_public
+
+# Auth Configuration (GoTrue)
+DISABLE_SIGNUP=false
+ENABLE_EMAIL_SIGNUP=true
+ENABLE_EMAIL_AUTOCONFIRM=false
+ENABLE_ANONYMOUS_USERS=false
+ENABLE_PHONE_SIGNUP=false
+ENABLE_PHONE_AUTOCONFIRM=false
+ADDITIONAL_REDIRECT_URLS=
+
+# SMTP Configuration (Optional - for email sending)
+# Leave empty if not using email features
+SMTP_ADMIN_EMAIL=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_SENDER_NAME=Supabase
+
+# Mailer URL Paths
+MAILER_URLPATHS_INVITE=/auth/v1/verify
+MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify
+MAILER_URLPATHS_RECOVERY=/auth/v1/verify
+MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
+
+# Edge Functions Configuration
+FUNCTIONS_VERIFY_JWT=true
+
+# Image Proxy Configuration
+IMGPROXY_ENABLE_WEBP_DETECTION=true
+
+# OpenAI API Key (Optional - for AI Assistant in Studio)
+OPENAI_API_KEY=
 
 ############
 # Neo4j Secrets
@@ -763,6 +828,11 @@ def main():
         "N8N_USER_MANAGEMENT_JWT_SECRET": (generate_hex_string, {"length": hex_length}),
         "POSTGRES_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
         "DASHBOARD_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
+        "SECRET_KEY_BASE": (generate_hex_string, {"length": 64}),
+        "VAULT_ENC_KEY": (generate_hex_string, {"length": 32}),
+        "PG_META_CRYPTO_KEY": (generate_hex_string, {"length": 32}),
+        "LOGFLARE_PUBLIC_ACCESS_TOKEN": (generate_hex_string, {"length": 32}),
+        "LOGFLARE_PRIVATE_ACCESS_TOKEN": (generate_hex_string, {"length": 32}),
         "POOLER_TENANT_ID": (generate_uuid, {}),
         "MONGODB_ROOT_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
         "MONGODB_EXPRESS_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
@@ -770,10 +840,15 @@ def main():
         "MINIO_ROOT_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
         "LANGFUSE_SALT": (generate_hex_string, {"length": hex_length}),
         "NEXTAUTH_SECRET": (generate_hex_string, {"length": hex_length}),
-        "ENCRYPTION_KEY": (generate_hex_string, {"length": hex_length}),
+        "ENCRYPTION_KEY": (
+            generate_hex_string,
+            {"length": 64},
+        ),  # Langfuse requires 256 bits (64 hex chars)
         "INFISICAL_ENCRYPTION_KEY": (generate_hex_string, {"length": 16}),
         "INFISICAL_AUTH_SECRET": (generate_base64_string, {"length": 32}),
         "FLOWISE_PASSWORD": (generate_passphrase, {"num_words": passphrase_words}),
+        # Note: IMMICH_ADMIN_API_KEY is not generated here - it must be obtained from Immich admin panel
+        # IMMICH_ADMIN_API_KEY is set manually after creating an admin API key in Immich
     }
 
     # Read existing lines
@@ -969,6 +1044,30 @@ def main():
                 updated = True
             elif key == "VAULT_ENC_KEY":
                 # Handle VAULT_ENC_KEY placeholder
+                is_placeholder = (
+                    not value or "your-" in value.lower() or "placeholder" in value.lower()
+                )
+                if is_placeholder:
+                    new_value = generate_hex_string(length=32)
+                    updated = True
+            elif key == "SECRET_KEY_BASE":
+                # Handle SECRET_KEY_BASE placeholder (for Realtime/Pooler)
+                is_placeholder = (
+                    not value or "your-" in value.lower() or "placeholder" in value.lower()
+                )
+                if is_placeholder:
+                    new_value = generate_hex_string(length=64)
+                    updated = True
+            elif key == "PG_META_CRYPTO_KEY":
+                # Handle PG_META_CRYPTO_KEY placeholder
+                is_placeholder = (
+                    not value or "your-" in value.lower() or "placeholder" in value.lower()
+                )
+                if is_placeholder:
+                    new_value = generate_hex_string(length=32)
+                    updated = True
+            elif key in ["LOGFLARE_PUBLIC_ACCESS_TOKEN", "LOGFLARE_PRIVATE_ACCESS_TOKEN"]:
+                # Handle Logflare tokens
                 is_placeholder = (
                     not value or "your-" in value.lower() or "placeholder" in value.lower()
                 )

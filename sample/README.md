@@ -19,9 +19,27 @@ Each sample includes:
 
 Before running any samples, ensure:
 
-1. **Services are running**: MongoDB, Neo4j, Ollama, N8N (as needed)
-2. **Environment variables configured**: See `.env` or Infisical for required variables
-3. **Dependencies installed**: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+1. **Dependencies installed**: Install all required dependencies:
+   ```bash
+   # Using the setup script (recommended - installs CLIs and Python dependencies)
+   python setup/install_clis.py
+
+   # Or manually install just Python dependencies
+   cd 04-lambda && uv pip install -e ".[test,samples]"
+
+   # For Graphiti samples, also install graphiti dependencies:
+   cd 04-lambda && uv pip install -e ".[test,samples,graphiti]"
+   ```
+
+   Required dependencies include:
+   - `pydantic-ai` - For agent tools and RunContext
+   - `neo4j` - For Neo4j graph database operations
+   - `requests` - For API verification helpers
+   - `pymongo` - For MongoDB operations
+   - And many others (see `04-lambda/pyproject.toml`)
+
+2. **Services are running**: MongoDB, Neo4j, Ollama, N8N (as needed)
+3. **Environment variables configured**: See `.env` or Infisical for required variables
 4. **Python path**: Samples automatically add the project to `sys.path`
 5. **Authentication**: For scripts making HTTP API calls, see [Authentication](#authentication) section below
 
@@ -574,6 +592,101 @@ Samples can be combined to demonstrate end-to-end workflows:
    - `graphiti_rag/cypher_query_example.py` → Query structure
    - `graphiti_rag/script_validation_example.py` → Validate scripts
 
+## Validation
+
+All samples include validation to ensure they work correctly. Validation is performed through multiple mechanisms:
+
+### 1. Exit Code Validation
+
+Each sample should exit with code 0 on success, non-zero on failure:
+- **Success**: Exit code 0 indicates the sample completed successfully
+- **Failure**: Exit code 1 (or exception) indicates the sample failed
+
+### 2. Verification Helpers
+
+Many samples use verification helpers from `sample/shared/verification_helpers.py`:
+
+- **`verify_search_results()`**: Validates search results are returned (for samples that don't create persistent data)
+- **`verify_rag_data()`**: Validates RAG data via `/api/me/data/rag` endpoint (documents, chunks, sources, workflows)
+- **`verify_calendar_data()`**: Validates calendar events via `/api/me/data/calendar` endpoint
+- **`verify_neo4j_data()`**: Validates Neo4j nodes/relationships via `/api/v1/data/neo4j` endpoint
+- **`verify_mongodb_data()`**: Validates MongoDB documents via `/api/v1/data/mongodb` endpoint
+- **`verify_supabase_data()`**: Validates Supabase tables via `/api/v1/data/supabase` endpoint
+- **`verify_storage_data()`**: Validates MinIO storage files via `/api/v1/data/storage` endpoint
+- **`verify_loras_data()`**: Validates ComfyUI LoRA models via `/api/me/data/loras` endpoint
+
+All verification helpers:
+- Support retry logic (3 retries with 2s delay) for eventual consistency
+- Return `(success: bool, message: str)` tuples
+- Handle authentication automatically (internal vs external URLs)
+- Provide clear success/failure messages
+
+### 3. API Verification
+
+Samples that create persistent data verify via REST API:
+
+- **Internal Network**: `http://lambda-server:8000` (no authentication required)
+- **External Network**: `https://api.datacrew.space` (requires Cloudflare Access JWT)
+
+Verification functions automatically:
+- Detect internal vs external URLs
+- Handle authentication headers
+- Retry on transient failures
+- Validate data structure and counts
+
+### 4. Result Validation
+
+Samples validate their own results:
+
+- **Structure Validation**: Check that results have expected fields and structure
+- **Count Validation**: Verify minimum expected counts are met
+- **Content Validation**: Ensure data content matches expectations
+- **State Validation**: Confirm operations completed successfully (create, update, delete)
+
+### 5. Error Handling
+
+All samples include comprehensive error handling:
+
+- **Try/Except Blocks**: Catch and handle exceptions gracefully
+- **Cleanup**: Ensure proper cleanup in finally blocks (close connections, cleanup resources)
+- **Logging**: Log errors with context for debugging
+- **User-Friendly Messages**: Provide clear error messages explaining what went wrong
+
+### Running All Samples
+
+Use `scripts/run_all_samples.py` to run and validate all samples:
+
+```bash
+# Run all samples
+python scripts/run_all_samples.py
+
+# Run with verbose output
+python scripts/run_all_samples.py --verbose
+
+# Run only specific samples (filter by pattern)
+python scripts/run_all_samples.py --filter calendar
+
+# Run with longer timeout and continue on errors
+python scripts/run_all_samples.py --timeout 600 --continue-on-error
+```
+
+The script will:
+- Discover all Python sample files
+- Execute each sample with timeout protection
+- Report success/failure for each sample
+- Provide a summary with pass/fail counts
+- Show validation results and error messages
+
+### Validation Documentation
+
+Each sample includes validation documentation in its docstring explaining:
+- What validation is performed
+- How results are verified
+- What causes validation to fail
+- How to interpret validation results
+
+See individual sample files for detailed validation documentation.
+
 ## Notes
 
 - Samples are designed to be educational and demonstrate best practices
@@ -581,6 +694,7 @@ Samples can be combined to demonstrate end-to-end workflows:
 - Samples use async/await patterns consistent with the project
 - Each sample is self-contained but can be combined for complex workflows
 - Samples demonstrate real use cases from the project's AGENTS.md files
+- All samples include validation to ensure they work correctly
 
 ## Troubleshooting
 

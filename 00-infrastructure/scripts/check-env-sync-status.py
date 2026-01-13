@@ -364,12 +364,14 @@ def main():
 
     if only_in_env:
         print("To migrate secrets from .env to Infisical:")
-        print("  python 00-infrastructure/scripts/sync-env-to-infisical.py")
+        print("  Use Infisical CLI: infisical secrets set KEY=value")
+        print("  Or use Infisical UI to add secrets manually")
         print()
 
     if mismatched or only_in_infisical:
         print("To sync secrets from Infisical to .env:")
-        print("  python 00-infrastructure/scripts/sync-infisical-to-env.py")
+        print("  Use Infisical CLI: infisical export --format=dotenv > .env.infisical")
+        print("  Or manually copy secrets from Infisical UI")
         print()
 
     if env_status == "OPTIONAL" and infisical_available:

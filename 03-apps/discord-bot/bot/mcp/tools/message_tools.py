@@ -105,7 +105,7 @@ async def add_reaction(channel_id: str, message_id: str, emoji: str) -> dict:
     except discord.NotFound:
         raise ValueError(f"Message {message_id} not found")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to add reaction: {e}")
+        raise RuntimeError(f"Failed to add reaction: {e}") from e
 
 
 @mcp.tool
@@ -180,7 +180,7 @@ async def remove_reaction(
     except discord.NotFound:
         raise ValueError(f"Message {message_id} not found")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to remove reaction: {e}")
+        raise RuntimeError(f"Failed to remove reaction: {e}") from e
 
 
 @mcp.tool
@@ -226,7 +226,7 @@ async def edit_message(channel_id: str, message_id: str, content: str) -> dict:
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to edit this message")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to edit message: {e}")
+        raise RuntimeError(f"Failed to edit message: {e}") from e
 
 
 @mcp.tool
@@ -278,4 +278,4 @@ async def moderate_message(
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to moderate this message")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Moderation failed: {e}")
+        raise RuntimeError(f"Moderation failed: {e}") from e

@@ -69,8 +69,8 @@ class DiscordCommunicationLayer:
             logger.debug(f"Sent agent message from {agent_id} to channel {channel_id}")
             return sent_message
 
-        except Exception as e:
-            logger.exception(f"Failed to send agent message: {e}")
+        except Exception:
+            logger.exception("Failed to send agent message")
             return None
 
     async def send_status_update(
@@ -157,11 +157,10 @@ class DiscordCommunicationLayer:
         # Format based on message type
         if message.message_type == "status":
             return f"**{agent_name}** ({agent_id}): {message.content}"
-        elif message.message_type == "result":
+        if message.message_type == "result":
             return f"**{agent_name}**: {message.content}"
-        elif message.message_type == "error":
+        if message.message_type == "error":
             return f"**{agent_name}** ❌ Error: {message.content}"
-        elif message.message_type == "task":
+        if message.message_type == "task":
             return f"**{agent_name}** 📋 Task: {message.content}"
-        else:
-            return f"**{agent_name}**: {message.content}"
+        return f"**{agent_name}**: {message.content}"

@@ -12,6 +12,8 @@ This script manages services using the stack-based architecture:
 
 Each stack uses its own Docker Compose project name but shares the external network ("ai-network").
 Infisical runs from a standalone directory and will be automatically started if not running.
+
+NOTE: This script can be run from any directory - it will automatically change to the project root.
 """
 
 import argparse
@@ -25,6 +27,54 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+# Determine project root from script location (works regardless of cwd)
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR  # start_services.py is at project root
+
+
+def ensure_project_root() -> Path:
+    """
+    Ensure we're operating from the project root directory.
+
+    This function:
+    1. Determines the project root from the script's location
+    2. Changes to the project root if not already there
+    3. Validates that required files/directories exist
+
+    Returns:
+        Path to the project root
+
+    Raises:
+        SystemExit: If project root validation fails
+    """
+    # Validate project root by checking for required files/directories
+    required_markers = [
+        ".env" if Path(PROJECT_ROOT / ".env").exists() else ".env_sample",
+        "00-infrastructure",
+        "01-data",
+        "04-lambda",
+    ]
+
+    missing = []
+    for marker in required_markers:
+        if not (PROJECT_ROOT / marker).exists():
+            missing.append(marker)
+
+    if missing:
+        print(f"❌ Error: Invalid project root at {PROJECT_ROOT}")
+        print(f"   Missing: {', '.join(missing)}")
+        print("   This script must be located at the project root.")
+        sys.exit(1)
+
+    # Change to project root if not already there
+    current_dir = Path.cwd().resolve()
+    if current_dir != PROJECT_ROOT:
+        print(f"📂 Changing directory from {current_dir} to {PROJECT_ROOT}")
+        os.chdir(PROJECT_ROOT)
+
+    return PROJECT_ROOT
+
 
 # Define stack-to-file mappings
 STACK_FILES = {
@@ -200,16 +250,15 @@ def authenticate_dhi_registry(skip_auth=False):
         if result.returncode == 0:
             print("Successfully authenticated to dhi.io registry.")
             return True
-        else:
-            error_msg = result.stderr.strip() if result.stderr else result.stdout.strip()
-            print(f"Failed to authenticate to dhi.io registry: {error_msg}")
-            print("\nTroubleshooting:")
-            print("1. Verify your Docker Hub username and password/token are correct")
-            print("2. For better security, use a Personal Access Token (PAT) instead of password")
-            print("3. Create a PAT at: https://hub.docker.com/settings/security")
-            print("4. Ensure you have a Docker Hub account (free account works)")
-            print("5. Try manually running: docker login dhi.io")
-            return False
+        error_msg = result.stderr.strip() if result.stderr else result.stdout.strip()
+        print(f"Failed to authenticate to dhi.io registry: {error_msg}")
+        print("\nTroubleshooting:")
+        print("1. Verify your Docker Hub username and password/token are correct")
+        print("2. For better security, use a Personal Access Token (PAT) instead of password")
+        print("3. Create a PAT at: https://hub.docker.com/settings/security")
+        print("4. Ensure you have a Docker Hub account (free account works)")
+        print("5. Try manually running: docker login dhi.io")
+        return False
     except FileNotFoundError:
         print(
             "Error: Docker command not found. Please ensure Docker is installed and in your PATH."
@@ -453,8 +502,7 @@ def manage_services(action="start", stack="all", profile=None, environment=None)
             if not start_single_stack(stack_name, profile, environment):
                 success = False
         return success
-    else:
-        return start_single_stack(stack, profile, environment)
+    return start_single_stack(stack, profile, environment)
 
 
 def manage_infisical_stack(action="start", environment="private"):
@@ -591,9 +639,8 @@ def check_nvidia_gpu_availability():
             for i, gpu in enumerate(gpus):
                 print(f"  GPU {i}: {gpu}")
             return True
-        else:
-            print("⚠️  nvidia-smi found but no GPUs detected")
-            return False
+        print("⚠️  nvidia-smi found but no GPUs detected")
+        return False
     except FileNotFoundError:
         print("⚠️  nvidia-smi not found. NVIDIA drivers may not be installed.")
         return False
@@ -623,14 +670,12 @@ def check_docker_nvidia_runtime():
             if "nvidia" in runtimes.lower():
                 print("✓ Docker NVIDIA runtime is configured")
                 return True
-            else:
-                print("⚠️  Docker NVIDIA runtime not found in available runtimes")
-                print(f"   Available runtimes: {runtimes}")
-                print("   You may need to install nvidia-container-toolkit")
-                return False
-        else:
-            print("⚠️  Could not check Docker runtime configuration")
+            print("⚠️  Docker NVIDIA runtime not found in available runtimes")
+            print(f"   Available runtimes: {runtimes}")
+            print("   You may need to install nvidia-container-toolkit")
             return False
+        print("⚠️  Could not check Docker runtime configuration")
+        return False
     except Exception as e:
         print(f"⚠️  Error checking Docker NVIDIA runtime: {e}")
         return False
@@ -663,15 +708,14 @@ def validate_gpu_profile(profile):
             print("✓ NVIDIA GPU setup validated\n")
             return True
 
-        elif profile == "gpu-amd":
+        if profile == "gpu-amd":
             # Check for AMD GPU devices
             if os.path.exists("/dev/kfd") and os.path.exists("/dev/dri"):
                 print("✓ AMD GPU devices found")
                 return True
-            else:
-                print("⚠️  AMD GPU devices not found (/dev/kfd or /dev/dri)")
-                print("   Continuing anyway, but GPU acceleration may not work")
-                return True  # Don't fail, just warn
+            print("⚠️  AMD GPU devices not found (/dev/kfd or /dev/dri)")
+            print("   Continuing anyway, but GPU acceleration may not work")
+            return True  # Don't fail, just warn
 
     return True
 
@@ -1202,6 +1246,9 @@ Examples:
         help="Skip dhi.io registry authentication",
     )
     args = parser.parse_args()
+
+    # Ensure we're running from the project root (works from any directory)
+    ensure_project_root()
 
     # Normalize profile name (handle "nvidia" as alias for "gpu-nvidia")
     if args.profile == "nvidia":

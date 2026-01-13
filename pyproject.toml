@@ -62,6 +62,12 @@ select = [
     "PL",  # Pylint
     "TRY", # tryceratops
     "RUF", # Ruff-specific rules
+    "ICN", # flake8-import-conventions
+    "ISC", # flake8-implicit-str-concat
+    "Q",   # flake8-quotes
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "TID", # flake8-tidy-imports
 ]
 ignore = [
     "E501",  # Line too long (handled by formatter)

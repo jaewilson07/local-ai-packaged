@@ -24,13 +24,13 @@ The system is organized into numbered stacks with explicit dependencies:
 
 **Network**: Creates `ai-network` (external network shared by all stacks)
 
-### 00-infrastructure/infisical
-**Purpose**: Secret management  
-**Project**: `localai-infisical`  
-**Services**:
-- `infisical-backend` - Infisical API server
-- `infisical-db` - PostgreSQL for Infisical metadata
-- `infisical-redis` - Redis for Infisical caching
+### Infisical (External Standalone Project)
+**Status**: External standalone project (not part of this repository)  
+**Location**: `/home/jaewilson07/GitHub/infisical-standalone`  
+**Project**: `localai-infisical` (when running)  
+**Purpose**: Secret management platform  
+**Management**: Handled separately by `start_services.py` or `start_infisical.py`  
+**Caddy Routing**: Configured in Caddyfile to route `infisical.datacrew.space` → `infisical-backend:8080` (when external Infisical is running)
 
 ### 01-data
 **Purpose**: Data storage layer  
@@ -68,8 +68,7 @@ The system is organized into numbered stacks with explicit dependencies:
 - `immich-server` - Photo/video management
 - `immich-microservices` - Background jobs
 - `immich-machine-learning` - Face detection
-- `discord-bot` - Discord integration (Immich)
-- `discord-character-bot` - Discord AI character bot
+- `discord-bot` - Discord integration (Immich, AI characters via capability system)
 - `minio` - Object storage (for Langfuse)
 
 **Dependencies**: Requires `00-infrastructure`, `01-data`, `02-compute`
@@ -122,7 +121,6 @@ graph TB
         Langfuse[Langfuse]
         Immich[Immich]
         DiscordBot[Discord Bot]
-        DiscordCharBot[Discord Character Bot]
     end
 
     subgraph Lambda["04-lambda"]
@@ -158,9 +156,8 @@ graph TB
     LambdaServer -->|Workflows| N8N
 
     DiscordBot -->|Upload| Immich
+    DiscordBot -->|Character API| LambdaServer
     Immich -->|PostgreSQL| Supabase
-
-    DiscordCharBot -->|Character API| LambdaServer
     LambdaServer -->|Persona| MongoDB
 
     Langfuse -->|Analytics| ClickHouse

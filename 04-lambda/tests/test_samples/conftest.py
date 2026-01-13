@@ -41,6 +41,33 @@ def mock_mongodb():
     mock_db = Mock()
     mock_client.__getitem__.return_value = mock_db
     mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    # Set up collections with proper aggregation cursors
+    async def async_iter_mock(items):
+        for item in items:
+            yield item
+
+    # Mock chunks collection with aggregation that returns empty results
+    mock_chunks = Mock()
+    mock_chunks.aggregate = AsyncMock(return_value=async_iter_mock([]))
+    mock_chunks.find_one = AsyncMock(return_value=None)
+    mock_chunks.insert_many = AsyncMock(return_value=Mock(inserted_ids=[]))
+
+    # Mock documents collection
+    mock_documents = Mock()
+    mock_documents.find_one = AsyncMock(return_value=None)
+    mock_documents.insert_one = AsyncMock(return_value=Mock(inserted_id=None))
+
+    # Make db return collections
+    def get_collection(name):
+        if name == "chunks":
+            return mock_chunks
+        if name == "documents":
+            return mock_documents
+        return Mock()
+
+    mock_db.__getitem__ = Mock(side_effect=get_collection)
+
     return mock_client, mock_db
 
 

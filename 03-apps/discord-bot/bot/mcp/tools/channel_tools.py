@@ -45,7 +45,7 @@ async def create_text_channel(server_id: str, name: str, category_id: str | None
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to create channels")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to create channel: {e}")
+        raise RuntimeError(f"Failed to create channel: {e}") from e
 
 
 @mcp.tool
@@ -70,7 +70,7 @@ async def delete_channel(channel_id: str) -> dict:
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to delete this channel")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to delete channel: {e}")
+        raise RuntimeError(f"Failed to delete channel: {e}") from e
 
 
 @mcp.tool
@@ -101,7 +101,7 @@ async def create_category(server_id: str, name: str) -> dict:
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to create categories")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to create category: {e}")
+        raise RuntimeError(f"Failed to create category: {e}") from e
 
 
 @mcp.tool
@@ -208,4 +208,4 @@ async def move_channel(
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to move this channel")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to move channel: {e}")
+        raise RuntimeError(f"Failed to move channel: {e}") from e

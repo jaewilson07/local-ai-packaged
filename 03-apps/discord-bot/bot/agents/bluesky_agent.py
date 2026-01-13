@@ -78,7 +78,7 @@ class BlueskyAgent(BaseAgent):
             self.status_message = f"Connected to Bluesky as {self.bluesky_handle}"
             logger.info(f"Bluesky agent {self.agent_id} connected to Bluesky")
         except Exception as e:
-            logger.exception(f"Failed to connect to Bluesky: {e}")
+            logger.exception("Failed to connect to Bluesky")
             self.status = self.status.__class__.ERROR
             self.last_error = str(e)
             self.status_message = f"Failed to connect: {e}"
@@ -109,16 +109,15 @@ class BlueskyAgent(BaseAgent):
         try:
             if action == "post":
                 return await self._post_text(task)
-            elif action == "repost":
+            if action == "repost":
                 return await self._repost(task)
-            elif action == "like":
+            if action == "like":
                 return await self._like(task)
-            elif action == "follow":
+            if action == "follow":
                 return await self._follow(task)
-            else:
-                raise ValueError(f"Unknown action: {action}")
-        except Exception as e:
-            logger.exception(f"Error processing Bluesky task: {e}")
+            raise ValueError(f"Unknown action: {action}")
+        except Exception:
+            logger.exception("Error processing Bluesky task")
             raise
 
     async def _post_text(self, task: dict[str, Any]) -> dict[str, Any]:

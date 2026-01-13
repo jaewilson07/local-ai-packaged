@@ -115,10 +115,9 @@ async def validate_discord():
                 print(f"  Servers: {len(client.guilds)}")
                 await client.close()
                 return True
-            else:
-                print("❌ Failed to connect to Discord (timeout)")
-                await client.close()
-                return False
+            print("❌ Failed to connect to Discord (timeout)")
+            await client.close()
+            return False
 
         except discord.LoginFailure:
             print("❌ Invalid Discord bot token")
@@ -158,9 +157,8 @@ async def validate_database():
                 if "users" in tables and "last_check" in tables:
                     print("✅ All required tables exist")
                     return True
-                else:
-                    print("❌ Missing required tables")
-                    return False
+                print("❌ Missing required tables")
+                return False
 
     except Exception as e:
         print(f"❌ Database validation failed: {type(e).__name__}: {e!s}")

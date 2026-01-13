@@ -79,6 +79,16 @@
 - **Internal**: `http://kong:8000` (service name)
 - **External**: Via Caddy reverse proxy (hostname-based)
 - **Keys**: `ANON_KEY`, `SERVICE_ROLE_KEY`, `JWT_SECRET` (generated)
+- **Configuration**: Kong entrypoint validates `kong.yml` template exists before starting, uses `sed` to substitute environment variables
+
+**Environment Variables**:
+- **Required for Kong**: `ANON_KEY`, `SERVICE_ROLE_KEY`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`
+- **Required for Pooler**: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `SECRET_KEY_BASE`, `VAULT_ENC_KEY`, `POOLER_TENANT_ID`
+- **Required for Realtime**: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `DB_AFTER_CONNECT_QUERY` (set to `SET search_path TO _realtime,public`)
+- **Required for Storage**: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_PASSWORD`
+- **Required for Functions**: `ANON_KEY`, `SERVICE_ROLE_KEY`
+- **Required for Vector**: `LOGFLARE_PUBLIC_ACCESS_TOKEN` (optional, but required for full functionality)
+- **All services**: Use `env_file: - ../../.env` to load variables from root `.env` file
 
 **Storage**:
 - **MinIO Service**: `supabase-minio` (separate from Langfuse MinIO)
@@ -91,6 +101,16 @@
 - **Location**: `04-lambda/server/projects/auth/services/supabase_service.py`
 - **Pattern**: `get_or_provision_user(email)` creates user if doesn't exist
 
+**Database Migrations**:
+- **Automatic Application**: Lambda server automatically applies migrations from `01-data/supabase/migrations/` on startup
+- **Core Tables**: `profiles` table is validated and auto-created if missing (CRITICAL for system operation)
+- **Optional Tables**: `comfyui_workflows`, `comfyui_workflow_runs`, `comfyui_lora_models` are checked but missing them won't prevent startup
+- **Validation Service**: `04-lambda/server/projects/auth/services/database_validation_service.py` handles validation and migration application
+- **Migration Files**: Numbered migrations (e.g., `000_profiles_table.sql`, `001_comfyui_workflows.sql`) are applied in order
+- **Idempotent**: All migrations use `CREATE TABLE IF NOT EXISTS` to be safe to run multiple times
+- **Protection**: Core tables are validated on every Lambda server startup to prevent accidental deletion
+- **Documentation**: See [Supabase Migrations README](supabase/migrations/README.md)
+
 **Data Isolation**:
 - **Application-Level**: Queries filtered by `owner_email = user.email`
 - **Admin Override**: Users with `role: "admin"` bypass filtering
@@ -101,7 +121,13 @@
 - **Password Characters**: Avoid `@` symbol in `POSTGRES_PASSWORD` (causes connection issues)
 - **Pooler**: Requires `POOLER_DB_POOL_SIZE=5` in `.env` (if setup before June 2024)
 - **Upstream Updates**: Run `git pull` in `supabase/` directory to update
-- **User Provisioning**: Ensure `profiles` table exists or will be auto-created by Lambda server
+- **User Provisioning**: `profiles` table is automatically created by Lambda server on startup if missing (no manual intervention needed)
+- **Migrations**: Migrations are automatically applied during Lambda server startup - no manual application required
+- **Database Resets**: If database volume is deleted/recreated, migrations will be automatically reapplied on next Lambda server startup
+- **Health Checks**: Storage service uses `nc` (netcat) for TCP port checks (wget/curl not available in container)
+- **Volume Paths**: All volume paths in `docker-compose.yml` use relative paths (`./`) from the compose file location
+- **Environment Variables**: All Supabase services (kong, pooler, realtime, functions, storage) have `env_file: - ../../.env` to load variables from root `.env` file
+- **Vector Dependency**: Database depends on vector with `service_started` (not `service_healthy`) to allow startup even if vector is unhealthy
 
 ### Search Hints
 ```bash
@@ -262,6 +288,12 @@ All data services use container names as hostnames:
 # Supabase (via Kong)
 curl http://localhost:8005/api/health
 
+# Supabase Storage (TCP port check - uses nc, not wget/curl)
+docker exec supabase-storage nc -z localhost 5000
+
+# Supabase Vector (TCP port check)
+docker exec supabase-vector nc -z localhost 9001
+
 # Qdrant
 curl http://qdrant:6333/health
 
@@ -275,11 +307,30 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 docker exec minio mc ready local
 ```
 
+**Health Check Patterns**:
+- **TCP Port Checks**: Use `nc -z localhost PORT` for services without wget/curl (storage, vector)
+- **HTTP Checks**: Use `wget` or `curl` for services with HTTP endpoints (kong, auth, rest)
+- **IPv4 vs IPv6**: Use `127.0.0.1` instead of `localhost` in health checks to avoid IPv6 connection issues
+- **Service Readiness**: Some services may be running but unhealthy due to health check timing or configuration issues
+
+### Known Health Check Issues
+
+**Supabase Storage**: ✅ **Fixed** - Health check now uses `127.0.0.1` instead of `localhost` to avoid IPv6 resolution issues.
+
+**Supabase Vector**: ✅ **Fixed** - Health check now uses `127.0.0.1` instead of `localhost` to avoid IPv6 resolution issues.
+
+**Supabase Edge Functions**: ✅ **Fixed** - Now uses the upstream router function and starts successfully.
+
 ### Common Issues
 1. **Supabase Pooler Restarting**: Check `POOLER_DB_POOL_SIZE` in `.env`
 2. **Password Issues**: Avoid special characters (especially `@`) in `POSTGRES_PASSWORD`
 3. **Connection Refused**: Verify service is on `ai-network` and container name is correct
 4. **Volume Permissions**: Ensure Docker has write access to volume directories
+5. **Health Check Failures**: If health check fails but service is running, check if tool (wget/curl/nc) is available in container
+6. **Environment Variables Not Loading**: Ensure `env_file: - ../../.env` is present in service definition and `.env` file exists in project root
+7. **Vector Unhealthy**: Vector may be unhealthy due to missing `LOGFLARE_PUBLIC_ACCESS_TOKEN`, but database can still start (dependency uses `service_started` not `service_healthy`)
+8. **Kong Config Error**: If Kong fails to parse config, check that `kong.yml` template exists and environment variables are set (ANON_KEY, SERVICE_ROLE_KEY, DASHBOARD_USERNAME, DASHBOARD_PASSWORD)
+9. **IPv6 Health Check Issues**: Use `127.0.0.1` instead of `localhost` in health checks to avoid IPv6 connection refused errors
 
 ## Do's and Don'ts
 

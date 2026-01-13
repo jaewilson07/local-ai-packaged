@@ -36,18 +36,15 @@ def get_auth_headers():
             "X-Auth-Key": API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    elif API_TOKEN and API_TOKEN.strip():
+    if API_TOKEN and API_TOKEN.strip():
         print("🔑 Using API Token authentication")
         return {
             "Authorization": f"Bearer {API_TOKEN.strip()}",
             "Content-Type": "application/json",
         }
-    else:
-        print("❌ Error: No valid Cloudflare credentials found")
-        print(
-            "   Set either (CLOUDFLARE_EMAIL + CLOUDFLARE_GLOBAL_API_KEY) or CLOUDFLARE_API_TOKEN"
-        )
-        sys.exit(1)
+    print("❌ Error: No valid Cloudflare credentials found")
+    print("   Set either (CLOUDFLARE_EMAIL + CLOUDFLARE_GLOBAL_API_KEY) or CLOUDFLARE_API_TOKEN")
+    sys.exit(1)
 
 
 def create_dns_record(name: str, comment: str):
@@ -75,15 +72,13 @@ def create_dns_record(name: str, comment: str):
             record = result.get("result", {})
             print(f"✅ Successfully created: {record.get('name')} (ID: {record.get('id')})")
             return True
-        else:
-            errors = result.get("errors", [])
-            # Check if record already exists
-            if any("already exists" in str(err).lower() for err in errors):
-                print(f"⚠️  Record already exists: {name}.datacrew.space")
-                return True
-            else:
-                print(f"❌ Failed to create record: {errors}")
-                return False
+        errors = result.get("errors", [])
+        # Check if record already exists
+        if any("already exists" in str(err).lower() for err in errors):
+            print(f"⚠️  Record already exists: {name}.datacrew.space")
+            return True
+        print(f"❌ Failed to create record: {errors}")
+        return False
 
     except requests.exceptions.RequestException as e:
         print(f"❌ API request failed: {e}")

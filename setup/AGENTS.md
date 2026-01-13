@@ -36,6 +36,9 @@ setup/
 - Hex strings for encryption keys (e.g., `N8N_ENCRYPTION_KEY`)
 - Base64 strings for auth secrets (e.g., `INFISICAL_AUTH_SECRET`)
 - Supabase JWT tokens (`JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`)
+- **Langfuse ENCRYPTION_KEY**: 64 hex characters (256 bits) - required for Langfuse
+- **Supabase Secrets**: `SECRET_KEY_BASE` (64 hex chars), `VAULT_ENC_KEY` (32 hex chars), `PG_META_CRYPTO_KEY` (32 hex chars)
+- **Logflare Tokens**: `LOGFLARE_PUBLIC_ACCESS_TOKEN` and `LOGFLARE_PRIVATE_ACCESS_TOKEN` (32 hex chars each)
 
 **Usage**:
 ```bash
@@ -45,6 +48,24 @@ python setup/generate-env-passwords.py
 **Key Files**:
 - `setup/generate-env-passwords.py` - Main password generator
 - `.env_sample` - Template with variable names (in repo root)
+
+**Supabase Environment Variables**:
+The script generates the following Supabase-specific variables:
+- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB` - Database connection (defaults: `supabase-db`, `5432`, `postgres`)
+- `JWT_EXPIRY` - JWT token expiration in seconds (default: `3600`)
+- `SECRET_KEY_BASE` - 64 hex characters for Realtime/Pooler encryption
+- `VAULT_ENC_KEY` - 32 hex characters for Supabase Vault encryption
+- `PG_META_CRYPTO_KEY` - 32 hex characters for Postgres Meta encryption
+- `LOGFLARE_PUBLIC_ACCESS_TOKEN` - 32 hex characters for Logflare public access
+- `LOGFLARE_PRIVATE_ACCESS_TOKEN` - 32 hex characters for Logflare private access
+- `POOLER_TENANT_ID` - UUID for Supabase Pooler tenant
+- `POOLER_DEFAULT_POOL_SIZE`, `POOLER_MAX_CLIENT_CONN`, `POOLER_DB_POOL_SIZE` - Pooler configuration (defaults: `20`, `100`, `10`)
+- `POOLER_PROXY_PORT_TRANSACTION` - Pooler transaction proxy port (default: `6543`)
+- `API_EXTERNAL_URL`, `SITE_URL`, `SUPABASE_PUBLIC_URL` - API and site URLs (defaults: `http://localhost:8011`, `http://localhost:3000`)
+- `KONG_HTTP_PORT`, `KONG_HTTPS_PORT` - Kong gateway ports (defaults: `8011`, `8443`)
+- `STUDIO_DEFAULT_ORGANIZATION`, `STUDIO_DEFAULT_PROJECT` - Studio defaults
+- `PGRST_DB_SCHEMAS` - PostgREST database schemas (default: `public,storage,graphql_public`)
+- Auth configuration variables: `DISABLE_SIGNUP`, `ENABLE_EMAIL_SIGNUP`, `ENABLE_EMAIL_AUTOCONFIRM`, etc.
 
 ### Cloudflare Setup
 
@@ -68,15 +89,31 @@ python setup/generate-env-passwords.py
 - `setup/cloudflare/setup_tunnel.py` - Main setup script
 - `00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py` - Route configuration (infrastructure stack)
 
-### CLI Installation
+### CLI and Dependency Installation
 
 **File**: `install_clis.py`  
-**Purpose**: Install required CLI tools (cloudflared, infisical, etc.)
+**Purpose**: Install required CLI tools (cloudflared, infisical, etc.) and Python dependencies
+
+**What it installs**:
+- Infisical CLI
+- Google Cloud CLI (gcloud)
+- Cloudflared CLI
+- pre-commit hooks
+- Python dependencies for samples and tests (from `04-lambda/pyproject.toml`)
 
 **Patterns**:
 - Platform detection (Linux/Mac/Windows)
 - Package manager detection (apt/yum/brew)
 - Version verification after installation
+- Uses `uv` if available (preferred), falls back to `pip`
+- Installs Python dependencies with `[test,samples]` extras
+
+**Usage**:
+```bash
+python setup/install_clis.py
+```
+
+This will install all CLI tools and Python dependencies needed for running samples and tests.
 
 ## Architecture Patterns
 

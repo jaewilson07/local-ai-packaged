@@ -1,11 +1,38 @@
 """Tests for Immich API client."""
 
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientResponseError
 from bot.immich_client import ImmichClient
+
+
+class AsyncContextManagerMock:
+    """Helper class to create an async context manager that works with aiohttp."""
+
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return None
+
+
+def create_mock_session(response):
+    """Create a properly mocked aiohttp session."""
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    # Create context manager for requests
+    context = AsyncContextManagerMock(response)
+    mock_session.post = MagicMock(return_value=context)
+    mock_session.get = MagicMock(return_value=context)
+
+    return mock_session
 
 
 @pytest.mark.asyncio
@@ -16,19 +43,15 @@ async def test_upload_asset_success(mock_immich_response):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.post = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         result = await client.upload_asset(
             file_data=b"test_image_data", filename="test.jpg", description="Test upload"
         )
 
         assert result["id"] == "asset123"
-        mock_context.post.assert_called_once()
+        mock_session.post.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -39,13 +62,9 @@ async def test_upload_asset_without_description(mock_immich_response):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.post = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         result = await client.upload_asset(file_data=b"test_data", filename="test.png")
 
         assert result["id"] == "asset456"
@@ -55,21 +74,20 @@ async def test_upload_asset_without_description(mock_immich_response):
 @pytest.mark.unit
 async def test_upload_asset_error(mock_immich_response):
     """Test asset upload with API error."""
-    mock_immich_response.raise_for_status = AsyncMock(
-        side_effect=ClientResponseError(
-            request_info=None, history=None, status=500, message="Internal Server Error"
+
+    # raise_for_status is NOT async - it's a regular method that raises synchronously
+    def raise_error():
+        raise ClientResponseError(
+            request_info=MagicMock(), history=(), status=500, message="Internal Server Error"
         )
-    )
+
+    mock_immich_response.raise_for_status = MagicMock(side_effect=raise_error)
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.post = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         with pytest.raises(ClientResponseError):
             await client.upload_asset(file_data=b"test_data", filename="test.jpg")
 
@@ -82,13 +100,9 @@ async def test_search_people_success(mock_immich_response, sample_immich_people)
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         results = await client.search_people("John")
 
         assert len(results) == 2  # John Doe and John Smith
@@ -103,13 +117,9 @@ async def test_search_people_no_results(mock_immich_response):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         results = await client.search_people("NonExistent")
 
         assert len(results) == 0
@@ -123,13 +133,9 @@ async def test_search_people_case_insensitive(mock_immich_response, sample_immic
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         results_lower = await client.search_people("john")
         results_upper = await client.search_people("JOHN")
 
@@ -157,13 +163,9 @@ async def test_get_asset_faces_success(mock_immich_response, sample_immich_faces
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         faces = await client.get_asset_faces("asset123")
 
         assert len(faces) == 2
@@ -178,13 +180,9 @@ async def test_get_asset_faces_not_found(mock_immich_response):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         faces = await client.get_asset_faces("asset123")
 
         assert faces == []  # Should return empty list for 404
@@ -198,14 +196,10 @@ async def test_list_new_assets(mock_immich_response, sample_immich_asset):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
-        since = datetime.utcnow() - timedelta(hours=1)
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        since = datetime.now(UTC) - timedelta(hours=1)
         assets = await client.list_new_assets(since)
 
         assert len(assets) == 1
@@ -233,13 +227,9 @@ async def test_get_asset_info(mock_immich_response, sample_immich_asset):
 
     client = ImmichClient(base_url="http://test:2283", api_key="test-key")
 
-    with patch("aiohttp.ClientSession") as mock_session:
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_context.__aexit__ = AsyncMock(return_value=None)
-        mock_context.get = AsyncMock(return_value=mock_immich_response)
-        mock_session.return_value = mock_context
+    mock_session = create_mock_session(mock_immich_response)
 
+    with patch("aiohttp.ClientSession", return_value=mock_session):
         asset_info = await client.get_asset_info("asset123")
 
         assert asset_info["id"] == "asset123"

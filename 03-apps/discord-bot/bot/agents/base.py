@@ -119,12 +119,12 @@ class BaseAgent(ABC):
                     # No task, continue loop
                     continue
                 except Exception as e:
-                    logger.exception(f"Error processing task in agent {self.agent_id}: {e}")
+                    logger.exception("Error processing task in agent {self.agent_id}")
                     self.status = AgentStatus.ERROR
                     self.last_error = str(e)
                     self.updated_at = datetime.utcnow()
-            except Exception as e:
-                logger.exception(f"Error in agent loop {self.agent_id}: {e}")
+            except Exception:
+                logger.exception("Error in agent loop {self.agent_id}")
                 await asyncio.sleep(1)
 
     async def enqueue_task(self, task: dict[str, Any]) -> None:

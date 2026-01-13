@@ -68,9 +68,8 @@ def create_public_api_application():
                 if update_response.status_code == 200:
                     print("✅ Updated api.datacrew.space to PUBLIC (bypass) access")
                     return True
-                else:
-                    print(f"❌ Failed to update: {update_response.text[:300]}")
-                    return False
+                print(f"❌ Failed to update: {update_response.text[:300]}")
+                return False
 
     # Create new application
     print("Creating new public API application...")
@@ -90,9 +89,8 @@ def create_public_api_application():
         result = create_response.json().get("result", {})
         print(f"✅ Created public API application: {result.get('id')}")
         return True
-    else:
-        print(f"❌ Failed to create application: {create_response.text[:300]}")
-        return False
+    print(f"❌ Failed to create application: {create_response.text[:300]}")
+    return False
 
 
 def main():

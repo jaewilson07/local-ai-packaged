@@ -37,15 +37,14 @@ def get_auth_headers():
             "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN.strip()}",
             "Content-Type": "application/json",
         }
-    elif CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
+    if CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        print("❌ Cloudflare credentials not found!")
-        sys.exit(1)
+    print("❌ Cloudflare credentials not found!")
+    sys.exit(1)
 
 
 def get_zone_id(headers):
@@ -101,11 +100,10 @@ def check_ssl_certificate():
             if "Verify return code: 0 (ok)" in output:
                 print("✅ Certificate verification: OK")
                 return True
-            else:
-                for line in output.split("\n"):
-                    if "Verify return code:" in line:
-                        print(f"❌ Certificate verification: {line.strip()}")
-                        return False
+            for line in output.split("\n"):
+                if "Verify return code:" in line:
+                    print(f"❌ Certificate verification: {line.strip()}")
+                    return False
         else:
             print("❌ No certificate found or connection failed")
             return False

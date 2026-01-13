@@ -40,19 +40,18 @@ def get_auth_headers() -> dict[str, str]:
             "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN.strip()}",
             "Content-Type": "application/json",
         }
-    elif CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
+    if CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY:
         return {
             "X-Auth-Email": CLOUDFLARE_EMAIL.strip(),
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError(
-            "Cloudflare credentials not found!\n"
-            "Set one of:\n"
-            "  - CLOUDFLARE_API_TOKEN (recommended)\n"
-            "  - CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY"
-        )
+    raise ValueError(
+        "Cloudflare credentials not found!\n"
+        "Set one of:\n"
+        "  - CLOUDFLARE_API_TOKEN (recommended)\n"
+        "  - CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY"
+    )
 
 
 def get_zone_id(headers: dict[str, str]) -> str | None:
@@ -93,12 +92,11 @@ def check_ssl_tls_mode(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
                     print("      This breaks secure cookies and sessions!")
                     print("      → Should be 'full' or 'full_strict'")
                     return {"status": "error", "current": ssl_mode, "should_be": "full"}
-                elif ssl_mode in ["full", "full_strict"]:
+                if ssl_mode in ["full", "full_strict"]:
                     print("   ✅ SSL/TLS mode is correct")
                     return {"status": "ok", "current": ssl_mode}
-                else:
-                    print(f"   ⚠️  Unknown SSL mode: {ssl_mode}")
-                    return {"status": "warning", "current": ssl_mode}
+                print(f"   ⚠️  Unknown SSL mode: {ssl_mode}")
+                return {"status": "warning", "current": ssl_mode}
         print(f"   ❌ Failed to get SSL settings: {response.status_code}")
         return {"status": "error"}
     except Exception as e:
@@ -172,12 +170,11 @@ def check_page_rules(headers: dict[str, str], zone_id: str) -> dict[str, Any]:
                         else:
                             print("        ⚠️  No cache level set - should be 'bypass'")
                     return {"status": "found", "rules": api_rules}
-                else:
-                    print("   ⚠️  No page rules found for API endpoints")
-                    print(
-                        "      → Should create rule: infisical.datacrew.space/api/* → Cache Level: Bypass"
-                    )
-                    return {"status": "missing"}
+                print("   ⚠️  No page rules found for API endpoints")
+                print(
+                    "      → Should create rule: infisical.datacrew.space/api/* → Cache Level: Bypass"
+                )
+                return {"status": "missing"}
         print(f"   ❌ Failed to get page rules: {response.status_code}")
         return {"status": "error"}
     except Exception as e:
@@ -268,9 +265,8 @@ def check_transform_rules(headers: dict[str, str], zone_id: str) -> dict[str, An
                                 if "content-type" in header.get("name", "").lower():
                                     print("        ❌ PROBLEM: This modifies Content-Type header!")
                     return {"status": "found", "rules": header_rules}
-                else:
-                    print("   ✅ No Transform Rules found affecting Infisical")
-                    return {"status": "ok"}
+                print("   ✅ No Transform Rules found affecting Infisical")
+                return {"status": "ok"}
         print(f"   ❌ Failed to get transform rules: {response.status_code}")
         return {"status": "error"}
     except Exception as e:
@@ -329,9 +325,8 @@ def check_access_applications(
                         print(f"        ID: {app.get('id', 'N/A')}")
                         print("      → This might interfere with Infisical's own auth!")
                     return {"status": "found", "apps": infisical_apps}
-                else:
-                    print("   ✅ No Cloudflare Access applications found for Infisical")
-                    return {"status": "ok"}
+                print("   ✅ No Cloudflare Access applications found for Infisical")
+                return {"status": "ok"}
         print(f"   ❌ Failed to get Access applications: {response.status_code}")
         return {"status": "error"}
     except Exception as e:
@@ -358,9 +353,8 @@ def check_browser_integrity(headers: dict[str, str], zone_id: str) -> dict[str, 
                     print("   ⚠️  Security level is high - might block legitimate requests")
                     print("      → Consider setting to 'medium'")
                     return {"status": "high", "current": level}
-                else:
-                    print("   ✅ Security level is reasonable")
-                    return {"status": "ok", "current": level}
+                print("   ✅ Security level is reasonable")
+                return {"status": "ok", "current": level}
         print(f"   ❌ Failed to get security level: {response.status_code}")
         return {"status": "error"}
     except Exception as e:

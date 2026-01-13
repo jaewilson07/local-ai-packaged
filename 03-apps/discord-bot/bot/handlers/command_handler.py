@@ -1,4 +1,13 @@
-"""Handler for Discord slash commands."""
+"""
+DEPRECATED: Legacy command handler.
+
+This module is deprecated. Command handling has been migrated to capabilities:
+    - /claim_face -> bot.capabilities.upload.UploadCapability
+
+This file is kept for backward compatibility with existing tests only.
+"""
+
+import warnings
 
 import discord
 from discord import Interaction, app_commands
@@ -7,9 +16,21 @@ from discord.ui import Select, View
 from bot.database import Database
 from bot.immich_client import ImmichClient
 
+# Emit deprecation warning when module is imported
+warnings.warn(
+    "bot.handlers.command_handler is deprecated. "
+    "Use bot.capabilities.upload.UploadCapability instead for /claim_face command.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 class PersonSelectView(View):
-    """View for selecting a person from search results."""
+    """
+    DEPRECATED: View for selecting a person from search results.
+
+    This class is deprecated. Use bot.capabilities.upload.PersonSelectView instead.
+    """
 
     def __init__(
         self,
@@ -18,6 +39,11 @@ class PersonSelectView(View):
         database: Database,
         user_id: str,
     ):
+        warnings.warn(
+            "PersonSelectView is deprecated. Use bot.capabilities.upload.PersonSelectView instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(timeout=60.0)
         self.people = people
         self.immich_client = immich_client
@@ -79,7 +105,19 @@ class PersonSelectView(View):
 async def setup_claim_face_command(
     tree: app_commands.CommandTree, immich_client: ImmichClient, database: Database
 ) -> None:
-    """Register the /claim_face command."""
+    """
+    DEPRECATED: Register the /claim_face command.
+
+    This function is deprecated. The /claim_face command is now registered by
+    UploadCapability.on_ready().
+
+    This function is kept for backward compatibility with existing tests only.
+    """
+    warnings.warn(
+        "setup_claim_face_command() is deprecated. Use UploadCapability.on_ready() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     @tree.command(
         name="claim_face", description="Link your Discord account to your Immich person profile"

@@ -14,12 +14,12 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from pydantic_ai import RunContext
+from pydantic_ai import RunContext  # noqa: E402
 
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep
+from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
+from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -100,43 +100,33 @@ async def main():
             print("\n✅ Deep crawl completed successfully!")
 
             # Verify via API
-            try:
-                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-                from sample.shared.verification_helpers import verify_rag_data
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_rag_data
 
-                api_base_url = get_api_base_url()
-                headers = get_auth_headers()
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
 
-                print("\n" + "=" * 80)
-                print("Verification")
-                print("=" * 80)
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
 
-                success, message = verify_rag_data(
-                    api_base_url=api_base_url,
-                    headers=headers,
-                    expected_documents_min=result.get("pages_crawled", 0),
-                    expected_chunks_min=result.get("chunks_created", 0),
-                )
-                print(message)
+            success, message = verify_rag_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                expected_documents_min=result.get("pages_crawled", 0),
+                expected_chunks_min=result.get("chunks_created", 0),
+            )
+            print(message)
 
-                if success:
-                    print("\n✅ Verification passed!")
-                    sys.exit(0)
-                else:
-                    print("\n⚠️  Verification failed (data may need time to propagate)")
-                    sys.exit(1)
-            except Exception as e:
-                logger.warning(f"Verification error: {e}")
-                print(f"\n⚠️  Verification error: {e}")
+            if success:
+                print("\n✅ Verification passed!")
+                sys.exit(0)
+            else:
+                print("\n❌ Verification failed (data may need time to propagate)")
                 sys.exit(1)
         else:
-            print("\n⚠️  Deep crawl completed with errors")
+            print("\n❌ Deep crawl completed with errors")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during deep crawl: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

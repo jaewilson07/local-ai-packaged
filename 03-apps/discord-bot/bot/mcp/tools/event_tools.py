@@ -113,7 +113,7 @@ async def create_scheduled_event(
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to create scheduled events")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to create scheduled event: {e}")
+        raise RuntimeError(f"Failed to create scheduled event: {e}") from e
 
 
 @mcp.tool
@@ -205,4 +205,4 @@ async def edit_scheduled_event(
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to edit this scheduled event")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to edit scheduled event: {e}")
+        raise RuntimeError(f"Failed to edit scheduled event: {e}") from e

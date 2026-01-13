@@ -120,6 +120,44 @@ Complete Supabase event management integration:
 
 ## Architecture
 
+### Capabilities vs Agents
+
+The Discord bot uses two complementary extensibility systems:
+
+| Aspect | Capabilities | Agents |
+|--------|-------------|--------|
+| **Purpose** | Handle Discord messages and commands | Background tasks and external integrations |
+| **Trigger** | Discord events (messages, commands) | Task queue or polling |
+| **Access** | Direct `discord.Message` objects | `DiscordCommunicationLayer` |
+| **Lifecycle** | `on_ready()` → `on_message()` → `cleanup()` | `on_start()` → `process_task()` → `on_stop()` |
+
+### Capability System Architecture
+
+```
+Discord Message
+    ↓
+CapabilityRegistry.handle_message()
+    ↓
+Capabilities (sorted by priority)
+    ├── EchoCapability (50)
+    ├── CharacterMentionCapability (60) ─requires─→ CharacterCommandsCapability
+    ├── CharacterCommandsCapability (65)
+    └── UploadCapability (100)
+    ↓
+First handler returning True stops chain
+```
+
+**Event Bus Pattern** (for inter-capability communication):
+```
+Capability A                    Capability B
+    │                              │
+    ├── emit_event("upload_complete", {...})
+    │         ↓                    │
+    │   CapabilityRegistry.emit()  │
+    │         ↓                    │
+    │         └──────────────────→ subscribe_to_event("upload_complete", handler)
+```
+
 ### Multi-Agent System Flow
 
 ```
@@ -129,9 +167,9 @@ MCP Tools (bluesky_tools, tumblr_tools, etc.)
     ↓
 Agent Manager
     ↓
-Specialized Agents (BlueskyAgent, TumblrAgent, etc.)
+Specialized Agents (BlueskyAgent, TumblrAgent, CharacterEngagementAgent, etc.)
     ↓
-External APIs (Bluesky, Tumblr) or Database (Supabase)
+External APIs (Bluesky, Tumblr, Lambda API) or Database (Supabase)
     ↓
 Discord Communication Layer
     ↓
@@ -145,6 +183,18 @@ Discord Channels (status updates, results)
 3. **Task Processing** - Agents process tasks from MCP tools
 4. **Communication** - Agents post status updates to Discord channels
 5. **Shutdown** - Agents cleanup on bot shutdown
+
+### Character Feature Split
+
+The character feature was split for better separation of concerns:
+
+| Component | Type | Responsibility |
+|-----------|------|---------------|
+| `CharacterCommandsCapability` | Capability | Slash commands for character management |
+| `CharacterMentionCapability` | Capability | Responds to character mentions (depends on character_commands) |
+| `CharacterEngagementAgent` | Agent | Background polling for spontaneous engagement |
+
+The legacy `CharacterCapability` has been deprecated.
 
 ## Configuration
 
@@ -269,6 +319,25 @@ Potential improvements based on the gap analysis:
 3. **Agent Monitoring Dashboard** - Web UI for agent status and management
 4. **Enhanced Error Handling** - Better error recovery and retry logic
 5. **Agent State Persistence** - Store agent state in Supabase for recovery
+6. **NotificationAgent Migration** - Migrate `notification_task.py` to a proper Agent (documented in that file)
+
+## Recently Completed Architectural Improvements
+
+### Capability System Enhancements
+- **Dependency Validation**: Capabilities can declare `requires: list[str]` for dependencies
+- **Event Bus Pattern**: Inter-capability communication via `emit_event()` and `subscribe_to_event()`
+- **Shared Resources**: Single `APIClient` instance shared across capabilities
+
+### Character Feature Refactoring
+- Split monolithic `CharacterCapability` into:
+  - `CharacterCommandsCapability` (slash commands)
+  - `CharacterMentionCapability` (message handling)
+  - `CharacterEngagementAgent` (background polling)
+- Legacy `character.py` deprecated with proper warnings
+
+### Upload Feature Consolidation
+- Merged `/claim_face` command from `command_handler.py` into `UploadCapability`
+- Deprecated `upload_handler.py` and `command_handler.py`
 
 ## Notes
 

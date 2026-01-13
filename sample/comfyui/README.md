@@ -56,6 +56,23 @@ The workflow execution is automatically tracked in Supabase:
 
 ## Import LoRA from Google Drive
 
+### `import_lora_from_google_drive.py`
+
+Imports the sample Alix character LoRA from Google Drive.
+
+### LoRA Versioning System
+
+The API uses **character_name** as the unique identifier (trigger word) for LoRAs:
+
+- **character_name is required** - This is the trigger word you use in prompts (e.g., "alix")
+- **One active LoRA per character** - Only one version can be active at a time
+- **Versioning for rollback** - When you upload a new LoRA for an existing character with `replace=True`, the old version is archived (not deleted)
+- **Rollback support** - You can switch between versions without re-uploading
+
+**Behavior on duplicate:**
+- `replace=False` (default): Raises 409 Conflict error if character exists
+- `replace=True`: Creates a new version, archives the current one
+
 ### Prerequisites
 
 1. **Google Drive OAuth Token**: You need to obtain an OAuth token for Google Drive API access.
@@ -77,49 +94,65 @@ The workflow execution is automatically tracked in Supabase:
      ```
    - Set it as `GDOC_TOKEN` in your `.env` file
 
-2. **User ID**: You need your user UUID from Supabase/auth system.
+2. **CLOUDFLARE_EMAIL**: Set in `.env` for user identification.
 
 ### Using the Script
 
 ```bash
-# Set your user ID
-export USER_ID=your-user-uuid-here
+# For local development (uses internal network, no auth required)
+python sample/comfyui/import_lora_from_google_drive.py
 
-# Run the import script
+# For external API access (requires JWT token)
+export API_BASE_URL=https://api.datacrew.space
+export CF_ACCESS_JWT=your-cloudflare-access-jwt-token
 python sample/comfyui/import_lora_from_google_drive.py
 ```
 
 The script will:
 1. Download the LoRA file from Google Drive (ID: `1qfZLsFG_0vpq1qvf_uHhTU8ObQLMy4I7`)
-2. Rename it to `jw_sample_lora.safetensors`
-3. Upload it to MinIO
-4. Create metadata in Supabase
+2. Check if a LoRA for character "alix" already exists
+3. If exists and `replace=False`: Error (409 Conflict)
+4. If exists and `replace=True`: Create new version, archive old
+5. If doesn't exist: Create first version
+6. Verify the LoRA appears in `/api/me/data/loras`
+7. List all user's LoRAs
 
 ### Using the API Endpoint
 
-Alternatively, you can use the API endpoint directly:
-
+#### Import a new LoRA (first time)
 ```bash
-# Internal network (no auth required)
 curl -X POST "http://lambda-server:8000/api/v1/comfyui/loras/import-from-google-drive" \
   -H "Content-Type: application/json" \
   -d '{
     "google_drive_file_id": "1qfZLsFG_0vpq1qvf_uHhTU8ObQLMy4I7",
-    "name": "jw_sample_lora",
-    "description": "Sample LoRA imported from Google Drive",
-    "tags": ["sample", "imported"]
+    "character_name": "alix",
+    "name": "Alix Character LoRA",
+    "description": "Alix character LoRA for image generation",
+    "tags": ["character", "alix", "sample"]
   }'
+```
 
-# External network (requires JWT token)
-curl -X POST "https://api.datacrew.space/api/v1/comfyui/loras/import-from-google-drive" \
-  -H "Cf-Access-Jwt-Assertion: $CF_ACCESS_JWT" \
+#### Replace with new version
+```bash
+curl -X POST "http://lambda-server:8000/api/v1/comfyui/loras/import-from-google-drive" \
   -H "Content-Type: application/json" \
   -d '{
-    "google_drive_file_id": "1qfZLsFG_0vpq1qvf_uHhTU8ObQLMy4I7",
-    "name": "jw_sample_lora",
-    "description": "Sample LoRA imported from Google Drive",
-    "tags": ["sample", "imported"]
+    "google_drive_file_id": "NEW_FILE_ID_HERE",
+    "character_name": "alix",
+    "name": "Alix Character LoRA v2",
+    "description": "Updated Alix LoRA with better training",
+    "replace": true
   }'
+```
+
+#### Rollback to previous version
+```bash
+curl -X PUT "http://lambda-server:8000/api/v1/comfyui/loras/by-character/alix/rollback/1"
+```
+
+#### Get version history
+```bash
+curl -X GET "http://lambda-server:8000/api/v1/comfyui/loras/by-character/alix"
 ```
 
 ## List All LoRAs
@@ -143,8 +176,11 @@ python sample/comfyui/test_list_loras.py
 ### Using curl
 
 ```bash
-# Internal network (no auth required)
+# List active LoRAs only (default)
 curl -X GET "http://lambda-server:8000/api/v1/comfyui/loras"
+
+# Include archived/inactive versions
+curl -X GET "http://lambda-server:8000/api/v1/comfyui/loras?include_inactive=true"
 
 # External network (requires JWT token)
 curl -X GET "https://api.datacrew.space/api/v1/comfyui/loras" \
@@ -161,6 +197,7 @@ curl -X GET "https://api.datacrew.space/api/v1/comfyui/loras" \
 The endpoint supports query parameters:
 - `limit`: Maximum number of results (default: 100)
 - `offset`: Pagination offset (default: 0)
+- `include_inactive`: Include archived versions (default: false)
 
 Example response:
 ```json
@@ -169,12 +206,17 @@ Example response:
     {
       "id": "uuid",
       "user_id": "uuid",
-      "name": "jw_sample_lora",
-      "filename": "jw_sample_lora.safetensors",
-      "minio_path": "user-{uuid}/loras/jw_sample_lora.safetensors",
+      "name": "Alix Character LoRA",
+      "filename": "alix.safetensors",
+      "minio_path": "user-{uuid}/loras/alix.safetensors",
       "file_size": 12345678,
-      "description": "Sample LoRA",
-      "tags": ["sample"],
+      "description": "Alix character LoRA for image generation",
+      "tags": ["character", "alix", "sample"],
+      "character_name": "alix",
+      "version": 2,
+      "is_active": true,
+      "parent_id": "previous-version-uuid",
+      "replaced_at": null,
       "created_at": "2024-01-01T00:00:00"
     }
   ],

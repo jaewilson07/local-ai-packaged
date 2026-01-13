@@ -39,7 +39,7 @@ def test_graph_node_connections():
 def test_graph_conditional_edges(sample_research_state):
     """Test conditional routing logic."""
     # Test executor conditional
-    state = sample_research_state.copy()
+    state = dict(sample_research_state)
     state["vectors"] = [
         ResearchVector(id="v1", topic="Test", search_queries=["test"], status="pending")
     ]
@@ -87,22 +87,36 @@ async def test_run_storm_research_success(mock_deep_research_deps, sample_resear
         patch("server.projects.deep_research.orchestrator.executor_node") as mock_executor,
         patch("server.projects.deep_research.orchestrator.auditor_node") as mock_auditor,
         patch("server.projects.deep_research.orchestrator.writer_node") as mock_writer,
+        patch(
+            "server.projects.deep_research.storm_workflow.DeepResearchDeps.from_settings"
+        ) as mock_from_settings,
     ):
+        # Setup mocked deps
+        mock_from_settings.return_value = mock_deep_research_deps
+
         # Setup state progression
-        state1 = sample_research_state.copy()
+        state1 = dict(sample_research_state)
         state1["outline"] = ["Introduction", "Background"]
         state1["vectors"] = [
             ResearchVector(id="v1", topic="Introduction", search_queries=["test"], status="pending")
         ]
 
-        state2 = state1.copy()
-        state2["vectors"][0].status = "ingesting"
+        state2 = dict(state1)
+        state2["vectors"] = [
+            ResearchVector(
+                id="v1", topic="Introduction", search_queries=["test"], status="ingesting"
+            )
+        ]
         state2["current_vector_index"] = 1
 
-        state3 = state2.copy()
-        state3["vectors"][0].status = "verified"
+        state3 = dict(state2)
+        state3["vectors"] = [
+            ResearchVector(
+                id="v1", topic="Introduction", search_queries=["test"], status="verified"
+            )
+        ]
 
-        state4 = state3.copy()
+        state4 = dict(state3)
         state4["final_report"] = "# Research Report\n\n## Introduction\n\nContent."
 
         mock_planner.return_value = state1
@@ -131,7 +145,13 @@ async def test_run_storm_research_with_session_id(mock_deep_research_deps):
     query = "What is deep research?"
     session_id = "custom-session-456"
 
-    with patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph:
+    with (
+        patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph,
+        patch(
+            "server.projects.deep_research.storm_workflow.DeepResearchDeps.from_settings"
+        ) as mock_from_settings,
+    ):
+        mock_from_settings.return_value = mock_deep_research_deps
         mock_graph = AsyncMock()
         mock_graph.ainvoke = AsyncMock(
             return_value={
@@ -159,7 +179,13 @@ async def test_run_storm_research_error_handling(mock_deep_research_deps):
     """Test error handling in STORM workflow."""
     query = "What is deep research?"
 
-    with patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph:
+    with (
+        patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph,
+        patch(
+            "server.projects.deep_research.storm_workflow.DeepResearchDeps.from_settings"
+        ) as mock_from_settings,
+    ):
+        mock_from_settings.return_value = mock_deep_research_deps
         mock_graph = AsyncMock()
         mock_graph.ainvoke = AsyncMock(side_effect=Exception("Graph execution failed"))
         mock_get_graph.return_value = mock_graph
@@ -175,7 +201,13 @@ async def test_run_storm_research_state_persistence(mock_deep_research_deps):
     """Test state management through workflow."""
     query = "What is deep research?"
 
-    with patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph:
+    with (
+        patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph,
+        patch(
+            "server.projects.deep_research.storm_workflow.DeepResearchDeps.from_settings"
+        ) as mock_from_settings,
+    ):
+        mock_from_settings.return_value = mock_deep_research_deps
         final_state = {
             "user_query": query,
             "outline": ["Section 1", "Section 2"],
@@ -210,7 +242,13 @@ async def test_run_storm_research_max_iterations(mock_deep_research_deps):
     """Test iteration limit enforcement."""
     query = "What is deep research?"
 
-    with patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph:
+    with (
+        patch("server.projects.deep_research.storm_workflow.get_research_graph") as mock_get_graph,
+        patch(
+            "server.projects.deep_research.storm_workflow.DeepResearchDeps.from_settings"
+        ) as mock_from_settings,
+    ):
+        mock_from_settings.return_value = mock_deep_research_deps
         final_state = {
             "user_query": query,
             "outline": [],
@@ -260,7 +298,7 @@ def test_research_state_initialization():
 
 def test_research_state_updates(sample_research_state):
     """Test state updates through nodes."""
-    state = sample_research_state.copy()
+    state = dict(sample_research_state)
 
     # Simulate planner update
     state["outline"] = ["Section 1"]
@@ -269,14 +307,18 @@ def test_research_state_updates(sample_research_state):
     ]
 
     # Simulate executor update
-    state["vectors"][0].status = "ingesting"
+    state["vectors"] = [
+        ResearchVector(id="v1", topic="Section 1", search_queries=["test"], status="ingesting")
+    ]
     state["current_vector_index"] = 1
 
     # Simulate auditor update
-    state["vectors"][0].status = "verified"
+    state["vectors"] = [
+        ResearchVector(id="v1", topic="Section 1", search_queries=["test"], status="verified")
+    ]
 
     # Simulate writer update
-    state["completed_sections"]["Section 1"] = "Content"
+    state["completed_sections"] = {"Section 1": "Content"}
     state["final_report"] = "Final report"
 
     assert state["outline"] == ["Section 1"]
@@ -287,7 +329,7 @@ def test_research_state_updates(sample_research_state):
 
 def test_research_state_vector_tracking(sample_research_state):
     """Test vector status tracking."""
-    state = sample_research_state.copy()
+    state = dict(sample_research_state)
 
     vectors = [
         ResearchVector(id="v1", topic="Topic 1", search_queries=["q1"], status="pending"),
@@ -298,11 +340,19 @@ def test_research_state_vector_tracking(sample_research_state):
     state["vectors"] = vectors
     state["current_vector_index"] = 0
 
-    # Track status changes
-    state["vectors"][0].status = "ingesting"
+    # Track status changes - create new vector objects to avoid mutation issues
+    state["vectors"] = [
+        ResearchVector(id="v1", topic="Topic 1", search_queries=["q1"], status="ingesting"),
+        state["vectors"][1],
+        state["vectors"][2],
+    ]
     assert state["vectors"][0].status == "ingesting"
 
-    state["vectors"][0].status = "verified"
+    state["vectors"] = [
+        ResearchVector(id="v1", topic="Topic 1", search_queries=["q1"], status="verified"),
+        state["vectors"][1],
+        state["vectors"][2],
+    ]
     assert state["vectors"][0].status == "verified"
 
     state["current_vector_index"] = 1
@@ -311,10 +361,11 @@ def test_research_state_vector_tracking(sample_research_state):
 
 def test_research_state_error_collection(sample_research_state):
     """Test error collection."""
-    state = sample_research_state.copy()
+    state = dict(sample_research_state)
 
     assert len(state["errors"]) == 0
 
+    state["errors"] = state["errors"].copy()  # Copy list to avoid mutation
     state["errors"].append("Error 1")
     state["errors"].append("Error 2")
 

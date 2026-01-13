@@ -69,6 +69,7 @@ services:
   n8n-import:
     <<: *service-n8n
     container_name: n8n-import
+    restart: "no"  # One-time import service, don't restart on failure or block startup
     entrypoint: /bin/sh
     command:
       - "-c"
@@ -281,7 +282,7 @@ services:
     expose:
       - 5432/tcp
     env_file:
-      - ../../.env
+      - ../.env
     environment:
       POSTGRES_USER: ${IMMICH_DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
@@ -476,7 +477,7 @@ services:
     ports:
       - "127.0.0.1:2283:2283/tcp"
     env_file:
-      - ../../.env
+      - ../.env
     environment:
       DB_HOSTNAME: immich-postgres
       DB_PORT: 5432
@@ -505,7 +506,7 @@ services:
       <<: *healthcheck-http
     logging: *logging-json
 
-  # Discord Bot
+  # Discord Bot (unified - includes character capabilities)
   discord-bot:
     build:
       context: ./discord-bot
@@ -522,10 +523,21 @@ services:
       MCP_ENABLED: ${MCP_ENABLED:-true}
       MCP_PORT: ${MCP_PORT:-8001}
       MCP_HOST: ${MCP_HOST:-0.0.0.0}
+      # Capability configuration (default: echo only)
+      # Available: echo, upload, notification, character
+      ENABLED_CAPABILITIES: ${ENABLED_CAPABILITIES:-echo}
+      # Character capability configuration (when character is enabled)
+      LAMBDA_API_URL: ${LAMBDA_API_URL:-http://lambda-server:8000}
+      LAMBDA_API_KEY: ${LAMBDA_API_KEY:-}
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${CLOUDFLARE_ACCESS_CLIENT_ID:-}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${CLOUDFLARE_ACCESS_CLIENT_SECRET:-}
+      MAX_CHARACTERS_PER_CHANNEL: ${MAX_CHARACTERS_PER_CHANNEL:-5}
+      ENGAGEMENT_PROBABILITY: ${ENGAGEMENT_PROBABILITY:-0.15}
+      ENGAGEMENT_CHECK_INTERVAL: ${ENGAGEMENT_CHECK_INTERVAL:-60}
     volumes:
       - ../03-apps/discord-bot/data:/app/data
-    ports:
-      - "127.0.0.1:8001:8001/tcp"  # MCP server port (internal only)
+    expose:
+      - "8001/tcp"  # MCP server port (internal network only)
     networks:
       - default
     depends_on:
@@ -533,27 +545,9 @@ services:
         condition: service_healthy
     logging: *logging-json
 
-  # Discord Character Bot
-  discord-character-bot:
-    build:
-      context: ./discord-character-bot
-      dockerfile: Dockerfile
-    container_name: discord-character-bot
-    restart: unless-stopped
-    environment:
-      DISCORD_BOT_TOKEN: ${DISCORD_CHARACTER_BOT_TOKEN:-${DISCORD_BOT_TOKEN}}
-      LAMBDA_API_URL: ${LAMBDA_API_URL:-http://lambda-server:8000}
-      LAMBDA_API_KEY: ${LAMBDA_API_KEY:-}
-      MAX_CHARACTERS_PER_CHANNEL: ${MAX_CHARACTERS_PER_CHANNEL:-5}
-      ENGAGEMENT_PROBABILITY: ${ENGAGEMENT_PROBABILITY:-0.15}
-      ENGAGEMENT_CHECK_INTERVAL: ${ENGAGEMENT_CHECK_INTERVAL:-60}
-    volumes:
-      - ../03-apps/discord-character-bot/data:/app/data
-    networks:
-      - default
-    # Note: depends_on removed - lambda-server is in a different Docker Compose project (localai-lambda)
-    # The bot connects via HTTP on the shared ai-network and handles connection failures gracefully
-    logging: *logging-json
+  # Discord Character Bot - REMOVED (merged into discord-bot)
+  # Character functionality is now available via ENABLED_CAPABILITIES=character
+  # See 03-apps/discord-bot/bot/capabilities/character.py
 
   # Frontend (Next.js Social Layer)
   frontend:
@@ -579,6 +573,29 @@ services:
       immich-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging: *logging-json
+
+  # Gradio Knowledge Base (Interactive knowledge refinement)
+  gradio-kb:
+    build:
+      context: ./gradio-kb
+      dockerfile: Dockerfile
+    container_name: gradio-kb
+    restart: unless-stopped
+    expose:
+      - 7860/tcp
+    environment:
+      LAMBDA_API_URL: ${LAMBDA_API_URL:-http://lambda-server:8000}
+      GRADIO_SERVER_PORT: 7860
+      GRADIO_SERVER_NAME: 0.0.0.0
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
       <<: *healthcheck-http
     logging: *logging-json

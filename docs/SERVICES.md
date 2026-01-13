@@ -6,8 +6,8 @@ Complete catalog of all services in the local-ai-packaged infrastructure, organi
 
 Services are organized into numbered stacks with explicit dependencies:
 
-1. **00-infrastructure**: Foundation services (networking, reverse proxy, secrets)
-2. **00-infrastructure/infisical**: Secret management
+1. **00-infrastructure**: Foundation services (networking, reverse proxy, caching)
+2. **infisical-standalone**: Secret management (external standalone project)
 3. **01-data**: Data storage layer (databases, vector stores, object storage)
 4. **02-compute**: AI compute services (LLMs, image generation)
 5. **03-apps**: Application layer (workflows, interfaces, observability, media)
@@ -77,49 +77,18 @@ Services are organized into numbered stacks with explicit dependencies:
 
 **Access**: `redis://redis:6379` (internal)
 
-## 00-infrastructure/infisical Stack
+## Infisical (External Standalone Project)
 
-**Project**: `localai-infisical`  
+**Status**: External standalone project (not part of this repository)  
+**Location**: `/home/jaewilson07/GitHub/infisical-standalone`  
+**Project**: `localai-infisical` (when running)  
 **Purpose**: Secret management platform
 
-### infisical-backend
-**Container**: `infisical-backend`  
-**Port**: 8020  
-**Description**: Infisical API server for secret management
+**Management**: Handled separately by `start_services.py` or `start_infisical.py`
 
-**Features**:
-- Web UI for secret management
-- REST API for programmatic access
-- CLI integration
-- Machine identity support
+**Caddy Routing**: Configured in Caddyfile to route `infisical.datacrew.space` → `infisical-backend:8080` (when external Infisical is running)
 
-**Dependencies**: `infisical-db`, `infisical-redis`
-
-**Configuration**:
-- `INFISICAL_ENCRYPTION_KEY` - Encryption key (16-byte hex)
-- `INFISICAL_AUTH_SECRET` - Auth secret (32-byte base64)
-- `INFISICAL_HOSTNAME` - Hostname (e.g., `:8020` or `infisical.datacrew.space`)
-- `INFISICAL_SITE_URL` - Site URL
-
-**Access**: `http://infisical-backend:8020` (internal) or via Caddy
-
-### infisical-db
-**Container**: `infisical-db`  
-**Port**: 5432  
-**Description**: PostgreSQL database for Infisical metadata
-
-**Dependencies**: None
-
-**Access**: `postgresql://infisical-db:5432` (internal)
-
-### infisical-redis
-**Container**: `infisical-redis`  
-**Port**: 6379  
-**Description**: Redis cache for Infisical
-
-**Dependencies**: None
-
-**Access**: `redis://infisical-redis:6379` (internal)
+**Note**: Infisical services are managed from the external standalone project but can still be accessed via Caddy routing if running.
 
 ## 01-data Stack
 
@@ -557,8 +526,13 @@ Services are organized into numbered stacks with explicit dependencies:
 - User face mapping
 - Automated notifications
 - MCP server for Discord management
+- AI character interactions (via `ENABLED_CAPABILITIES=character`)
+- Character management (add, remove, list characters in channels)
+- Direct mention responses (characters respond when mentioned)
+- Random engagement (characters spontaneously join conversations)
+- Conversation history tracking per channel+character
 
-**Dependencies**: Immich API, SQLite (local database)
+**Dependencies**: Immich API, SQLite (local database), Lambda server (character management API)
 
 **Configuration**:
 - `DISCORD_BOT_TOKEN` - Discord bot token
@@ -567,40 +541,17 @@ Services are organized into numbered stacks with explicit dependencies:
 - `IMMICH_SERVER_URL` - Immich server URL
 - `MCP_ENABLED` - Enable MCP server (default: true)
 - `MCP_PORT` - MCP server port (default: 8001)
+- `ENABLED_CAPABILITIES` - Enabled bot capabilities (default: `echo`; options: `echo`, `upload`, `notification`, `character`)
+- `LAMBDA_API_URL` - Lambda server URL (default: `http://lambda-server:8000`)
+- `ENGAGEMENT_CHANCE` - Probability of random engagement (default: 0.15, for character capability)
 
 **Access**:
 - MCP: `http://discord-bot:8001/mcp` (internal, if enabled)
 - Discord: Via Discord API
+- Lambda API: `http://lambda-server:8000/api/v1/discord-characters/*` (for character capability)
 
-**Integration Points**: Immich (uploads, face detection), Lambda server (optional MCP integration)
+**Integration Points**: Immich (uploads, face detection), Lambda server (character management, persona service, conversation orchestration)
 
-### discord-character-bot
-**Container**: `discord-character-bot`  
-**Port**: N/A (Discord API only)  
-**Description**: Discord bot for AI character interactions in channels
-
-**Features**:
-- Character management (add, remove, list characters in channels)
-- Direct mention responses (characters respond when mentioned)
-- Random engagement (characters spontaneously join conversations)
-- Conversation history tracking per channel+character
-- Rich embeds with character avatars
-- Knowledge store querying via `/query_knowledgestore` command
-
-**Dependencies**: Lambda server (character management API), MongoDB (via Lambda)
-
-**Configuration**:
-- `DISCORD_BOT_TOKEN` - Discord bot token
-- `LAMBDA_API_URL` - Lambda server URL (default: `http://lambda-server:8000`)
-- `ENGAGEMENT_CHANCE` - Probability of random engagement (default: 0.15)
-- `MIN_TIME_SINCE_LAST_ENGAGEMENT_MINUTES` - Minimum time between engagements (default: 10)
-- `MAX_CHANNEL_CHARACTERS` - Maximum characters per channel (default: 5)
-
-**Access**:
-- Discord: Via Discord API
-- Lambda API: `http://lambda-server:8000/api/v1/discord-characters/*`
-
-**Integration Points**: Lambda server (character management, persona service, conversation orchestration), MongoDB (conversation history)
 
 ## 04-lambda Stack
 

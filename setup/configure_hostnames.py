@@ -50,7 +50,7 @@ def get_auth_headers():
             "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json",
         }
-    elif (
+    if (
         CLOUDFLARE_EMAIL
         and CLOUDFLARE_EMAIL.strip()
         and CLOUDFLARE_API_KEY
@@ -61,8 +61,7 @@ def get_auth_headers():
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError("Either API token or email+API key must be provided")
+    raise ValueError("Either API token or email+API key must be provided")
 
 
 def get_account_id():
@@ -77,27 +76,24 @@ def get_account_id():
         if response.status_code == 200 and data.get("success"):
             account_id = data["result"].get("account", {}).get("id")
             return account_id
-        else:
-            errors = data.get("errors", [])
-            if errors:
-                error = errors[0]
-                error_msg = error.get("message", "Unknown error")
-                print(f"[ERROR] API Error: {error_msg}")
-                # Check error chain for more details
-                error_chain = error.get("error_chain", [])
-                if error_chain:
-                    chain_msg = error_chain[0].get("message", "")
-                    print(f"[ERROR] Details: {chain_msg}")
-                if "Invalid format for Authorization header" in str(
-                    error_msg
-                ) or "Invalid format" in str(error_chain):
-                    print("[INFO] Your API token may be incomplete or incorrectly formatted.")
-                    print("[INFO] Cloudflare API tokens are usually 40+ characters long.")
-                    print(
-                        "[INFO] Verify your token at: https://dash.cloudflare.com/profile/api-tokens"
-                    )
-                    print(f"[INFO] Current token length: {len(API_TOKEN)} characters")
-            return None
+        errors = data.get("errors", [])
+        if errors:
+            error = errors[0]
+            error_msg = error.get("message", "Unknown error")
+            print(f"[ERROR] API Error: {error_msg}")
+            # Check error chain for more details
+            error_chain = error.get("error_chain", [])
+            if error_chain:
+                chain_msg = error_chain[0].get("message", "")
+                print(f"[ERROR] Details: {chain_msg}")
+            if "Invalid format for Authorization header" in str(
+                error_msg
+            ) or "Invalid format" in str(error_chain):
+                print("[INFO] Your API token may be incomplete or incorrectly formatted.")
+                print("[INFO] Cloudflare API tokens are usually 40+ characters long.")
+                print("[INFO] Verify your token at: https://dash.cloudflare.com/profile/api-tokens")
+                print(f"[INFO] Current token length: {len(API_TOKEN)} characters")
+        return None
     except Exception as e:
         print(f"[ERROR] Failed to get account ID: {e}")
         return None
@@ -131,11 +127,10 @@ def update_tunnel_config(account_id, config):
 
         if response.status_code == 200 and data.get("success"):
             return True
-        else:
-            errors = data.get("errors", [])
-            if errors:
-                print(f"[ERROR] {errors[0].get('message', 'Unknown error')}")
-            return False
+        errors = data.get("errors", [])
+        if errors:
+            print(f"[ERROR] {errors[0].get('message', 'Unknown error')}")
+        return False
     except Exception as e:
         print(f"[ERROR] Failed to update tunnel config: {e}")
         return False

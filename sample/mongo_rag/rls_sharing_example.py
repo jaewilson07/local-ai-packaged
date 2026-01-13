@@ -32,10 +32,10 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.rls import (
+from server.projects.mongo_rag.dependencies import AgentDependencies  # noqa: E402
+from server.projects.mongo_rag.rls import (  # noqa: E402
     add_sharing_to_document,
     build_access_filter,
     can_access_document,
@@ -193,35 +193,30 @@ async def demonstrate_rls():
         logger.info("=" * 60)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_mongodb_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_mongodb_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            logger.info("\n" + "=" * 60)
-            logger.info("Verification")
-            logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
+        logger.info("Verification")
+        logger.info("=" * 60)
 
-            success, message = verify_mongodb_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                collection="documents",
-                expected_count_min=1,
-            )
-            logger.info(message)
+        success, message = verify_mongodb_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            collection="documents",
+            expected_count_min=1,
+        )
+        logger.info(message)
 
-            if success:
-                logger.info("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                logger.warning("\n⚠️  Verification failed (data may need time to propagate)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
+        if success:
+            logger.info("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            logger.warning("\n❌ Verification failed (data may need time to propagate)")
             sys.exit(1)
-
     finally:
         await deps_user1.cleanup()
 

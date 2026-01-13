@@ -1,6 +1,0 @@
-services:
-  infisical-backend:
-    environment:
-      # For public environment, use HTTPS and production domain
-      - SITE_URL=${INFISICAL_SITE_URL:-https://infisical.datacrew.space}
-      - HTTPS_ENABLED=${INFISICAL_HTTPS_ENABLED:-true}

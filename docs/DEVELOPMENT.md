@@ -37,11 +37,14 @@ The pre-commit configuration (`.pre-commit-config.yaml`) includes:
 
 - **Python Formatting**: Black automatically formats Python code (line-length: 100)
 - **Python Linting**: Ruff checks for code quality issues and auto-fixes when possible
-- **Python Syntax**: Validates Python syntax using `py_compile`
+- **Type Checking**: Pyright validates type hints and catches type-related errors
+- **Python Syntax**: Validates Python syntax using `py_compile` and AST parsing
+- **AST Validation**: Enhanced AST validation catches more syntax issues than `py_compile`
 - **YAML Validation**: yamllint checks YAML files for syntax and style
 - **Docker Compose Validation**: Validates docker-compose files
 - **Secret Detection**: Scans for accidentally committed secrets
 - **File Checks**: Trailing whitespace, end-of-file newlines, large files, merge conflicts
+- **Comprehensive Validation**: Manual hook for full codebase validation (run with `pre-commit run comprehensive-validation --all-files`)
 
 #### Bypassing Hooks (Emergency Only)
 
@@ -87,6 +90,35 @@ ruff check --select I .
 
 Configuration is in `pyproject.toml` under `[tool.ruff]`.
 
+#### Type Checking
+
+We use **Pyright** for type checking:
+
+```bash
+# Run type checking
+pyright --pythonversion=3.10 .
+```
+
+Pyright is automatically run via pre-commit hooks and will catch type-related errors before commits.
+
+### Comprehensive Code Validation
+
+A comprehensive validation script (`scripts/validate_code.py`) performs multiple checks:
+
+- **Syntax Validation**: AST parsing to catch syntax errors
+- **Import Syntax Validation**: Validates import statement syntax
+- **Type Hints Validation**: Validates type hint syntax
+
+```bash
+# Run comprehensive validation
+python3 scripts/validate_code.py
+
+# Or via pre-commit (manual hook)
+pre-commit run comprehensive-validation --all-files
+```
+
+This script validates all Python files in the project and provides detailed error reporting.
+
 ### YAML Linting
 
 YAML files are validated using **yamllint**:
@@ -109,7 +141,9 @@ The project uses several GitHub Actions workflows for continuous integration:
 Runs on: Push and pull requests affecting Python files
 
 Checks:
-- Python syntax validation
+- Python syntax validation (py_compile)
+- Comprehensive AST validation (catches more syntax issues)
+- Comprehensive code validation script
 - Black formatting check
 - Ruff linting
 - Import sorting
@@ -169,7 +203,7 @@ uv run pytest tests/ -v --cov=server --cov-report=term
 #### Discord Bot
 
 ```bash
-cd 03-apps/discord-character-bot
+cd 03-apps/discord-bot
 uv run pytest tests/ -v
 ```
 
@@ -202,7 +236,7 @@ uv run pytest tests/ -v
    cd 04-lambda && uv run pytest tests/ -v
 
    # Discord bot
-   cd 03-apps/discord-character-bot && uv run pytest tests/ -v
+   cd 03-apps/discord-bot && uv run pytest tests/ -v
    ```
 
 ## Common Issues and Fixes
@@ -284,7 +318,7 @@ If detect-secrets flags something that's not actually a secret:
 
 - **Root**: General utilities and orchestration (`start_services.py`)
 - **Lambda Server** (`04-lambda/`): FastAPI server with MCP and REST APIs
-- **Discord Bot** (`03-apps/discord-character-bot/`): Discord bot for Immich integration
+- **Discord Bot** (`03-apps/discord-bot/`): Discord bot for Immich integration and AI character interactions
 
 Each Python project has its own `pyproject.toml` with dependencies and tool configurations.
 

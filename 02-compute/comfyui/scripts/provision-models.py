@@ -117,7 +117,7 @@ def download_file(url, output_path, description):
 def main():
     # Create directories if they don't exist
     for dir_path in DIRECTORIES.values():
-        os.makedirs(dir_path, exist_ok=True)
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     # Check if models.yml exists
     if not os.path.exists(MODELS_YAML):

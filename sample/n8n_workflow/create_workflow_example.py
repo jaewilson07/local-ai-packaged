@@ -20,11 +20,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.n8n_workflow.agent import create_workflow_tool
-from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.n8n_workflow.agent import create_workflow_tool  # noqa: E402
+from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -100,40 +100,29 @@ async def main():
         print("=" * 80)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_rag_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_rag_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success, message = verify_rag_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_workflows_min=1,
-            )
-            print(message)
+        success, message = verify_rag_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_workflows_min=1,
+        )
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (workflow may need time to sync)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed (workflow may need time to sync)")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error creating workflow: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        print("\nNote: Make sure N8N is running and accessible.")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

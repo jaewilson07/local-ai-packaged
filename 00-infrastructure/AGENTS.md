@@ -26,15 +26,11 @@
 - `cloudflared/` - Cloudflare Tunnel service
   - `docs/` - Cloudflare Tunnel-specific documentation
   - (Note: Service defined in stack-level compose, folder for organization)
-- `infisical/` - **LEGACY/UNUSED**: Infisical has been moved to external standalone project
-  - This directory is kept for reference but services are managed externally
-  - Caddy still routes to `infisical-backend:8080` if Infisical is running externally
 
 **Refactoring Notes**:
 - Services in stack-level compose (cloudflared, caddy, redis) don't need individual folders unless they have service-specific configs/docs
 - Service-specific folders (like `cloudflared/`) should contain service-specific documentation and configs
 - When adding new services, decide: stack-level compose (shared) vs service-specific folder (independent)
-- **Infisical**: Moved to external standalone project at `/home/jaewilson07/GitHub/infisical-standalone`
 
 ## Services
 
@@ -94,10 +90,8 @@
 - **Status**: Moved to external standalone project
 - **Location**: `/home/jaewilson07/GitHub/infisical-standalone`
 - **Management**: Handled separately by `start_services.py` or `start_infisical.py`
-- **Caddy Routing**: Still configured in Caddyfile to route `infisical.datacrew.space` → `infisical-backend:8080`
-- **Environment Variable**: `INFISICAL_SITE_URL` still used by Caddy for CORS headers
-
-**Note**: The `00-infrastructure/infisical/` directory is legacy/unused. Infisical services are now managed from the external project but can still be accessed via Caddy routing if running.
+- **Caddy Routing**: Configured in Caddyfile to route `infisical.datacrew.space` → `infisical-backend:8080` (when external Infisical is running)
+- **Environment Variable**: `INFISICAL_SITE_URL` used by Caddy for CORS headers
 
 ### Redis (Valkey)
 - **Image**: `valkey/valkey:8`
@@ -114,24 +108,6 @@
 ## Scripts
 
 Location: `00-infrastructure/scripts/`
-
-### Infisical Management
-
-#### `manage-infisical.py`
-- **Purpose**: Manage Infisical state (nuclear reset or data wipe).
-- **Usage**: `python3 00-infrastructure/scripts/manage-infisical.py [reset-infra|reset-data]`
-
-#### `sync-env-to-infisical.py`
-- **Purpose**: Sync secrets from `.env` file to Infisical.
-- **Usage**: `python3 00-infrastructure/scripts/sync-env-to-infisical.py [--dry-run] [--env-file .env]`
-
-#### `sync-infisical-to-env.py`
-- **Purpose**: Sync secrets from Infisical to `.env` file.
-- **Usage**: `python3 00-infrastructure/scripts/sync-infisical-to-env.py [--dry-run] [--env-file .env]`
-
-#### `check-env-sync-status.py`
-- **Purpose**: Check sync status between `.env` file and Infisical.
-- **Usage**: `python3 00-infrastructure/scripts/check-env-sync-status.py [--env-file .env] [--verbose]`
 
 ### Cloudflare Management
 
@@ -194,9 +170,6 @@ networks:
 # Find Caddy configuration
 cat 00-infrastructure/caddy/Caddyfile
 
-# Find Infisical setup docs
-ls 00-infrastructure/docs/infisical/
-
 # Find environment variable usage
 rg -n "INFISICAL_\|CLOUDFLARE_" 00-infrastructure/
 
@@ -221,9 +194,8 @@ docker exec redis redis-cli ping
 ### Common Issues
 1. **Network Not Found**: Ensure infrastructure stack starts first
 2. **Caddy Config Errors**: Check Caddyfile syntax with `caddy validate`
-3. **Infisical Auth Failures**: Verify encryption keys and database connection
-4. **Cloudflare Tunnel**: Verify token is valid and not expired
-5. **Cloudflare Access**: If Lambda server JWT validation fails, verify AUD tag matches Access application. Use `get-lambda-api-aud-tag.py` to retrieve correct value.
+3. **Cloudflare Tunnel**: Verify token is valid and not expired
+4. **Cloudflare Access**: If Lambda server JWT validation fails, verify AUD tag matches Access application. Use `get-lambda-api-aud-tag.py` to retrieve correct value.
 
 ## Do's and Don'ts
 
@@ -249,7 +221,7 @@ docker exec redis redis-cli ping
 - **ai-network**: External Docker network shared by all stacks
 - **Caddy**: Reverse proxy and TLS termination
 - **Cloudflare Tunnel**: Zero-trust tunnel (no port forwarding)
-- **Infisical**: Secrets management platform (self-hosted)
+- **Infisical**: Secrets management platform (external standalone project)
 - **Valkey**: Redis-compatible cache (fork of Redis)
 
 ---

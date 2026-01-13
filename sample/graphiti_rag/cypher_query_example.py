@@ -23,11 +23,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
-from server.projects.graphiti_rag.tools import query_knowledge_graph
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps  # noqa: E402
+from server.projects.graphiti_rag.tools import query_knowledge_graph  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -139,40 +139,30 @@ async def main():
         print("=" * 80)
 
         # Verify query results
-        try:
-            from sample.shared.verification_helpers import verify_search_results
+        from sample.shared.verification_helpers import verify_search_results
 
-            # Collect results from the queries we ran
-            all_results = []
-            if repos_result.get("success") and repos_result.get("repositories"):
-                all_results.extend(repos_result.get("repositories", []))
-            if explore_result.get("success") and explore_result.get("statistics"):
-                all_results.append(explore_result.get("statistics", {}))
-            if query_result.get("success") and query_result.get("results"):
-                all_results.extend(query_result.get("results", []))
+        # Collect results from the queries we ran
+        all_results = []
+        if repos_result.get("success") and repos_result.get("repositories"):
+            all_results.extend(repos_result.get("repositories", []))
+        if explore_result.get("success") and explore_result.get("statistics"):
+            all_results.append(explore_result.get("statistics", {}))
+        if query_result.get("success") and query_result.get("results"):
+            all_results.extend(query_result.get("results", []))
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success, message = verify_search_results(all_results, expected_min=1)
-            print(message)
+        success, message = verify_search_results(all_results, expected_min=1)
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed: No query results found")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed: No query results found")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during Cypher query: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

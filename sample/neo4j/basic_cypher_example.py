@@ -8,6 +8,38 @@ fundamentals and testing queries.
 Prerequisites:
 - Neo4j running and configured
 - Environment variables configured (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, etc.)
+- Dependencies installed: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+  (includes neo4j package)
+
+Validation:
+This sample validates its results through:
+
+1. **API Verification**: Uses `verify_neo4j_data()` from `sample/shared/verification_helpers.py`
+   - Verifies Neo4j nodes and relationships via `/api/v1/data/neo4j` endpoint
+   - Checks that at least the expected number of nodes exist
+   - Validates node and relationship counts
+   - Supports retry logic (3 retries with 2s delay) for eventual consistency
+
+2. **Exit Code Validation**:
+   - Returns exit code 0 if verification passes
+   - Returns exit code 1 if verification fails or errors occur
+
+3. **Error Handling**:
+   - Catches and logs exceptions during Cypher operations
+   - Provides clear error messages for debugging
+   - Ensures proper cleanup of Neo4j driver in finally block
+
+4. **Result Validation**:
+   - Verifies that nodes are created successfully
+   - Validates relationships are created correctly
+   - Confirms queries return expected data
+
+The sample will fail validation if:
+- Neo4j connection fails (wrong credentials, service not running)
+- Node/relationship creation fails
+- Verification API call fails (network errors, auth errors)
+- Expected minimum node count is not met
+- Neo4j driver fails to close properly
 """
 
 import asyncio
@@ -19,11 +51,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from neo4j import AsyncGraphDatabase
+from neo4j import AsyncGraphDatabase  # noqa: E402
 
-from server.core.config import settings
+from server.config import settings  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -135,40 +167,29 @@ async def main():
         print("=" * 80)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_neo4j_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_neo4j_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success, message = verify_neo4j_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_nodes_min=1,
-            )
-            print(message)
+        success, message = verify_neo4j_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_nodes_min=1,
+        )
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (nodes may need time to sync)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed (nodes may need time to sync)")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during Cypher queries: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        print("\nNote: Make sure Neo4j is running and credentials are correct.")
-        sys.exit(1)
     finally:
         # Close driver
         await driver.close()

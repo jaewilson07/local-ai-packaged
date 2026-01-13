@@ -53,7 +53,7 @@ async def add_role(server_id: str, user_id: str, role_id: str) -> dict:
     except discord.Forbidden:
         raise RuntimeError("Bot lacks permissions to add roles (requires MANAGE_ROLES permission)")
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to add role: {e}")
+        raise RuntimeError(f"Failed to add role: {e}") from e
 
 
 @mcp.tool
@@ -102,7 +102,7 @@ async def remove_role(server_id: str, user_id: str, role_id: str) -> dict:
             "Bot lacks permissions to remove roles (requires MANAGE_ROLES permission)"
         )
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to remove role: {e}")
+        raise RuntimeError(f"Failed to remove role: {e}") from e
 
 
 @mcp.tool
@@ -240,7 +240,7 @@ async def create_role(
             "Bot lacks permissions to create roles (requires MANAGE_ROLES permission)"
         )
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to create role: {e}")
+        raise RuntimeError(f"Failed to create role: {e}") from e
 
 
 @mcp.tool
@@ -285,4 +285,4 @@ async def delete_role(server_id: str, role_id: str) -> dict:
             "Bot lacks permissions to delete roles (requires MANAGE_ROLES permission and role must be below bot's highest role)"
         )
     except discord.HTTPException as e:
-        raise RuntimeError(f"Failed to delete role: {e}")
+        raise RuntimeError(f"Failed to delete role: {e}") from e

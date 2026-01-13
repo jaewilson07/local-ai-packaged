@@ -130,11 +130,10 @@ def run_sample_file(sample_file: Path):
                 else:
                     print(f"    Output: {result.stdout.strip()}")
             return True
-        else:
-            print(f"    ✗ Failed (exit code: {result.returncode})")
-            if result.stderr:
-                print(f"    Error: {result.stderr[:500]}")
-            return False
+        print(f"    ✗ Failed (exit code: {result.returncode})")
+        if result.stderr:
+            print(f"    Error: {result.stderr[:500]}")
+        return False
     except subprocess.TimeoutExpired:
         print("    ✗ Timeout (exceeded 5 minutes)")
         return False

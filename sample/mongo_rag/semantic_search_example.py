@@ -8,6 +8,35 @@ Prerequisites:
 - MongoDB running with vector search index configured
 - Documents ingested into MongoDB (use document_ingestion_example.py)
 - Environment variables configured (MONGODB_URI, LLM_BASE_URL, EMBEDDING_BASE_URL, etc.)
+- Dependencies installed: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+
+Validation:
+This sample validates its results through:
+
+1. **Search Results Validation**: Uses `verify_search_results()` from `sample/shared/verification_helpers.py`
+   - Verifies that at least 1 search result is returned for each query
+   - Checks that results have expected structure (similarity, document_title, content, etc.)
+   - Validates minimum expected count of results
+
+2. **Exit Code Validation**:
+   - Returns exit code 0 if verification passes
+   - Returns exit code 1 if verification fails or errors occur
+
+3. **Error Handling**:
+   - Catches and logs exceptions during search operations
+   - Provides clear error messages for debugging
+   - Ensures proper cleanup of dependencies in finally block
+
+4. **Result Structure Validation**:
+   - Verifies results contain required fields (similarity, document_title, document_source, content, chunk_id)
+   - Checks that similarity scores are valid (0.0 to 1.0 range)
+   - Ensures content is not empty
+
+The sample will fail validation if:
+- No search results are returned (documents may not be ingested)
+- Search results don't meet minimum expected count
+- Results are missing required fields
+- Dependencies fail to initialize or cleanup
 """
 
 import asyncio
@@ -30,11 +59,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.tools import semantic_search
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.mongo_rag.dependencies import AgentDependencies  # noqa: E402
+from server.projects.mongo_rag.tools import semantic_search  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -106,37 +135,27 @@ async def main():
         print("=" * 80)
 
         # Verify search results
-        try:
-            from sample.shared.verification_helpers import verify_search_results
+        from sample.shared.verification_helpers import verify_search_results
 
-            all_results = []
-            for query in queries:
-                results = await semantic_search(ctx=ctx, query=query, match_count=5)
-                if results:
-                    all_results.extend(results)
+        all_results = []
+        for query in queries:
+            results = await semantic_search(ctx=ctx, query=query, match_count=5)
+            if results:
+                all_results.extend(results)
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success, message = verify_search_results(all_results, expected_min=1)
-            print(message)
+        success, message = verify_search_results(all_results, expected_min=1)
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n❌ Verification failed: No search results found")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed: No search results found")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during semantic search: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

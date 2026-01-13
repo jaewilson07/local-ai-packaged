@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Install required CLI tools for the AI Homelab project.
-Installs: Infisical CLI, Google Cloud CLI, Cloudflared CLI, and pre-commit hooks.
+Install required CLI tools and Python dependencies for the AI Homelab project.
+Installs: Infisical CLI, Google Cloud CLI, Cloudflared CLI, pre-commit hooks, and Python dependencies.
 """
 
 import os
@@ -222,8 +222,44 @@ def install_pre_commit():
     return True
 
 
+def install_python_dependencies():
+    """Install Python dependencies for samples and tests."""
+    repo_root = Path(__file__).parent.parent
+    lambda_dir = repo_root / "04-lambda"
+
+    if not lambda_dir.exists():
+        print("Warning: 04-lambda directory not found. Skipping Python dependency installation.")
+        return True
+
+    print("Installing Python dependencies for samples and tests...")
+
+    # Check if uv is available (preferred)
+    if shutil.which("uv"):
+        print("Using uv to install dependencies...")
+        os.chdir(lambda_dir)
+        # Install with test and samples extras (samples includes test deps)
+        if not run_command(["uv", "pip", "install", "-e", ".[test,samples]"]):
+            print("Warning: Failed to install dependencies with uv.", file=sys.stderr)
+            print("  You can install manually with:", file=sys.stderr)
+            print("  cd 04-lambda && uv pip install -e '.[test,samples]'", file=sys.stderr)
+            return False
+    else:
+        # Fallback to pip
+        print("uv not found, using pip to install dependencies...")
+        print("  Note: uv is recommended for this project.")
+        os.chdir(lambda_dir)
+        if not run_command([sys.executable, "-m", "pip", "install", "-e", ".[test,samples]"]):
+            print("Warning: Failed to install dependencies with pip.", file=sys.stderr)
+            print("  You can install manually with:", file=sys.stderr)
+            print("  cd 04-lambda && pip install -e '.[test,samples]'", file=sys.stderr)
+            return False
+
+    print("Python dependencies installed successfully.")
+    return True
+
+
 def main():
-    print("Starting CLI installations...")
+    print("Starting CLI and dependency installations...")
     if not install_infisical_cli():
         print("Failed to install Infisical CLI.", file=sys.stderr)
         sys.exit(1)
@@ -236,7 +272,10 @@ def main():
     if not install_pre_commit():
         print("Failed to install pre-commit.", file=sys.stderr)
         sys.exit(1)
-    print("All specified CLIs installed successfully.")
+    if not install_python_dependencies():
+        print("Failed to install Python dependencies.", file=sys.stderr)
+        sys.exit(1)
+    print("All CLI tools and Python dependencies installed successfully.")
 
 
 if __name__ == "__main__":

@@ -19,13 +19,16 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from pydantic_ai import RunContext
+from pydantic_ai import RunContext  # noqa: E402
 
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep, crawl_and_ingest_single_page
-from server.projects.mongo_rag.search import search_knowledge_base
+from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
+from server.projects.crawl4ai_rag.tools import (
+    crawl_and_ingest_deep,
+    crawl_and_ingest_single_page,
+)
+from server.projects.mongo_rag.search import search_knowledge_base  # noqa: E402
 
 # Configuration
 BLUES_MUSE_URL = "https://www.bluesmuse.dance/"
@@ -276,7 +279,7 @@ async def main():
             sys.exit(1)
 
     except Exception as e:
-        logger.exception(f"❌ Fatal error: {e}")
+        logger.exception("❌ Fatal error")
         print(f"\n❌ Fatal error: {e}")
         sys.exit(1)
     finally:

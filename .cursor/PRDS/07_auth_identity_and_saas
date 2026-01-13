@@ -42,6 +42,11 @@ Security Risk: Internal APIs may be exposed without consistent identity validati
   - Auto-creates user profiles with defaults (role: "user", tier: "free")
   - Connection pooling with asyncpg
   - Admin role checking
+- ✅ Database validation and migration service (`services/database_validation_service.py`)
+  - Automatically validates core tables exist on Lambda server startup
+  - Auto-applies migrations from `01-data/supabase/migrations/` if tables are missing
+  - Core table validation (e.g., `profiles` table) ensures system can function
+  - Idempotent migrations using `CREATE TABLE IF NOT EXISTS`
 - ✅ Neo4j provisioning service (`services/neo4j_service.py`)
   - Creates `:User` nodes with email property
   - Async driver with proper connection management
@@ -113,7 +118,8 @@ Security Risk: Internal APIs may be exposed without consistent identity validati
 │   ├── supabase_service.py # User provisioning & queries
 │   ├── neo4j_service.py   # Neo4j user provisioning
 │   ├── minio_service.py   # MinIO user provisioning
-│   └── auth_service.py    # Admin checks
+│   ├── auth_service.py    # Admin checks
+│   └── database_validation_service.py # Database schema validation & migrations
 ├── README.md              # Project documentation
 └── SECURITY.md            # Security considerations
 
@@ -449,7 +455,7 @@ Before deploying to production, verify:
 
 - [ ] Cloudflare Access application configured with correct AUD tag
 - [ ] Environment variables set in `.env` or Infisical
-- [ ] Supabase `profiles` table exists (or will be auto-created)
+- [x] Supabase `profiles` table exists (automatically created via migrations on Lambda server startup)
 - [ ] Neo4j database accessible and user can create nodes
 - [ ] MinIO `user-data` bucket exists (or will be auto-created)
 - [ ] Test endpoints return correct user-scoped data
@@ -476,7 +482,10 @@ Before deploying to production, verify:
    ```
 
 **Database Setup:**
-- Supabase: Ensure `profiles` table exists or will be created by provisioning
+- Supabase: `profiles` table is automatically created via migrations during Lambda server startup (no manual intervention needed)
+  - Migrations are automatically applied from `01-data/supabase/migrations/` on startup
+  - Core tables are validated on every startup to prevent accidental deletion
+  - See [Supabase Migrations README](../../01-data/supabase/migrations/README.md) for details
 - Neo4j: No schema changes required (nodes created on-demand)
 - MinIO: `user-data` bucket will be created automatically if missing
 

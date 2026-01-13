@@ -83,12 +83,6 @@ def list_loras(api_base_url: str, headers: dict[str, str], limit: int = 100, off
                 print("   For local development, use internal network URL:")
                 print("     export API_BASE_URL=http://lambda-server:8000")
         return None
-    except Exception as e:
-        print(f"\n✗ Error: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return None
 
 
 def main():

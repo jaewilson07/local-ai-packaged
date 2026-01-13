@@ -8,10 +8,49 @@ This script:
 3. Reports success/failure for each sample
 4. Provides a summary at the end
 
+Validation:
+Samples are validated through multiple mechanisms:
+
+1. **Exit Code Validation**: Each sample should exit with code 0 on success, non-zero on failure.
+   - Successful samples return 0
+   - Failed samples return 1 (or raise exceptions)
+
+2. **Verification Helpers**: Many samples use verification helpers from `sample/shared/verification_helpers.py`:
+   - `verify_search_results()` - Validates search results are returned
+   - `verify_rag_data()` - Validates RAG data via API endpoints
+   - `verify_calendar_data()` - Validates calendar events via API
+   - `verify_neo4j_data()` - Validates Neo4j nodes/relationships via API
+   - `verify_mongodb_data()` - Validates MongoDB documents via API
+   - `verify_supabase_data()` - Validates Supabase tables via API
+   - `verify_storage_data()` - Validates MinIO storage files via API
+   - `verify_loras_data()` - Validates ComfyUI LoRA models via API
+
+3. **API Verification**: Samples that create persistent data verify via REST API:
+   - Internal network: `http://lambda-server:8000` (no auth required)
+   - External network: `https://api.datacrew.space` (requires Cloudflare Access JWT)
+   - Verification functions automatically handle authentication
+
+4. **Result Validation**: Samples validate their own results:
+   - Check that expected data was created/retrieved
+   - Verify data structure and content
+   - Ensure minimum expected counts are met
+
+5. **Error Handling**: All samples include:
+   - Try/except blocks for graceful error handling
+   - Proper cleanup in finally blocks
+   - Clear error messages for debugging
+
+Prerequisites:
+- Dependencies installed: Run `python setup/install_clis.py` or `cd 04-lambda && uv pip install -e ".[test,samples]"`
+- Services running: MongoDB, Neo4j, Ollama, etc. (as needed by samples)
+- Environment variables: Configure `.env` or Infisical with required variables
+- Authentication: For external API calls, set `CF_ACCESS_JWT` environment variable
+
 Usage:
     python scripts/run_all_samples.py
     python scripts/run_all_samples.py --verbose
     python scripts/run_all_samples.py --filter calendar
+    python scripts/run_all_samples.py --timeout 600 --continue-on-error
 """
 
 import argparse
@@ -91,14 +130,13 @@ def run_sample_file(
             if verbose:
                 print(f"✓ Success: {relative_path}")
             return (sample_file, True, "")
-        else:
-            error_msg = result.stderr[:500] if result.stderr else "Unknown error"
-            if verbose:
-                print(f"✗ Failed: {relative_path}")
-                print(f"  Exit code: {result.returncode}")
-                if result.stderr:
-                    print(f"  Error: {result.stderr[:500]}")
-            return (sample_file, False, error_msg)
+        error_msg = result.stderr[:500] if result.stderr else "Unknown error"
+        if verbose:
+            print(f"✗ Failed: {relative_path}")
+            print(f"  Exit code: {result.returncode}")
+            if result.stderr:
+                print(f"  Error: {result.stderr[:500]}")
+        return (sample_file, False, error_msg)
 
     except subprocess.TimeoutExpired:
         error_msg = f"Timeout (exceeded {timeout}s)"
@@ -155,6 +193,40 @@ def main():
     if args.filter:
         print(f"Filter pattern: {args.filter}")
     print()
+
+    # Check for common missing dependencies
+    missing_deps = []
+    try:
+        import pydantic_ai
+    except ImportError:
+        missing_deps.append("pydantic-ai")
+
+    try:
+        import neo4j
+    except ImportError:
+        missing_deps.append("neo4j")
+
+    try:
+        import requests
+    except ImportError:
+        missing_deps.append("requests")
+
+    if missing_deps:
+        print("⚠️  Warning: Missing dependencies detected:")
+        for dep in missing_deps:
+            print(f"   - {dep}")
+        print()
+        print("💡 To install all dependencies, run:")
+        print("   python setup/install_clis.py")
+        print("   # Or manually:")
+        print("   cd 04-lambda && uv pip install -e '.[test,samples]'")
+        print()
+        print("⚠️  Note: Also ensure required services are running (MongoDB, Neo4j, etc.)")
+        print()
+    else:
+        print("✅ Dependencies check passed")
+        print("⚠️  Note: Ensure required services are running (MongoDB, Neo4j, etc.)")
+        print()
 
     # Find all sample files
     sample_files = find_sample_files(args.filter)
@@ -218,6 +290,15 @@ def main():
                 print(f"  - {relative_path}")
                 if error_msg:
                     print(f"    Error: {error_msg[:200]}")
+
+        print("\n💡 Common Issues and Solutions:")
+        print("   1. Missing dependencies: Run 'cd 04-lambda && uv pip install -e \".[test]\"'")
+        print("   2. Services not running: Start required services (MongoDB, Neo4j, etc.)")
+        print("   3. Environment variables: Check .env file or Infisical configuration")
+        print(
+            "   4. Import errors: Ensure Python path is set correctly (samples handle this automatically)"
+        )
+        print("   5. Network errors: Verify services are accessible at configured URLs")
 
     print("=" * 80)
 

@@ -14,9 +14,9 @@ project_root = Path(__file__).parent.parent.parent
 server_path = project_root / "04-lambda" / "server"
 sys.path.insert(0, str(server_path))
 
-import logging
+import logging  # noqa: E402
 
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -109,12 +109,11 @@ async def crawl_bluesmuse():
 
             print("\n" + "=" * 80)
             return True
-        else:
-            logger.error(f"❌ Crawl failed: {result.error_message}")
-            return False
+        logger.error(f"❌ Crawl failed: {result.error_message}")
+        return False
 
-    except Exception as e:
-        logger.exception(f"❌ Error during crawl: {e}")
+    except Exception:
+        logger.exception("❌ Error during crawl")
         return False
     finally:
         # Cleanup
@@ -135,33 +134,28 @@ async def main():
         print("\n✅ Test completed successfully!")
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_rag_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_rag_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success_verify, message = verify_rag_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_documents_min=1,
-            )
-            print(message)
+        success_verify, message = verify_rag_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_documents_min=1,
+        )
+        print(message)
 
-            if success_verify:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (data may need time to propagate)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success_verify:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed (data may need time to propagate)")
             sys.exit(1)
     else:
         print("\n❌ Test failed!")

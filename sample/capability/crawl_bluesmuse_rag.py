@@ -30,9 +30,8 @@ async def check_server_health() -> bool:
             if response.status_code == 200:
                 print("✅ Server is healthy")
                 return True
-            else:
-                print(f"⚠️  Server returned status {response.status_code}")
-                return False
+            print(f"⚠️  Server returned status {response.status_code}")
+            return False
     except Exception as e:
         print(f"❌ Server health check failed: {e}")
         return False
@@ -73,11 +72,10 @@ async def crawl_single_page(url: str) -> dict[str, Any]:
                         print(f"    • {error}")
 
                 return result
-            else:
-                error_text = response.text
-                print(f"❌ Request failed with status {response.status_code}")
-                print(f"Response: {error_text[:500]}")
-                return {"success": False, "error": error_text}
+            error_text = response.text
+            print(f"❌ Request failed with status {response.status_code}")
+            print(f"Response: {error_text[:500]}")
+            return {"success": False, "error": error_text}
 
     except httpx.TimeoutException:
         print("❌ Request timed out (180 seconds)")
@@ -129,11 +127,10 @@ async def crawl_deep(url: str, max_depth: int) -> dict[str, Any]:
                         print(f"    • {error}")
 
                 return result
-            else:
-                error_text = response.text
-                print(f"❌ Request failed with status {response.status_code}")
-                print(f"Response: {error_text[:500]}")
-                return {"success": False, "error": error_text}
+            error_text = response.text
+            print(f"❌ Request failed with status {response.status_code}")
+            print(f"Response: {error_text[:500]}")
+            return {"success": False, "error": error_text}
 
     except httpx.TimeoutException:
         print("❌ Request timed out (300 seconds)")
@@ -178,11 +175,10 @@ async def validate_mongodb_ingestion(search_query: str = "Blues Muse") -> dict[s
                         print(f"     Preview: {text_preview}...")
 
                 return {"success": True, "matches": len(matches), "results": matches}
-            else:
-                error_text = response.text
-                print(f"❌ Search failed with status {response.status_code}")
-                print(f"Response: {error_text[:500]}")
-                return {"success": False, "error": error_text}
+            error_text = response.text
+            print(f"❌ Search failed with status {response.status_code}")
+            print(f"Response: {error_text[:500]}")
+            return {"success": False, "error": error_text}
 
     except Exception as e:
         print(f"❌ Error during validation: {e}")

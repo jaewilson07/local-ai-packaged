@@ -89,16 +89,13 @@ def get_auth_headers():
             "Authorization": f"Bearer {api_token.strip()}",
             "Content-Type": "application/json",
         }
-    elif email and email.strip() and api_key and api_key.strip():
+    if email and email.strip() and api_key and api_key.strip():
         return {
             "X-Auth-Email": email.strip(),
             "X-Auth-Key": api_key.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError(
-            "Either API token or email+API key must be provided (check Infisical or .env)"
-        )
+    raise ValueError("Either API token or email+API key must be provided (check Infisical or .env)")
 
 
 def get_account_id(headers):

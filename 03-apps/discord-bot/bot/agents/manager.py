@@ -110,8 +110,8 @@ class AgentManager:
         try:
             await agent.start()
             return True
-        except Exception as e:
-            logger.exception(f"Failed to start agent {agent_id}: {e}")
+        except Exception:
+            logger.exception("Failed to start agent {agent_id}")
             return False
 
     async def stop_agent(self, agent_id: str) -> bool:
@@ -131,8 +131,8 @@ class AgentManager:
         try:
             await agent.stop()
             return True
-        except Exception as e:
-            logger.exception(f"Failed to stop agent {agent_id}: {e}")
+        except Exception:
+            logger.exception("Failed to stop agent {agent_id}")
             return False
 
     async def start_all_agents(self) -> None:

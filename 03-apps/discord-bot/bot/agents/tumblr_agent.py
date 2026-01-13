@@ -82,7 +82,7 @@ class TumblrAgent(BaseAgent):
             )
             logger.info(f"Tumblr agent {self.agent_id} connected to Tumblr")
         except Exception as e:
-            logger.exception(f"Failed to connect to Tumblr: {e}")
+            logger.exception("Failed to connect to Tumblr")
             self.status = self.status.__class__.ERROR
             self.last_error = str(e)
             self.status_message = f"Failed to connect: {e}"
@@ -111,16 +111,15 @@ class TumblrAgent(BaseAgent):
         try:
             if action == "repost":
                 return await self._repost(task)
-            elif action == "share_url":
+            if action == "share_url":
                 return await self._share_url(task)
-            elif action == "post_text":
+            if action == "post_text":
                 return await self._post_text(task)
-            elif action == "extract_urls":
+            if action == "extract_urls":
                 return await self._extract_urls(task)
-            else:
-                raise ValueError(f"Unknown action: {action}")
-        except Exception as e:
-            logger.exception(f"Error processing Tumblr task: {e}")
+            raise ValueError(f"Unknown action: {action}")
+        except Exception:
+            logger.exception("Error processing Tumblr task")
             raise
 
     async def _repost(self, task: dict[str, Any]) -> dict[str, Any]:

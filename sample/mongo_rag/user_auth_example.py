@@ -31,11 +31,14 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.ingestion.pipeline import DocumentIngestionPipeline, IngestionConfig
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.mongo_rag.dependencies import AgentDependencies  # noqa: E402
+from server.projects.mongo_rag.ingestion.pipeline import (
+    DocumentIngestionPipeline,
+    IngestionConfig,
+)
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -169,34 +172,29 @@ async def demonstrate_user_auth():
         logger.info("=" * 60)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_rag_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_rag_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            logger.info("\n" + "=" * 60)
-            logger.info("Verification")
-            logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
+        logger.info("Verification")
+        logger.info("=" * 60)
 
-            success, message = verify_rag_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_documents_min=1,
-            )
-            logger.info(message)
+        success, message = verify_rag_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_documents_min=1,
+        )
+        logger.info(message)
 
-            if success:
-                logger.info("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                logger.warning("\n⚠️  Verification failed (data may need time to propagate)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
+        if success:
+            logger.info("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            logger.warning("\n❌ Verification failed (data may need time to propagate)")
             sys.exit(1)
-
     finally:
         await deps.cleanup()
 

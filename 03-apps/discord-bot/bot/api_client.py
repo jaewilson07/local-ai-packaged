@@ -1,0 +1,188 @@
+"""HTTP client for Lambda API services."""
+
+import logging
+from typing import Any
+
+import aiohttp
+
+logger = logging.getLogger(__name__)
+
+
+class APIClient:
+    """Client for making HTTP requests to Lambda API."""
+
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str | None = None,
+        cloudflare_client_id: str | None = None,
+        cloudflare_client_secret: str | None = None,
+    ):
+        """
+        Initialize API client.
+
+        Args:
+            base_url: Base URL for Lambda API
+            api_key: Optional API key for authentication
+            cloudflare_client_id: Optional Cloudflare Access service token client ID
+            cloudflare_client_secret: Optional Cloudflare Access service token client secret
+        """
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.cloudflare_client_id = cloudflare_client_id
+        self.cloudflare_client_secret = cloudflare_client_secret
+        self.session: aiohttp.ClientSession | None = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create aiohttp session."""
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
+        return self.session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+    def _get_headers(self) -> dict[str, str]:
+        """Get request headers."""
+        headers = {"Content-Type": "application/json"}
+
+        # Check if this is a public URL (needs Cloudflare Access)
+        is_public_url = any(domain in self.base_url for domain in ["datacrew.space", "https://"])
+
+        if is_public_url:
+            # Use Cloudflare Access service token for public URLs
+            if self.cloudflare_client_id and self.cloudflare_client_secret:
+                headers["CF-Access-Client-Id"] = self.cloudflare_client_id
+                headers["CF-Access-Client-Secret"] = self.cloudflare_client_secret
+                logger.debug("Using Cloudflare Access service token for authentication")
+            else:
+                logger.warning(
+                    f"Public URL detected ({self.base_url}) but Cloudflare Access credentials not provided. "
+                    "Requests may fail with 403 Forbidden."
+                )
+        elif self.api_key:
+            # Use API key for internal/alternative authentication
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        return headers
+
+    async def _request(
+        self, method: str, endpoint: str, json_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """
+        Make an HTTP request.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint (e.g., "/api/v1/discord/characters/add")
+            json_data: Optional JSON data for request body
+
+        Returns:
+            Response JSON as dictionary
+
+        Raises:
+            aiohttp.ClientError: If request fails
+        """
+        session = await self._get_session()
+        url = f"{self.base_url}{endpoint}"
+        headers = self._get_headers()
+
+        try:
+            async with session.request(method, url, json=json_data, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+        except aiohttp.ClientError as e:
+            logger.error(f"API request failed: {e}")
+            raise
+
+    async def add_character(
+        self, channel_id: str, character_id: str, persona_id: str | None = None
+    ) -> dict[str, Any]:
+        """Add a character to a channel."""
+        return await self._request(
+            "POST",
+            "/api/v1/discord/characters/add",
+            {
+                "channel_id": channel_id,
+                "character_id": character_id,
+                "persona_id": persona_id or character_id,
+            },
+        )
+
+    async def remove_character(self, channel_id: str, character_id: str) -> dict[str, Any]:
+        """Remove a character from a channel."""
+        return await self._request(
+            "POST",
+            "/api/v1/discord/characters/remove",
+            {"channel_id": channel_id, "character_id": character_id},
+        )
+
+    async def list_characters(self, channel_id: str) -> list[dict[str, Any]]:
+        """List all characters in a channel."""
+        return await self._request(
+            "GET", f"/api/v1/discord/characters/list?channel_id={channel_id}"
+        )
+
+    async def clear_history(
+        self, channel_id: str, character_id: str | None = None
+    ) -> dict[str, Any]:
+        """Clear conversation history."""
+        return await self._request(
+            "POST",
+            "/api/v1/discord/characters/clear-history",
+            {"channel_id": channel_id, "character_id": character_id},
+        )
+
+    async def chat(
+        self,
+        channel_id: str,
+        character_id: str,
+        user_id: str,
+        message: str,
+        message_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a character response."""
+        return await self._request(
+            "POST",
+            "/api/v1/discord/characters/chat",
+            {
+                "channel_id": channel_id,
+                "character_id": character_id,
+                "user_id": user_id,
+                "message": message,
+                "message_id": message_id,
+            },
+        )
+
+    async def check_engagement(
+        self, channel_id: str, character_id: str, recent_messages: list[str]
+    ) -> dict[str, Any]:
+        """Check if a character should engage."""
+        return await self._request(
+            "POST",
+            "/api/v1/discord/characters/engage",
+            {
+                "channel_id": channel_id,
+                "character_id": character_id,
+                "recent_messages": recent_messages,
+            },
+        )
+
+    async def query_knowledge_store(self, query: str) -> dict[str, Any]:
+        """Query the RAG knowledge base using the conversational agent."""
+        return await self._request("POST", "/api/v1/rag/agent", {"query": query})
+
+    async def get_bot_config(self, config_id: str = "global") -> dict[str, Any]:
+        """
+        Get Discord bot configuration from Lambda API.
+
+        Args:
+            config_id: Configuration identifier ('global' or guild_id)
+
+        Returns:
+            Bot configuration including enabled_capabilities and capability_settings
+        """
+        return await self._request("GET", f"/admin/discord/config?config_id={config_id}")

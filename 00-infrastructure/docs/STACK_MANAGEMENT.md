@@ -31,7 +31,7 @@ Profiles:
 # Infrastructure (cloudflared, caddy, redis)
 python start_services.py --stack infrastructure
 
-# Infisical (infisical-backend, infisical-db, infisical-redis)
+# Infisical (external standalone project - managed via start_services.py)
 python start_services.py --stack infisical
 
 # Data (supabase, qdrant, neo4j, mongodb, minio)
@@ -61,7 +61,7 @@ python start_services.py --action stop
 # Stop infrastructure
 python start_services.py --action stop --stack infrastructure
 
-# Stop infisical
+# Stop infisical (external standalone project)
 python start_services.py --action stop --stack infisical
 
 # Stop data
@@ -91,7 +91,7 @@ python start_services.py --profile gpu-nvidia
 # Update infrastructure
 python start_services.py --stack infrastructure
 
-# Update infisical
+# Update infisical (external standalone project)
 python start_services.py --stack infisical
 
 # Update data
@@ -113,7 +113,8 @@ python start_services.py --stack lambda
 # Infrastructure stack
 docker compose -p localai-infra logs -f
 
-# Infisical stack
+# Infisical stack (external standalone project)
+# Note: Infisical is managed from /home/jaewilson07/GitHub/infisical-standalone
 docker compose -p localai-infisical logs -f
 
 # Data stack
@@ -143,7 +144,7 @@ Once services are running, access them via:
 - **Flowise**: `http://localhost:3001` or via Caddy hostname
 - **Langfuse**: `http://localhost:3000` or via Caddy hostname
 - **Supabase Studio**: `http://localhost:8000` or via Caddy hostname
-- **Infisical**: `http://localhost:8080` (infisical-backend) or via Caddy hostname
+- **Infisical**: `http://localhost:8080` (infisical-backend) or via Caddy hostname (external standalone project)
 
 ## Troubleshooting
 
@@ -177,7 +178,7 @@ docker restart <container-name>
 
 Start order (if starting manually):
 1. **Infrastructure** - Network, reverse proxy (creates `ai-network`)
-2. **Infisical** - Secret management (optional, can start later)
+2. **Infisical** - Secret management (external standalone project, optional, can start later)
 3. **Data** - Databases must be ready
 4. **Compute** - AI inference services
 5. **Apps** - Application services depend on data and compute
@@ -188,7 +189,7 @@ Start order (if starting manually):
 Each stack uses its own Docker Compose project name:
 
 - `localai-infra` - Infrastructure services
-- `localai-infisical` - Infisical secret management
+- `localai-infisical` - Infisical secret management (external standalone project)
 - `localai-data` - Data persistence services
 - `localai-compute` - AI compute services
 - `localai-apps` - Application services

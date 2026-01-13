@@ -67,9 +67,8 @@ async def test_searxng_search():
                 print(f"\n⚠️  Verification error: {e}")
 
             return True
-        else:
-            print("  ⚠ No results returned")
-            return False
+        print("  ⚠ No results returned")
+        return False
 
     except httpx.TimeoutException:
         print("✗ Request timed out")

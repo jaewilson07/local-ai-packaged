@@ -13,6 +13,39 @@ The crawled content is:
 Prerequisites:
 - MongoDB running
 - Environment variables configured (MONGODB_URI, LLM_BASE_URL, EMBEDDING_BASE_URL, etc.)
+- Dependencies installed: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+
+Validation:
+This sample validates its results through:
+
+1. **Crawl Result Validation**:
+   - Verifies that the page is successfully crawled
+   - Checks that content is extracted as markdown
+   - Validates that chunks are created and stored
+   - Confirms that embeddings are generated
+
+2. **Exit Code Validation**:
+   - Returns exit code 0 if crawl and ingestion succeed
+   - Returns exit code 1 if crawl fails or errors occur
+
+3. **Error Handling**:
+   - Catches and logs exceptions during crawling
+   - Handles network errors gracefully
+   - Provides clear error messages for debugging
+   - Ensures proper cleanup of dependencies
+
+4. **Result Structure Validation**:
+   - Verifies crawl result contains expected fields (url, content, metadata)
+   - Checks that document IDs and chunk IDs are generated
+   - Validates chunk counts match expectations
+   - Confirms source URL is preserved in metadata
+
+The sample will fail validation if:
+- URL is inaccessible or returns errors
+- Content extraction fails
+- MongoDB connection fails
+- Embedding generation fails
+- Chunking or storage operations fail
 """
 
 import asyncio
@@ -24,11 +57,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_single_page
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
+from server.projects.crawl4ai_rag.tools import crawl_and_ingest_single_page  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -116,42 +149,32 @@ async def main():
         print("=" * 80)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_rag_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_rag_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            successful_results = [r for r in all_results if r.get("success")]
+        successful_results = [r for r in all_results if r.get("success")]
 
-            success, message = verify_rag_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_documents_min=len(successful_results) if successful_results else None,
-                expected_chunks_min=total_chunks if total_chunks > 0 else None,
-            )
-            print(message)
+        success, message = verify_rag_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_documents_min=len(successful_results) if successful_results else None,
+            expected_chunks_min=total_chunks if total_chunks > 0 else None,
+        )
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (data may need time to propagate)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
+        if success:
+            print("\n✅ Verification passed!")
+            sys.exit(0)
+        else:
+            print("\n❌ Verification failed (data may need time to propagate)")
             sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during crawl: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

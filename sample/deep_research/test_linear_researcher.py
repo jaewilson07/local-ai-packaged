@@ -85,9 +85,8 @@ async def test_linear_researcher():
                 print(f"\n⚠️  Verification skipped: {e}")
 
             return True
-        else:
-            print("⚠️  Warning: Answer seems too short")
-            return False
+        print("⚠️  Warning: Answer seems too short")
+        return False
 
     except Exception as e:
         print(f"✗ Error: {e}")

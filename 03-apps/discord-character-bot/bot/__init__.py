@@ -1,1 +1,0 @@
-"""Discord Character Bot package."""

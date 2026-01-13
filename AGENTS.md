@@ -72,7 +72,7 @@ docker compose -p localai-lambda ps    # Lambda
 Services are organized into numbered stacks with explicit dependencies:
 
 1. **00-infrastructure**: Foundation services (cloudflared, caddy, redis) - Project: `localai-infra`
-2. **00-infrastructure/infisical**: Secret management (infisical-backend, infisical-db, infisical-redis) - Project: `localai-infisical`
+2. **infisical-standalone**: Secret management (external standalone project) - Project: `localai-infisical`
 3. **01-data**: Data stores (supabase, qdrant, neo4j, mongodb, minio) - Project: `localai-data`
 4. **02-compute**: AI compute (ollama, comfyui) - Project: `localai-compute`
 5. **03-apps**: Application layer (n8n, flowise, open-webui, searxng, langfuse, clickhouse) - Project: `localai-apps`
@@ -86,11 +86,24 @@ The Lambda server implements a centralized authentication system using Cloudflar
 
 - **Method**: Header-based JWT validation (`Cf-Access-Jwt-Assertion`)
 - **IdP**: Google OAuth (via Cloudflare Access)
-- **JIT Provisioning**: Automatically creates users in Supabase, Neo4j, and MinIO on first access
+- **JIT Provisioning**: Automatically creates users in Supabase, Neo4j, MinIO, MongoDB, and Immich on first access
 - **Data Isolation**: Enforces user-scoped data access across all storage layers
 - **Admin Override**: Users with `role: "admin"` can view all data
 - **Location**: `04-lambda/server/projects/auth/`
 - **Documentation**: See [Auth Project README](04-lambda/server/projects/auth/README.md) and [04-lambda/AGENTS.md](04-lambda/AGENTS.md)
+
+### Database Schema Management
+
+The Lambda server automatically validates and applies database migrations on startup:
+
+- **Automatic Migration Application**: Migrations in `01-data/supabase/migrations/` are automatically applied during Lambda server startup
+- **Core Table Validation**: Validates that critical tables (e.g., `profiles`) exist before allowing requests
+- **Idempotent Migrations**: All migrations use `CREATE TABLE IF NOT EXISTS` to be safe to run multiple times
+- **Startup Validation**: Lambda server validates core tables exist and applies missing migrations before accepting requests
+- **Protection**: Core tables are validated on every startup to prevent accidental deletion
+- **Location**: `04-lambda/server/projects/auth/services/database_validation_service.py`
+- **Migration Files**: `01-data/supabase/migrations/*.sql`
+- **Documentation**: See [Supabase Migrations README](01-data/supabase/migrations/README.md)
 
 ### Network Architecture
 - **External Network**: All services use `ai-network` (created by infrastructure stack)
@@ -291,11 +304,13 @@ async def protected_endpoint(user: User = Depends(get_current_user)):
   - **Neo4j**: Use user anchoring: `MATCH (u:User {email: $email})`
   - **MinIO**: Filter by `user-{uuid}/` prefix
   - **MongoDB**: Filter by `user_id` or `user_email` fields
+  - **Immich**: Each user has their own Immich account (1:1 mapping with Cloudflare Access email), API keys stored in `profiles.immich_api_key`
 
 **JIT Provisioning**:
 - Automatically handled by `get_current_user` dependency
-- Creates user in Supabase, Neo4j, and MinIO on first access
+- Creates user in Supabase, Neo4j, MinIO, MongoDB, and Immich on first access
 - Failures are logged but don't block authentication
+- Immich users get auto-generated API keys stored in `profiles.immich_api_key`
 
 See [Auth Project README](04-lambda/server/projects/auth/README.md) for complete patterns.
 
@@ -404,7 +419,7 @@ finally:
 - **Lambda Package Persistence**: Python packages stored in Docker volume (`lambda-packages`) to avoid reinstalling on every restart
 - **Network Auto-Creation**: `start_services.py` automatically creates `ai-network` if it doesn't exist
 - **Cloudflare Access Authentication**: Lambda server validates JWTs from `Cf-Access-Jwt-Assertion` header. Internal network requests bypass authentication.
-- **JIT User Provisioning**: Users automatically created in Supabase, Neo4j, and MinIO on first authenticated request.
+- **JIT User Provisioning**: Users automatically created in Supabase, Neo4j, MinIO, MongoDB, and Immich on first authenticated request. Immich API keys are auto-generated and stored in `profiles.immich_api_key`.
 
 ### Common Mistakes to Avoid
 1. **Port Conflicts**: Don't hardcode ports. Use environment variables or expose-only.
@@ -412,6 +427,11 @@ finally:
 3. **Volume Paths**: MUST use full paths from project root (e.g., `./03-apps/flowise/data`, not `./flowise/data`). See [docs/docker-compose-volume-paths.md](docs/docker-compose-volume-paths.md).
 4. **Profile Mismatch**: Ensure GPU profile services match the `--profile` flag.
 5. **Secret Exposure**: Never commit `.env` files or hardcode secrets in compose files.
+6. **Health Check Tools**: Use `nc -z localhost PORT` for TCP port checks when `wget`/`curl` aren't available in container. Use HTTP checks (`wget`/`curl`) when service has HTTP endpoints. **Use `127.0.0.1` instead of `localhost` in health checks** to avoid IPv6 connection issues (e.g., `http://127.0.0.1:3000/api/health`).
+7. **Environment Variable Loading**: Use `env_file: - ../../.env` in docker-compose.yml to load variables from root `.env` file (path relative to compose file location).
+8. **Service Dependencies**: Use `service_started` instead of `service_healthy` for dependencies when a service can function even if its dependency is unhealthy (e.g., database can start even if vector is unhealthy).
+9. **One-Time Import/Init Services**: Services that run once and exit (e.g., `n8n-import`) should use `restart: "no"` to prevent blocking startup if Docker Desktop/WSL mount issues occur. These services complete their task and exit, so they don't need to restart.
+10. **Database Migrations**: Migrations are automatically applied during Lambda server startup. Never manually delete core tables (e.g., `profiles`) - they will be recreated automatically but data will be lost. Always backup before schema changes.
 
 ## Search Hints
 
@@ -458,6 +478,7 @@ rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" 04-lambda/s
 6. **Cross-Stack Dependencies**: `depends_on` only works within the same compose project. For cross-stack dependencies, rely on health checks and application-level retry logic.
 7. **Authentication Errors**: If JWT validation fails, check `CLOUDFLARE_AUD_TAG` matches Cloudflare Access app configuration. Use `get-lambda-api-aud-tag.py` script to retrieve AUD tag.
 8. **Data Isolation Issues**: Verify user email matches in all queries. Check admin status if expecting to see all data. Ensure queries use user anchoring for Neo4j.
+9. **Database Schema Errors**: If you see "relation 'profiles' does not exist", check Lambda server logs for migration errors. Migrations are automatically applied on startup. If errors persist, verify database connection and manually apply migrations using `01-data/supabase/migrations/README.md` instructions.
 
 ---
 

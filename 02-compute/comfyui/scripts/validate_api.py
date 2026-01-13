@@ -32,9 +32,8 @@ def check_service_status():
         if response.status_code == 200:
             print("✅ ComfyUI web interface is accessible")
             return True
-        else:
-            print(f"⚠️  ComfyUI returned status code: {response.status_code}")
-            return False
+        print(f"⚠️  ComfyUI returned status code: {response.status_code}")
+        return False
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to ComfyUI. Is the container running?")
         print(f"   Expected URL: {BASE_URL}")
@@ -57,12 +56,11 @@ def check_api_docs():
             print("✅ API documentation is accessible (no auth required)")
             print(f"   URL: {API_DOCS}")
             return True, None
-        elif response.status_code == 401:
+        if response.status_code == 401:
             print("⚠️  API requires authentication")
             return False, "auth_required"
-        else:
-            print(f"⚠️  API docs returned status code: {response.status_code}")
-            return False, None
+        print(f"⚠️  API docs returned status code: {response.status_code}")
+        return False, None
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to API wrapper service")
         print(f"   Expected URL: {API_DOCS}")
@@ -88,9 +86,8 @@ def check_api_with_auth():
             print("✅ API is accessible with authentication")
             print(f"   Using credentials: {WEB_USER} / {WEB_PASSWORD}")
             return True, session
-        else:
-            print(f"⚠️  API returned status code: {response.status_code}")
-            return False, None
+        print(f"⚠️  API returned status code: {response.status_code}")
+        return False, None
     except Exception as e:
         print(f"❌ Error checking API with auth: {e}")
         return False, None
@@ -152,10 +149,9 @@ def check_api_wrapper_endpoint(session=None):
                     print("✅ API wrapper payload endpoint is available")
                     print(f"   Endpoint: POST {API_PAYLOAD}")
                     return True
-                else:
-                    print("⚠️  API wrapper endpoint not found in schema")
-                    print(f"   Available paths: {list(paths.keys())}")
-                    return False
+                print("⚠️  API wrapper endpoint not found in schema")
+                print(f"   Available paths: {list(paths.keys())}")
+                return False
             except json.JSONDecodeError:
                 print("⚠️  API returned non-JSON response")
                 print(f"   Response preview: {response.text[:200]}...")
@@ -222,9 +218,8 @@ def main():
         print(f"\n📚 API Documentation: {API_DOCS}")
         print(f"📤 API Payload Endpoint: POST {API_PAYLOAD}")
         return 0
-    else:
-        print("\n⚠️  Some services are not accessible. Check the errors above.")
-        return 1
+    print("\n⚠️  Some services are not accessible. Check the errors above.")
+    return 1
 
 
 if __name__ == "__main__":

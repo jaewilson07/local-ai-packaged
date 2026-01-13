@@ -21,9 +21,9 @@ The infrastructure stack provides core connectivity, security, and secret manage
 - **[Email Health](./cloudflare/email-health.md)** - Email DNS configuration
 
 ### Infisical
-- **[Setup Guide](../../docs/infisical/setup.md)** - Setting up Infisical
-- **[Usage Guide](../../docs/infisical/usage.md)** - Using Infisical for secrets
-- **[Conflicts & Troubleshooting](../../docs/infisical/conflicts.md)** - Resolving Docker Compose conflicts
+- **Status**: External standalone project (not part of this repository)
+- **Location**: `/home/jaewilson07/GitHub/infisical-standalone`
+- **Note**: Infisical is managed separately but can still be accessed via Caddy routing when running
 
 ## Migration Documentation
 

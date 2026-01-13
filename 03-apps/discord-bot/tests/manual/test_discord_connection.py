@@ -111,11 +111,10 @@ async def test_discord_connection():
             print("✅ All Discord connection tests passed!")
             print("=" * 60)
             return True
-        else:
-            print("❌ Failed to connect to Discord")
-            if error_message:
-                print(f"Error: {error_message}")
-            return False
+        print("❌ Failed to connect to Discord")
+        if error_message:
+            print(f"Error: {error_message}")
+        return False
 
     except discord.LoginFailure:
         print("❌ ERROR: Invalid bot token")

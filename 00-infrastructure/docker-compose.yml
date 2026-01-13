@@ -97,8 +97,8 @@ services:
       - default
     logging: *logging-json
     healthcheck:
-      # Health check with Host header to avoid 404
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider --header='Host: localhost' http://localhost:80 || exit 1"]
+      # Health check using dedicated /health endpoint
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1"]
       <<: *healthcheck-fast
 
   # Redis for n8n and other services

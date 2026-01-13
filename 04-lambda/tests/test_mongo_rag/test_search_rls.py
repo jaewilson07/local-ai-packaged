@@ -174,7 +174,17 @@ class TestSemanticSearchRLS:
         ctx = MockRunContext(mock_deps_with_user)
 
         # Mock aggregation to return own document chunk
-        mock_cursor = async_iter([sample_chunk_own])
+        # The aggregation pipeline projects chunk_id from _id, so mock should match pipeline output
+        mock_aggregation_result = {
+            "chunk_id": sample_chunk_own["_id"],
+            "document_id": sample_chunk_own["document_id"],
+            "content": sample_chunk_own["content"],
+            "similarity": 0.95,
+            "metadata": sample_chunk_own.get("metadata", {}),
+            "document_title": sample_chunk_own["document_info"]["title"],
+            "document_source": sample_chunk_own["document_info"].get("source", ""),
+        }
+        mock_cursor = async_iter([mock_aggregation_result])
         mock_deps_with_user.db.__getitem__ = Mock(return_value=AsyncMock())
         mock_collection = mock_deps_with_user.db["chunks"]
         mock_collection.aggregate = AsyncMock(return_value=mock_cursor)
@@ -192,7 +202,17 @@ class TestSemanticSearchRLS:
         """Test semantic search includes public documents."""
         ctx = MockRunContext(mock_deps_with_user)
 
-        mock_cursor = async_iter([sample_chunk_public])
+        # Mock aggregation pipeline output structure
+        mock_aggregation_result = {
+            "chunk_id": sample_chunk_public["_id"],
+            "document_id": sample_chunk_public["document_id"],
+            "content": sample_chunk_public["content"],
+            "similarity": 0.95,
+            "metadata": sample_chunk_public.get("metadata", {}),
+            "document_title": sample_chunk_public["document_info"]["title"],
+            "document_source": sample_chunk_public["document_info"].get("source", ""),
+        }
+        mock_cursor = async_iter([mock_aggregation_result])
         mock_deps_with_user.db.__getitem__ = Mock(return_value=AsyncMock())
         mock_collection = mock_deps_with_user.db["chunks"]
         mock_collection.aggregate = AsyncMock(return_value=mock_cursor)
@@ -210,7 +230,17 @@ class TestSemanticSearchRLS:
         """Test semantic search includes shared documents."""
         ctx = MockRunContext(mock_deps_with_user)
 
-        mock_cursor = async_iter([sample_chunk_shared])
+        # Mock aggregation pipeline output structure
+        mock_aggregation_result = {
+            "chunk_id": sample_chunk_shared["_id"],
+            "document_id": sample_chunk_shared["document_id"],
+            "content": sample_chunk_shared["content"],
+            "similarity": 0.95,
+            "metadata": sample_chunk_shared.get("metadata", {}),
+            "document_title": sample_chunk_shared["document_info"]["title"],
+            "document_source": sample_chunk_shared["document_info"].get("source", ""),
+        }
+        mock_cursor = async_iter([mock_aggregation_result])
         mock_deps_with_user.db.__getitem__ = Mock(return_value=AsyncMock())
         mock_collection = mock_deps_with_user.db["chunks"]
         mock_collection.aggregate = AsyncMock(return_value=mock_cursor)

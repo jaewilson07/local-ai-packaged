@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 bot/__init__.py
+bot/api_client.py
 bot/config.py
 bot/database.py
 bot/immich_client.py

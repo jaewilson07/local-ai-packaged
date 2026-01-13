@@ -140,8 +140,14 @@ All scripts require Python 3 and may use the following packages:
 
 Install dependencies:
 ```bash
+# Install CLI tools and Python dependencies (recommended)
+python setup/install_clis.py
+
+# Or install just Python dependencies manually
 pip install requests python-dotenv
 ```
+
+**Note**: The `install_clis.py` script also installs all Python dependencies needed for running samples and tests from `04-lambda/pyproject.toml` (including `pydantic-ai`, `neo4j`, `requests`, etc.).
 
 ## Environment Variables
 

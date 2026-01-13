@@ -1,4 +1,23 @@
-"""Background task for checking new assets and sending notifications."""
+"""
+Background task for checking new assets and sending notifications.
+
+NOTE: This is a legacy handler that should be migrated to an Agent in the future.
+
+The NotificationTask is better suited as an Agent because:
+- It's a background polling task (not triggered by user messages)
+- It manages its own lifecycle (start/stop/poll loop)
+- It doesn't process incoming Discord messages
+
+Migration plan:
+1. Create NotificationAgent extending BaseAgent
+2. Move polling logic to agent's on_start() and _run_loop()
+3. Use agent's task queue for processing new assets
+4. Register agent in main.py alongside other agents
+5. Deprecate this file
+
+See: bot/agents/base.py for the Agent pattern
+See: 03-apps/AGENTS.md for guidance on Capabilities vs Agents
+"""
 
 import asyncio
 import contextlib
@@ -67,8 +86,8 @@ class NotificationTask:
                 await self.database.update_last_check_timestamp(new_check)
                 last_check = new_check
 
-            except Exception as e:
-                logger.exception(f"Error in notification polling: {e}")
+            except Exception:
+                logger.exception("Error in notification polling")
 
             # Wait before next check
             await asyncio.sleep(config.NOTIFICATION_POLL_INTERVAL)
@@ -106,8 +125,8 @@ class NotificationTask:
                 await self._send_notification(discord_id, asset)
                 notified_users.add(discord_id)
 
-        except Exception as e:
-            logger.exception(f"Error processing asset {asset_id}: {e}")
+        except Exception:
+            logger.exception("Error processing asset {asset_id}")
 
     async def _send_notification(self, discord_id: str, asset: dict) -> None:
         """Send DM notification to Discord user."""
@@ -142,5 +161,5 @@ class NotificationTask:
 
         except discord.Forbidden:
             logger.warning(f"Could not send DM to user {discord_id} (DMs disabled or blocked)")
-        except Exception as e:
-            logger.exception(f"Error sending notification to {discord_id}: {e}")
+        except Exception:
+            logger.exception("Error sending notification to {discord_id}")

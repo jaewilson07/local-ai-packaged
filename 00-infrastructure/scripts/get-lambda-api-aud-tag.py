@@ -85,16 +85,13 @@ def get_auth_headers():
             "Authorization": f"Bearer {api_token.strip()}",
             "Content-Type": "application/json",
         }
-    elif email and email.strip() and api_key and api_key.strip():
+    if email and email.strip() and api_key and api_key.strip():
         return {
             "X-Auth-Email": email.strip(),
             "X-Auth-Key": api_key.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError(
-            "Either API token or email+API key must be provided (check Infisical or .env)"
-        )
+    raise ValueError("Either API token or email+API key must be provided (check Infisical or .env)")
 
 
 def get_account_id(headers):
@@ -136,19 +133,18 @@ def get_aud_tag(headers, account_id):
                 aud_tag = app.get("aud")
                 if aud_tag:
                     return aud_tag
-                else:
-                    print("[WARNING] Application found but no AUD tag in response")
-                    print(f"   Application ID: {app.get('id')}")
-                    print(f"   Application name: {app.get('name')}")
-                    # Try to get detailed app info
-                    app_id = app.get("id")
-                    app_detail_url = f"{apps_url}/{app_id}"
-                    detail_response = requests.get(app_detail_url, headers=headers, timeout=30)
-                    if detail_response.status_code == 200:
-                        detail = detail_response.json().get("result", {})
-                        aud_tag = detail.get("aud")
-                        if aud_tag:
-                            return aud_tag
+                print("[WARNING] Application found but no AUD tag in response")
+                print(f"   Application ID: {app.get('id')}")
+                print(f"   Application name: {app.get('name')}")
+                # Try to get detailed app info
+                app_id = app.get("id")
+                app_detail_url = f"{apps_url}/{app_id}"
+                detail_response = requests.get(app_detail_url, headers=headers, timeout=30)
+                if detail_response.status_code == 200:
+                    detail = detail_response.json().get("result", {})
+                    aud_tag = detail.get("aud")
+                    if aud_tag:
+                        return aud_tag
 
         print(f"[ERROR] Application not found for domain: {FULL_DOMAIN}")
         print("   Available applications:")
@@ -190,12 +186,11 @@ def main():
             print(f"  infisical secrets set CLOUDFLARE_AUD_TAG={aud_tag}")
             print("=" * 60)
             return 0
-        else:
-            print()
-            print("[ERROR] Could not retrieve AUD tag")
-            print("   Make sure the Lambda API Access application exists")
-            print("   Run: python setup-lambda-api-access.py")
-            return 1
+        print()
+        print("[ERROR] Could not retrieve AUD tag")
+        print("   Make sure the Lambda API Access application exists")
+        print("   Run: python setup-lambda-api-access.py")
+        return 1
 
     except ValueError as e:
         print(f"[ERROR] {e}")

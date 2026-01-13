@@ -40,9 +40,8 @@ def authenticate_session():
         if response.status_code in [200, 302]:
             print("✅ Authenticated successfully")
             return True
-        else:
-            print(f"⚠️  Authentication returned status: {response.status_code}")
-            return False
+        print(f"⚠️  Authentication returned status: {response.status_code}")
+        return False
     except Exception as e:
         print(f"⚠️  Authentication error: {e}")
         # Try basic auth as fallback
@@ -135,19 +134,18 @@ def submit_job(payload):
             print(f"   Request ID: {request_id}")
             print(f"   Status: {result.get('status', 'pending')}")
             return request_id
-        elif response.status_code == 401:
+        if response.status_code == 401:
             print("❌ Authentication failed!")
             print("   Please check your WEB_USER and WEB_PASSWORD credentials")
             print("   These should match your docker-compose.yaml or .env file")
             return None
-        elif response.status_code == 422:
+        if response.status_code == 422:
             print("❌ Validation error - payload format is incorrect")
             print(f"   Response: {response.text}")
             return None
-        else:
-            print(f"❌ Failed to submit job (status: {response.status_code})")
-            print(f"   Response: {response.text}")
-            return None
+        print(f"❌ Failed to submit job (status: {response.status_code})")
+        print(f"   Response: {response.text}")
+        return None
 
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to API. Is the container running?")
@@ -183,26 +181,24 @@ def check_result(request_id, max_wait=300):
                     if "outputs" in result:
                         print(f"   Outputs: {json.dumps(result['outputs'], indent=2)}")
                     return result
-                elif status == "failed":
+                if status == "failed":
                     print(f"\n❌ Job failed: {message}")
                     return result
-                elif status in ["pending", "processing"]:
+                if status in ["pending", "processing"]:
                     # Continue polling
                     time.sleep(check_interval)
                     continue
-                else:
-                    print(f"\n⚠️  Unknown status: {status}")
-                    time.sleep(check_interval)
-                    continue
+                print(f"\n⚠️  Unknown status: {status}")
+                time.sleep(check_interval)
+                continue
 
-            elif response.status_code == 404:
+            if response.status_code == 404:
                 print("⚠️  Request ID not found. Job may still be processing...")
                 time.sleep(check_interval)
                 continue
-            else:
-                print(f"⚠️  Unexpected status code: {response.status_code}")
-                time.sleep(check_interval)
-                continue
+            print(f"⚠️  Unexpected status code: {response.status_code}")
+            time.sleep(check_interval)
+            continue
 
         except Exception as e:
             print(f"⚠️  Error checking result: {e}")
@@ -248,9 +244,8 @@ def main():
         print("\nTo check the result programmatically, use:")
         print(f"   GET {API_RESULT}/{request_id}")
         return 0
-    else:
-        print("\n❌ Job did not complete successfully")
-        return 1
+    print("\n❌ Job did not complete successfully")
+    return 1
 
 
 if __name__ == "__main__":

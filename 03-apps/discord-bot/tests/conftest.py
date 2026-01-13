@@ -1,8 +1,8 @@
 """Shared pytest fixtures for Discord bot tests."""
 
 import os
-from datetime import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import discord
 import pytest
@@ -96,8 +96,10 @@ def mock_discord_interaction(mock_discord_user):
 @pytest.fixture
 def mock_command_tree():
     """Mock CommandTree."""
-    tree = AsyncMock(spec=app_commands.CommandTree)
+    tree = MagicMock(spec=app_commands.CommandTree)
     tree.sync = AsyncMock(return_value=[])
+    # command() should return a regular callable, not a coroutine
+    tree.command = MagicMock()
     return tree
 
 
@@ -147,8 +149,8 @@ def sample_immich_asset():
         "id": "asset123",
         "type": "IMAGE",
         "originalPath": "/path/to/image.jpg",
-        "createdAt": datetime.utcnow().isoformat(),
-        "updatedAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(UTC).isoformat(),
+        "updatedAt": datetime.now(UTC).isoformat(),
     }
 
 

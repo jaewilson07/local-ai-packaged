@@ -26,11 +26,11 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.conversation.agent import orchestrate_conversation_tool
-from server.projects.persona.dependencies import PersonaDeps
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.conversation.agent import orchestrate_conversation_tool  # noqa: E402
+from server.projects.conversation.dependencies import ConversationDeps  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -67,13 +67,13 @@ async def main():
     print(f"Persona ID: {persona_id}")
     print()
 
-    # Initialize dependencies (conversation uses PersonaDeps)
-    persona_deps = PersonaDeps.from_settings()
-    await persona_deps.initialize()
+    # Initialize dependencies (conversation uses ConversationDeps which wraps PersonaDeps)
+    conversation_deps = ConversationDeps.from_settings()
+    await conversation_deps.initialize()
 
     try:
         # Create run context for tools
-        ctx = create_run_context(persona_deps)
+        ctx = create_run_context(conversation_deps)
 
         # Process each message
         for i, message in enumerate(messages, 1):
@@ -102,29 +102,19 @@ async def main():
         print("=" * 80)
 
         # Verify that orchestration completed successfully
-        try:
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            # Collect all responses (they're in the loop above, we need to track them)
-            # Since responses are generated in the loop, we verify that the tool executed
-            # by checking if we completed the loop successfully
-            print("✅ Orchestration completed - all messages processed")
-            print("\n✅ Verification passed!")
-            sys.exit(0)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
-            sys.exit(1)
-
-    except Exception as e:
-        logger.exception(f"❌ Error during conversation orchestration: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
+        # Collect all responses (they're in the loop above, we need to track them)
+        # Since responses are generated in the loop, we verify that the tool executed
+        # by checking if we completed the loop successfully
+        print("✅ Orchestration completed - all messages processed")
+        print("\n✅ Verification passed!")
+        sys.exit(0)
     finally:
         # Cleanup
-        await persona_deps.cleanup()
+        await conversation_deps.cleanup()
         logger.info("🧹 Dependencies cleaned up")
 
 

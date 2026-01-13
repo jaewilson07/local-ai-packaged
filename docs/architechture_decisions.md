@@ -57,8 +57,9 @@ Each stack uses its own Docker Compose project name for independent management:
 # Infrastructure stack
 docker compose -p localai-infra -f 00-infrastructure/docker-compose.yml up -d
 
-# Infisical stack
-docker compose -p localai-infisical -f 00-infrastructure/infisical/docker-compose.yml up -d
+# Infisical stack (external standalone project)
+# Note: Infisical is managed from /home/jaewilson07/GitHub/infisical-standalone
+# Use: python start_services.py --stack infisical
 
 # Data stack
 docker compose -p localai-data \
@@ -98,10 +99,11 @@ All stacks share the external `ai-network` for inter-service communication.
 │
 ├── 00-infrastructure/        # Stack: Connectivity & Security (Project: localai-infra)
 │   ├── docker-compose.yml    # cloudflared, caddy, redis
-│   ├── infisical/            # Infisical stack (Project: localai-infisical)
-│   │   └── docker-compose.yml # infisical-backend, infisical-db, infisical-redis
 │   ├── docs/                 # Infrastructure documentation
 │   └── config/               # Cloudflare tunnel configs
+│
+├── [external]/               # Infisical (external standalone project)
+│   └── infisical-standalone/ # Managed separately at /home/jaewilson07/GitHub/infisical-standalone
 │
 ├── 01-data/                  # Stack: Persistence (Databases) (Project: localai-data)
 │   ├── supabase/             # Supabase (multi-container setup)
@@ -142,12 +144,15 @@ All stacks share the external `ai-network` for inter-service communication.
   - Caddy as reverse proxy routing to all services
   - Redis for n8n and other services
 
-### Infisical Stack (`00-infrastructure/infisical/docker-compose.yml`)
+### Infisical (External Standalone Project)
 
-- **Project Name**: `localai-infisical`
+- **Status**: External standalone project (not part of this repository)
+- **Location**: `/home/jaewilson07/GitHub/infisical-standalone`
+- **Project Name**: `localai-infisical` (when running)
 - **Services**: `infisical-backend`, `infisical-db`, `infisical-redis`
 - **Network**: Uses external `ai-network`
 - **Purpose**: Secret management with dedicated PostgreSQL (separate from Supabase)
+- **Management**: Handled separately by `start_services.py` or `start_infisical.py`
 - **Key Features**:
   - Infisical backend for secret management
   - Dedicated PostgreSQL database

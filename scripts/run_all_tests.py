@@ -142,43 +142,38 @@ def run_pytest_tests(
 
         if result.returncode == 0:
             return (test_dir_info, True, "")
-        else:
-            # Combine stdout and stderr for better error reporting
-            # Pytest outputs failures to stdout, not stderr
-            error_parts = []
-            if result.stdout:
-                # Extract summary or error lines from stdout
-                stdout_lines = result.stdout.split("\n")
-                # Look for summary line (e.g., "X failed, Y passed")
-                summary_lines = [
+        # Combine stdout and stderr for better error reporting
+        # Pytest outputs failures to stdout, not stderr
+        error_parts = []
+        if result.stdout:
+            # Extract summary or error lines from stdout
+            stdout_lines = result.stdout.split("\n")
+            # Look for summary line (e.g., "X failed, Y passed")
+            summary_lines = [
+                line
+                for line in stdout_lines
+                if "failed" in line.lower()
+                and ("passed" in line.lower() or "error" in line.lower())
+            ]
+            if summary_lines:
+                error_parts.append(summary_lines[-1])
+            # Or get last few lines with errors
+            elif any("error" in line.lower() or "failed" in line.lower() for line in stdout_lines):
+                error_lines = [
                     line
-                    for line in stdout_lines
-                    if "failed" in line.lower()
-                    and ("passed" in line.lower() or "error" in line.lower())
+                    for line in stdout_lines[-20:]
+                    if any(keyword in line.lower() for keyword in ["error", "failed", "exception"])
                 ]
-                if summary_lines:
-                    error_parts.append(summary_lines[-1])
-                # Or get last few lines with errors
-                elif any(
-                    "error" in line.lower() or "failed" in line.lower() for line in stdout_lines
-                ):
-                    error_lines = [
-                        line
-                        for line in stdout_lines[-20:]
-                        if any(
-                            keyword in line.lower() for keyword in ["error", "failed", "exception"]
-                        )
-                    ]
-                    if error_lines:
-                        error_parts.append("\n".join(error_lines[:5]))  # First 5 error lines
-            if result.stderr:
-                error_parts.append(result.stderr[:300])
-            error_msg = (
-                "\n".join(error_parts)
-                if error_parts
-                else f"Tests failed with exit code {result.returncode}"
-            )
-            return (test_dir_info, False, error_msg)
+                if error_lines:
+                    error_parts.append("\n".join(error_lines[:5]))  # First 5 error lines
+        if result.stderr:
+            error_parts.append(result.stderr[:300])
+        error_msg = (
+            "\n".join(error_parts)
+            if error_parts
+            else f"Tests failed with exit code {result.returncode}"
+        )
+        return (test_dir_info, False, error_msg)
 
     except Exception as e:
         error_msg = str(e)

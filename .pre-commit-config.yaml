@@ -40,6 +40,14 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
+  # Type checking with Pyright
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.350
+    hooks:
+      - id: pyright
+        args: [--pythonversion=3.10, --level=error]
+        additional_dependencies: []
+
   # YAML linting
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.33.0
@@ -78,3 +86,21 @@ repos:
         types: [python]
         pass_filenames: true
         exclude: __pycache__
+
+      - id: python-ast-validation
+        name: Python AST validation
+        entry: bash
+        args: ['-c', 'for file in "$@"; do python3 -c "import ast; ast.parse(open(\"$file\").read(), \"$file\")" 2>&1 || exit 1; done', '--']
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: __pycache__
+
+      - id: comprehensive-validation
+        name: Comprehensive code validation
+        entry: bash
+        args: ['-c', 'cd "$(git rev-parse --show-toplevel)" && python3 scripts/validate_code.py']
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [manual]

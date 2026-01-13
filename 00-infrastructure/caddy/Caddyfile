@@ -95,6 +95,13 @@
         level {$CADDY_LOG_LEVEL:INFO}
     }
 
+    # Health check endpoint for Docker health checks
+    # Responds to /health path requests
+    @health path /health
+    handle @health {
+        respond "OK" 200
+    }
+
     # Route based on Host header
     @infisical host infisical.datacrew.space
     handle @infisical {
@@ -129,7 +136,6 @@
 
         # FIX: Infisical frontend bug - add missing Content-Type header for API POST requests
         # The frontend's XHR requests don't set Content-Type, causing 415 errors
-        # Note: Fastify patch in 00-infrastructure/infisical/patches/app.mjs handles empty bodies
         @api_post {
             method POST PUT PATCH
             path /api/*
@@ -300,6 +306,20 @@
             max_size 50MB
         }
         reverse_proxy frontend:3000 {
+            import standard_proxy
+            import extended_timeouts
+        }
+    }
+
+    # Gradio Knowledge Base route for Cloudflare Tunnel
+    @gradiokb host kb.datacrew.space
+    handle @gradiokb {
+        import security_headers_base
+        import csp_standard
+        request_body {
+            max_size 50MB
+        }
+        reverse_proxy gradio-kb:7860 {
             import standard_proxy
             import extended_timeouts
         }

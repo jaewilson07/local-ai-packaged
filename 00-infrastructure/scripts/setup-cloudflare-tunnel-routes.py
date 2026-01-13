@@ -166,6 +166,7 @@ SERVICES = {
     "mongodb": {"subdomain": "mongodb", "port": 8081},  # MongoDB Express
     "qdrant": {"subdomain": "qdrant", "port": 6333},  # Qdrant Web UI
     "immich": {"subdomain": "immich", "port": 2283},  # Immich photo/video backup
+    "gradio-kb": {"subdomain": "kb", "port": 7860},  # Gradio Knowledge Base
 }
 
 CADDY_URL = "http://caddy:80"
@@ -187,31 +188,30 @@ def get_auth_headers():
             "Authorization": f"Bearer {api_token.strip()}",
             "Content-Type": "application/json",
         }
-    elif email and email.strip() and api_key and api_key.strip():
+    if email and email.strip() and api_key and api_key.strip():
         return {
             "X-Auth-Email": email.strip(),
             "X-Auth-Key": api_key.strip(),
             "Content-Type": "application/json",
         }
+    # Debug: Check what we actually got
+    debug_info = []
+    if api_token:
+        debug_info.append(f"API_TOKEN found (length: {len(api_token)})")
     else:
-        # Debug: Check what we actually got
-        debug_info = []
-        if api_token:
-            debug_info.append(f"API_TOKEN found (length: {len(api_token)})")
-        else:
-            debug_info.append("API_TOKEN not found")
-        if email:
-            debug_info.append(f"EMAIL found: {email}")
-        else:
-            debug_info.append("EMAIL not found")
-        if api_key:
-            debug_info.append(f"API_KEY found (length: {len(api_key)})")
-        else:
-            debug_info.append("API_KEY not found")
+        debug_info.append("API_TOKEN not found")
+    if email:
+        debug_info.append(f"EMAIL found: {email}")
+    else:
+        debug_info.append("EMAIL not found")
+    if api_key:
+        debug_info.append(f"API_KEY found (length: {len(api_key)})")
+    else:
+        debug_info.append("API_KEY not found")
 
-        error_msg = "Either API token or email+API key must be provided (check Infisical or .env)"
-        error_msg += f"\n   Debug: {', '.join(debug_info)}"
-        raise ValueError(error_msg)
+    error_msg = "Either API token or email+API key must be provided (check Infisical or .env)"
+    error_msg += f"\n   Debug: {', '.join(debug_info)}"
+    raise ValueError(error_msg)
 
 
 def get_account_id(headers):
@@ -269,13 +269,12 @@ def configure_public_hostname(subdomain, service_url, account_id, retry_count=3)
                     print(f"[RATE_LIMIT] Waiting {wait_time}s before retry...", end=" ")
                     time.sleep(wait_time)
                     continue
-                else:
-                    print(f"[ERROR] Rate limited after {retry_count} attempts")
-                    print(
-                        "   Please wait a few minutes and try again, or configure manually in Cloudflare dashboard"
-                    )
-                    break  # Exit retry loop, will return False below
-            elif response.status_code != 200:
+                print(f"[ERROR] Rate limited after {retry_count} attempts")
+                print(
+                    "   Please wait a few minutes and try again, or configure manually in Cloudflare dashboard"
+                )
+                break  # Exit retry loop, will return False below
+            if response.status_code != 200:
                 print(f"[ERROR] HTTP {response.status_code}")
                 if response.status_code == 401:
                     print("   Authentication failed - check your API token")
@@ -298,8 +297,7 @@ def configure_public_hostname(subdomain, service_url, account_id, retry_count=3)
                     except (ValueError, json.JSONDecodeError):
                         print(f"   Response: {response.text[:200]}")
                 break  # Exit retry loop, will return False below
-            else:
-                break  # Success, exit retry loop
+            break  # Success, exit retry loop
         except Exception as e:
             if attempt < retry_count - 1:
                 time.sleep(2)

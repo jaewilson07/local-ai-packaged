@@ -122,19 +122,18 @@ def submit_job_with_auth(payload, auth_token):
             print(f"   Request ID: {request_id}")
             print(f"   Status: {result.get('status', 'pending')}")
             return request_id
-        elif response.status_code == 401:
+        if response.status_code == 401:
             print("❌ Authentication failed!")
             print("   Trying with Basic auth instead...")
             # Try Basic auth as fallback
             return submit_job_with_basic_auth(payload)
-        elif response.status_code == 422:
+        if response.status_code == 422:
             print("❌ Validation error - payload format is incorrect")
             print(f"   Response: {response.text[:200]}")
             return None
-        else:
-            print(f"❌ Failed to submit job (status: {response.status_code})")
-            print(f"   Response: {response.text[:200]}")
-            return None
+        print(f"❌ Failed to submit job (status: {response.status_code})")
+        print(f"   Response: {response.text[:200]}")
+        return None
 
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to API. Is the container running?")
@@ -163,10 +162,9 @@ def submit_job_with_basic_auth(payload):
             print("✅ Job submitted successfully with Basic auth!")
             print(f"   Request ID: {request_id}")
             return request_id
-        else:
-            print(f"❌ Basic auth also failed (status: {response.status_code})")
-            print(f"   Response: {response.text[:200]}")
-            return None
+        print(f"❌ Basic auth also failed (status: {response.status_code})")
+        print(f"   Response: {response.text[:200]}")
+        return None
     except Exception as e:
         print(f"❌ Error with Basic auth: {e}")
         return None
@@ -199,25 +197,23 @@ def check_result(request_id, auth_token, max_wait=300):
                     if "outputs" in result:
                         print(f"   Outputs: {json.dumps(result['outputs'], indent=2)}")
                     return result
-                elif status == "failed":
+                if status == "failed":
                     print(f"\n❌ Job failed: {message}")
                     return result
-                elif status in ["pending", "processing"]:
+                if status in ["pending", "processing"]:
                     time.sleep(check_interval)
                     continue
-                else:
-                    print(f"\n⚠️  Unknown status: {status}")
-                    time.sleep(check_interval)
-                    continue
+                print(f"\n⚠️  Unknown status: {status}")
+                time.sleep(check_interval)
+                continue
 
-            elif response.status_code == 404:
+            if response.status_code == 404:
                 print("⚠️  Request ID not found. Job may still be processing...")
                 time.sleep(check_interval)
                 continue
-            else:
-                print(f"⚠️  Unexpected status code: {response.status_code}")
-                time.sleep(check_interval)
-                continue
+            print(f"⚠️  Unexpected status code: {response.status_code}")
+            time.sleep(check_interval)
+            continue
 
         except Exception as e:
             print(f"⚠️  Error checking result: {e}")
@@ -258,9 +254,8 @@ def main():
         print("   Container: /opt/ComfyUI/output/")
         print("   Host: ./workspace/storage/output/")
         return 0
-    else:
-        print("\n❌ Job did not complete successfully")
-        return 1
+    print("\n❌ Job did not complete successfully")
+    return 1
 
 
 if __name__ == "__main__":

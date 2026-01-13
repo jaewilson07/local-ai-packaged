@@ -267,11 +267,10 @@ def restart_caddy():
         if result.returncode == 0:
             print("[OK] Caddy configuration reloaded successfully")
             return True
-        else:
-            print(f"[WARNING] Caddy reload failed: {result.stderr}")
-            print("[INFO] You may need to restart the Caddy container:")
-            print("       docker restart caddy")
-            return False
+        print(f"[WARNING] Caddy reload failed: {result.stderr}")
+        print("[INFO] You may need to restart the Caddy container:")
+        print("       docker restart caddy")
+        return False
 
     except Exception as e:
         print(f"[ERROR] Failed to reload Caddy: {e}")
@@ -290,7 +289,7 @@ def test_api_endpoint(dry_run=False):
 
     if dry_run:
         print(f"[DRY-RUN] Would test: curl https://{hostname}/health")
-        return
+        return None
 
     print("\n[INFO] Waiting a few seconds for DNS propagation...")
     import time
@@ -304,12 +303,11 @@ def test_api_endpoint(dry_run=False):
             print("[OK] API is responding!")
             print(f"[RESPONSE] {result.stdout}")
             return True
-        else:
-            print("[WARNING] API not responding yet")
-            print("[INFO] This might be due to DNS propagation delay")
-            print("[INFO] Try testing again in a few minutes:")
-            print(f"       curl https://{hostname}/health")
-            return False
+        print("[WARNING] API not responding yet")
+        print("[INFO] This might be due to DNS propagation delay")
+        print("[INFO] Try testing again in a few minutes:")
+        print(f"       curl https://{hostname}/health")
+        return False
 
     except Exception as e:
         print(f"[ERROR] Failed to test endpoint: {e}")

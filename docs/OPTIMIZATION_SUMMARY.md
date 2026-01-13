@@ -116,9 +116,9 @@ These serve as templates and can be used when running individual compose files d
 
 ## Files Modified
 
-### Infrastructure Stack (2 files)
+### Infrastructure Stack (1 file)
 - ✅ `00-infrastructure/docker-compose.yml` - Added anchors, health checks, security
-- ✅ `00-infrastructure/infisical/docker-compose.yml` - Standardized network
+- **Note**: Infisical moved to external standalone project
 
 ### Data Stack (5 files)
 - ✅ `01-data/qdrant/docker-compose.yml` - Added health check

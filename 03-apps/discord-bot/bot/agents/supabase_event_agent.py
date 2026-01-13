@@ -74,7 +74,7 @@ class SupabaseEventAgent(BaseAgent):
             self.status_message = "Connected to Supabase database"
             logger.info(f"Supabase event agent {self.agent_id} connected to database")
         except Exception as e:
-            logger.exception(f"Failed to connect to Supabase: {e}")
+            logger.exception("Failed to connect to Supabase")
             self.status = self.status.__class__.ERROR
             self.last_error = str(e)
             self.status_message = f"Failed to connect: {e}"
@@ -137,16 +137,15 @@ class SupabaseEventAgent(BaseAgent):
         try:
             if action == "create_event":
                 return await self._create_event(task)
-            elif action == "sync_to_discord":
+            if action == "sync_to_discord":
                 return await self._sync_to_discord(task)
-            elif action == "list_events":
+            if action == "list_events":
                 return await self._list_events(task)
-            elif action == "get_event":
+            if action == "get_event":
                 return await self._get_event(task)
-            else:
-                raise ValueError(f"Unknown action: {action}")
-        except Exception as e:
-            logger.exception(f"Error processing event task: {e}")
+            raise ValueError(f"Unknown action: {action}")
+        except Exception:
+            logger.exception("Error processing event task")
             raise
 
     async def _create_event(self, task: dict[str, Any]) -> dict[str, Any]:

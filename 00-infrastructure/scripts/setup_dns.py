@@ -23,6 +23,7 @@ To get Zone ID:
 3. Zone ID is shown in the right sidebar under "API"
 """
 
+import os
 import sys
 import time
 
@@ -30,7 +31,6 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
-import os
 
 # Configuration
 DOMAIN = "datacrew.space"
@@ -138,15 +138,14 @@ def get_auth_headers(email=None, api_key=None, api_token=None):
             "Content-Type": "application/json",
         }
     # Check for Global API Key (handle both None and empty string)
-    elif email and email.strip() and api_key and api_key.strip():
+    if email and email.strip() and api_key and api_key.strip():
         # Use Global API Key (X-Auth-Email and X-Auth-Key)
         return {
             "X-Auth-Email": email.strip(),
             "X-Auth-Key": api_key.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError("Either API token or email+API key must be provided")
+    raise ValueError("Either API token or email+API key must be provided")
 
 
 def get_zone_id(email=None, api_key=None, api_token=None, domain=None):
@@ -161,12 +160,11 @@ def get_zone_id(email=None, api_key=None, api_token=None, domain=None):
 
         if response.status_code == 200 and data.get("success") and data.get("result"):
             return data["result"][0]["id"]
-        else:
-            errors = data.get("errors", [])
-            if errors:
-                error_msg = errors[0].get("message", "Unknown error")
-                print(f"[ERROR] {error_msg}")
-            return None
+        errors = data.get("errors", [])
+        if errors:
+            error_msg = errors[0].get("message", "Unknown error")
+            print(f"[ERROR] {error_msg}")
+        return None
     except Exception as e:
         print(f"[ERROR] Error getting Zone ID: {e}")
         return None
@@ -217,15 +215,13 @@ def add_dns_record(email=None, api_key=None, api_token=None, zone_id=None, recor
 
         if response.status_code == 200 and result.get("success"):
             return True, result["result"]
-        else:
-            # Get detailed error message
-            errors = result.get("errors", [])
-            if errors:
-                error_msg = errors[0].get("message", "Unknown error")
-                error_code = errors[0].get("code", "")
-                return False, f"{error_msg} (code: {error_code})"
-            else:
-                return False, f"HTTP {response.status_code}: {result}"
+        # Get detailed error message
+        errors = result.get("errors", [])
+        if errors:
+            error_msg = errors[0].get("message", "Unknown error")
+            error_code = errors[0].get("code", "")
+            return False, f"{error_msg} (code: {error_code})"
+        return False, f"HTTP {response.status_code}: {result}"
     except requests.exceptions.RequestException as e:
         return False, f"Request error: {e!s}"
     except Exception as e:

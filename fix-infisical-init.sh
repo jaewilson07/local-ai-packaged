@@ -40,8 +40,16 @@ echo "Re-syncing secrets from .env to Infisical"
 echo "=========================================="
 echo ""
 
-# Re-sync secrets
-python3 00-infrastructure/scripts/sync-env-to-infisical.py --force
+# Re-sync secrets using Infisical CLI
+echo "Syncing secrets from .env to Infisical..."
+echo "Note: Use 'infisical secrets set KEY=value' for each secret, or use the Infisical UI"
+echo ""
+echo "To sync all secrets, you can use:"
+echo "  while IFS='=' read -r key value; do"
+echo "    [ -n \"\$key\" ] && [ -n \"\$value\" ] && infisical secrets set \"\$key=\$value\""
+echo "  done < .env"
+echo ""
+echo "Or manually add secrets via the Infisical UI at http://localhost:8020"
 
 echo ""
 echo "=========================================="

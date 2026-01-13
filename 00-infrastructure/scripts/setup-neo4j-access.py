@@ -80,16 +80,13 @@ def get_auth_headers():
             "Authorization": f"Bearer {api_token.strip()}",
             "Content-Type": "application/json",
         }
-    elif email and email.strip() and api_key and api_key.strip():
+    if email and email.strip() and api_key and api_key.strip():
         return {
             "X-Auth-Email": email.strip(),
             "X-Auth-Key": api_key.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError(
-            "Either API token or email+API key must be provided (check Infisical or .env)"
-        )
+    raise ValueError("Either API token or email+API key must be provided (check Infisical or .env)")
 
 
 def get_standard_policy_id(headers, account_id):
@@ -167,18 +164,16 @@ def create_neo4j_access_application(headers, account_id):
             app_id = result["result"]["id"]
             print(f"[OK] Created Neo4j Access application (ID: {app_id})")
             return app_id
-        else:
-            errors = result.get("errors", [])
-            if errors:
-                print(
-                    f"[ERROR] Failed to create application: {errors[0].get('message', 'Unknown error')}"
-                )
-            return None
-    else:
-        print(f"[ERROR] Failed to create application: HTTP {response.status_code}")
-        if response.text:
-            print(f"   Response: {response.text[:300]}")
+        errors = result.get("errors", [])
+        if errors:
+            print(
+                f"[ERROR] Failed to create application: {errors[0].get('message', 'Unknown error')}"
+            )
         return None
+    print(f"[ERROR] Failed to create application: HTTP {response.status_code}")
+    if response.text:
+        print(f"   Response: {response.text[:300]}")
+    return None
 
 
 def link_access_to_tunnel_route(headers, account_id, app_id):
@@ -228,23 +223,21 @@ def link_access_to_tunnel_route(headers, account_id, app_id):
         if result.get("success"):
             print("[OK] Linked Access application to tunnel route")
             return True
-        else:
-            errors = result.get("errors", [])
-            if errors:
-                print(
-                    f"[ERROR] Failed to link Access application: {errors[0].get('message', 'Unknown error')}"
-                )
-            return False
-    else:
-        print(
-            f"[WARNING] Failed to link Access application via API: HTTP {update_response.status_code}"
-        )
-        print("   Link manually in dashboard:")
-        print("   1. Go to https://one.dash.cloudflare.com/")
-        print(f"   2. Networks → Tunnels → {TUNNEL_ID}")
-        print(f"   3. Configure → Public Hostnames → {FULL_DOMAIN}")
-        print("   4. Under Access, select 'Neo4j'")
+        errors = result.get("errors", [])
+        if errors:
+            print(
+                f"[ERROR] Failed to link Access application: {errors[0].get('message', 'Unknown error')}"
+            )
         return False
+    print(
+        f"[WARNING] Failed to link Access application via API: HTTP {update_response.status_code}"
+    )
+    print("   Link manually in dashboard:")
+    print("   1. Go to https://one.dash.cloudflare.com/")
+    print(f"   2. Networks → Tunnels → {TUNNEL_ID}")
+    print(f"   3. Configure → Public Hostnames → {FULL_DOMAIN}")
+    print("   4. Under Access, select 'Neo4j'")
+    return False
 
 
 def main():

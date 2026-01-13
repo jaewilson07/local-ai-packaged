@@ -15,7 +15,7 @@ import requests
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from utils.comfyui_api_client import get_comfyui_client
+from utils.comfyui_api_client import get_comfyui_client  # noqa: E402
 
 
 def test_local_access():
@@ -31,9 +31,8 @@ def test_local_access():
         if response.status_code == 200:
             print("✅ Local access works (no authentication needed)")
             return True
-        else:
-            print(f"⚠️  Local access returned status: {response.status_code}")
-            return False
+        print(f"⚠️  Local access returned status: {response.status_code}")
+        return False
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to localhost:8188")
         print("   Is ComfyUI container running?")
@@ -63,21 +62,20 @@ def test_remote_access_with_token():
         if response.status_code == 200:
             print("✅ Remote access works with service token")
             return True
-        elif response.status_code == 403:
+        if response.status_code == 403:
             print("❌ Access denied (403 Forbidden)")
             print("   Possible issues:")
             print("   1. Service token is incorrect")
             print("   2. Token not added to Access policy")
             print("   3. Cloudflare Access not configured")
             return False
-        elif response.status_code == 401:
+        if response.status_code == 401:
             print("❌ Authentication failed (401)")
             print("   Check service token configuration")
             return False
-        else:
-            print(f"⚠️  Unexpected status: {response.status_code}")
-            print(f"   Response: {response.text[:200]}")
-            return False
+        print(f"⚠️  Unexpected status: {response.status_code}")
+        print(f"   Response: {response.text[:200]}")
+        return False
     except requests.exceptions.SSLError:
         print("⚠️  SSL error - check domain configuration")
         return False

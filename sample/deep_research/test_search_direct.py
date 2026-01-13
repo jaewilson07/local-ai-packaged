@@ -21,9 +21,9 @@ os.environ.setdefault("SEARXNG_URL", "http://searxng:8080")
 lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../04-lambda"))
 sys.path.insert(0, lambda_dir)
 
-from server.projects.deep_research.dependencies import DeepResearchDeps
-from server.projects.deep_research.models import SearchWebRequest
-from server.projects.deep_research.tools import search_web
+from server.projects.deep_research.dependencies import DeepResearchDeps  # noqa: E402
+from server.projects.deep_research.models import SearchWebRequest  # noqa: E402
+from server.projects.deep_research.tools import search_web  # noqa: E402
 
 
 async def test_search():

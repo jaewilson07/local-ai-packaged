@@ -377,7 +377,7 @@ def get_auth_headers():
             "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json",
         }
-    elif (
+    if (
         CLOUDFLARE_EMAIL
         and CLOUDFLARE_EMAIL.strip()
         and CLOUDFLARE_API_KEY
@@ -388,8 +388,7 @@ def get_auth_headers():
             "X-Auth-Key": CLOUDFLARE_API_KEY.strip(),
             "Content-Type": "application/json",
         }
-    else:
-        raise ValueError("Either API token or email+API key must be provided")
+    raise ValueError("Either API token or email+API key must be provided")
 
 
 def get_all_applications(headers, account_id):
@@ -501,17 +500,15 @@ def create_or_get_standard_reusable_policy(headers, account_id):
                     f"[OK] Created standard reusable policy: {STANDARD_POLICY_NAME} (ID: {policy_id})"
                 )
                 return policy_id
-            else:
-                errors = result.get("errors", [])
-                if errors:
-                    print(
-                        f"[ERROR] Failed to create policy: {errors[0].get('message', 'Unknown error')}"
-                    )
-                return None
-        else:
-            print(f"[ERROR] Failed to create policy: HTTP {response.status_code}")
-            print(f"   Response: {response.text}")
+            errors = result.get("errors", [])
+            if errors:
+                print(
+                    f"[ERROR] Failed to create policy: {errors[0].get('message', 'Unknown error')}"
+                )
             return None
+        print(f"[ERROR] Failed to create policy: HTTP {response.status_code}")
+        print(f"   Response: {response.text}")
+        return None
     except Exception as e:
         print(f"[ERROR] Exception creating policy: {e}")
         return None

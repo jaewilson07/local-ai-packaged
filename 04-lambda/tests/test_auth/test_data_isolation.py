@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from server.main import app
 from server.projects.auth.models import User
@@ -53,9 +53,15 @@ def mock_s3_objects():
 @pytest.mark.asyncio
 async def test_my_data_user_isolation(mock_user_a, mock_supabase_items):
     """Test user A only sees their own items."""
-    with patch("server.api.auth.get_current_user", new_callable=AsyncMock) as mock_get_user:
-        mock_get_user.return_value = mock_user_a
+    from server.api.auth import get_current_user
 
+    # Override the dependency
+    async def override_get_current_user():
+        return mock_user_a
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
         with patch("server.api.auth.SupabaseService") as mock_supabase_class:
             mock_supabase_service = Mock()
             mock_pool = AsyncMock()
@@ -93,7 +99,9 @@ async def test_my_data_user_isolation(mock_user_a, mock_supabase_items):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-data", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -104,6 +112,9 @@ async def test_my_data_user_isolation(mock_user_a, mock_supabase_items):
                     assert "Item A1" in html
                     assert "Item A2" in html
                     assert "Item B1" not in html
+    finally:
+        # Clean up override
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -141,7 +152,9 @@ async def test_my_data_user_b_isolation(mock_user_b, mock_supabase_items):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-data", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -193,7 +206,9 @@ async def test_my_data_admin_sees_all(mock_admin_user, mock_supabase_items):
                 mock_auth_service.is_admin = AsyncMock(return_value=True)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-data", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -230,7 +245,9 @@ async def test_my_data_empty_results(mock_user_a):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-data", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -271,7 +288,9 @@ async def test_my_images_user_isolation(mock_user_a, mock_s3_objects):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-images", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -308,7 +327,9 @@ async def test_my_images_admin_sees_all(mock_admin_user, mock_s3_objects):
                 mock_auth_service.is_admin = AsyncMock(return_value=True)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-images", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -344,7 +365,9 @@ async def test_my_images_presigned_urls(mock_user_a):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-images", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -390,7 +413,9 @@ async def test_my_images_image_filtering(mock_user_a):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-images", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )
@@ -423,7 +448,9 @@ async def test_my_images_empty_folder(mock_user_a):
                 mock_auth_service.is_admin = AsyncMock(return_value=False)
                 mock_auth_class.return_value = mock_auth_service
 
-                async with AsyncClient(app=app, base_url="http://test") as client:
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as client:
                     response = await client.get(
                         "/test/my-images", headers={"Cf-Access-Jwt-Assertion": "valid.jwt.token"}
                     )

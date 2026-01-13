@@ -14,6 +14,8 @@ SAMPLE_FILES = [
     ("mongo_rag", "document_ingestion_example.py"),
     ("mongo_rag", "memory_tools_example.py"),
     ("mongo_rag", "enhanced_rag_example.py"),
+    ("mongo_rag", "user_auth_example.py"),
+    ("mongo_rag", "rls_sharing_example.py"),
     # Graphiti RAG
     ("graphiti_rag", "knowledge_graph_search_example.py"),
     ("graphiti_rag", "repository_parsing_example.py"),

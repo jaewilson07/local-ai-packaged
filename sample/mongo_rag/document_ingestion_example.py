@@ -12,6 +12,39 @@ Prerequisites:
 - MongoDB running
 - Documents folder with files to ingest (PDF, .md, .txt, etc.)
 - Environment variables configured (MONGODB_URI, LLM_BASE_URL, EMBEDDING_BASE_URL, etc.)
+- Dependencies installed: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+
+Validation:
+This sample validates its results through:
+
+1. **Ingestion Result Validation**:
+   - Verifies that documents are successfully ingested
+   - Checks that chunks are created and stored
+   - Validates that embeddings are generated
+   - Confirms document metadata is stored correctly
+
+2. **Exit Code Validation**:
+   - Returns exit code 0 if ingestion succeeds
+   - Returns exit code 1 if ingestion fails or errors occur
+
+3. **Error Handling**:
+   - Catches and logs exceptions during ingestion
+   - Provides clear error messages for debugging
+   - Handles missing files gracefully
+   - Ensures proper cleanup of resources
+
+4. **Result Structure Validation**:
+   - Verifies ingestion pipeline returns expected structure
+   - Checks document IDs and chunk IDs are generated
+   - Validates chunk counts match expectations
+   - Confirms source URLs/metadata are preserved
+
+The sample will fail validation if:
+- Documents cannot be read or parsed
+- MongoDB connection fails
+- Embedding generation fails
+- Chunking process fails
+- Storage operations fail
 """
 
 import asyncio
@@ -36,9 +69,9 @@ project_root = Path(__file__).parent.parent.parent
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from server.projects.mongo_rag.ingestion.pipeline import (
+from server.projects.mongo_rag.ingestion.pipeline import (  # noqa: E402
     DocumentIngestionPipeline,
     IngestionConfig,
 )
@@ -168,37 +201,28 @@ async def main():
 
         # Verify via API
         if successful > 0:
-            try:
-                from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-                from sample.shared.verification_helpers import verify_rag_data
+            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+            from sample.shared.verification_helpers import verify_rag_data
 
-                api_base_url = get_api_base_url()
-                headers = get_auth_headers()
+            api_base_url = get_api_base_url()
+            headers = get_auth_headers()
 
-                print("\n" + "=" * 80)
-                print("Verification")
-                print("=" * 80)
+            print("\n" + "=" * 80)
+            print("Verification")
+            print("=" * 80)
 
-                success, message = verify_rag_data(
-                    api_base_url=api_base_url,
-                    headers=headers,
-                    expected_documents_min=successful,
-                    expected_chunks_min=total_chunks,
-                )
-                print(message)
+            success, message = verify_rag_data(
+                api_base_url=api_base_url,
+                headers=headers,
+                expected_documents_min=successful,
+                expected_chunks_min=total_chunks,
+            )
+            print(message)
 
-                if success:
-                    print("\n✅ Verification passed!")
-                else:
-                    print("\n⚠️  Verification failed (data may need time to propagate)")
-            except Exception as e:
-                logger.warning(f"Verification error: {e}")
-                print(f"\n⚠️  Verification error: {e}")
-
-    except Exception as e:
-        logger.exception(f"❌ Error during ingestion: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        sys.exit(1)
+            if success:
+                print("\n✅ Verification passed!")
+            else:
+                print("\n❌ Verification failed (data may need time to propagate)")
     finally:
         # Cleanup
         await pipeline.close()

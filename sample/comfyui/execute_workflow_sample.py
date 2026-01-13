@@ -200,9 +200,6 @@ def create_workflow(
             except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
         return None
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
-        return None
 
 
 def check_lora_exists(api_base_url: str, headers: dict[str, str], lora_filename: str) -> bool:
@@ -239,9 +236,6 @@ def check_lora_exists(api_base_url: str, headers: dict[str, str], lora_filename:
 
     except requests.exceptions.HTTPError as e:
         print(f"  ✗ HTTP Error: {e}")
-        return False
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
         return False
 
 
@@ -300,9 +294,6 @@ def execute_workflow(
             except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
         return None
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
-        return None
 
 
 def poll_workflow_status(
@@ -358,11 +349,11 @@ def poll_workflow_status(
             if status == "completed":
                 print("  ✅ Workflow completed!")
                 return result
-            elif status == "failed":
+            if status == "failed":
                 error_msg = result.get("error_message", "Unknown error")
                 print(f"  ✗ Workflow failed: {error_msg}")
                 return result
-            elif status in ("pending", "running"):
+            if status in ("pending", "running"):
                 # Still processing, wait and poll again
                 time.sleep(poll_interval)
             else:
@@ -500,9 +491,6 @@ def verify_in_me_data(
                 print(f"     Detail: {error_detail}")
             except (ValueError, json.JSONDecodeError):
                 print(f"     Response: {e.response.text}")
-        return False
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
         return False
 
 

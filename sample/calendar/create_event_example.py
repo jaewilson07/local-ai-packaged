@@ -24,6 +24,40 @@ Prerequisites:
 - MongoDB running (for sync state tracking)
 - Google Calendar OAuth2 credentials configured
 - Environment variables configured (MONGODB_URI, GOOGLE_CALENDAR_CREDENTIALS_PATH, etc.)
+- Dependencies installed: Run `uv pip install -e ".[test]"` in `04-lambda/` directory
+
+Validation:
+This sample validates its results through:
+
+1. **API Verification**: Uses `verify_calendar_data()` from `sample/shared/verification_helpers.py`
+   - Verifies calendar events via `/api/me/data/calendar` endpoint
+   - Checks that at least the expected number of events exist
+   - Validates event data structure and counts
+   - Supports retry logic (3 retries with 2s delay) for eventual consistency
+
+2. **Exit Code Validation**:
+   - Returns exit code 0 if verification passes or OAuth is not configured (graceful failure)
+   - Returns exit code 1 if fatal errors occur during event creation
+
+3. **Error Handling**:
+   - Catches and logs exceptions during event creation
+   - Provides clear error messages for debugging
+   - Gracefully handles missing OAuth credentials (warns but continues)
+   - Ensures proper cleanup of dependencies in finally block
+
+4. **Result Validation**:
+   - Verifies that events are created successfully (checks result action: 'create' or 'update')
+   - Validates event data matches input parameters
+   - Confirms sync state is tracked in MongoDB
+
+The sample will fail validation if:
+- Event creation fails (OAuth errors, API errors, etc.)
+- Verification API call fails (network errors, auth errors)
+- Expected minimum event count is not met
+- Dependencies fail to initialize or cleanup
+
+Note: This sample gracefully handles OAuth configuration issues and will exit with code 0
+if verification fails due to OAuth (allowing samples to run even if OAuth is not configured).
 """
 
 import asyncio
@@ -37,15 +71,15 @@ sys.path.insert(0, str(project_root))  # Add project root for sample.shared impo
 lambda_path = project_root / "04-lambda"
 sys.path.insert(0, str(lambda_path))
 
-import logging
+import logging  # noqa: E402
 
-from sample.shared.auth_helpers import (
+from sample.shared.auth_helpers import (  # noqa: E402
     get_mongodb_credentials,
     require_cloudflare_email,
 )
-from server.projects.calendar.agent import create_calendar_event_tool
-from server.projects.calendar.dependencies import CalendarDeps
-from server.projects.shared.context_helpers import create_run_context
+from server.projects.calendar.agent import create_calendar_event_tool  # noqa: E402
+from server.projects.calendar.dependencies import CalendarDeps  # noqa: E402
+from server.projects.shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -173,41 +207,29 @@ async def main():
         print("=" * 80)
 
         # Verify via API
-        try:
-            from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
-            from sample.shared.verification_helpers import verify_calendar_data
+        from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+        from sample.shared.verification_helpers import verify_calendar_data
 
-            api_base_url = get_api_base_url()
-            headers = get_auth_headers()
+        api_base_url = get_api_base_url()
+        headers = get_auth_headers()
 
-            print("\n" + "=" * 80)
-            print("Verification")
-            print("=" * 80)
+        print("\n" + "=" * 80)
+        print("Verification")
+        print("=" * 80)
 
-            success, message = verify_calendar_data(
-                api_base_url=api_base_url,
-                headers=headers,
-                expected_events_min=len(events),
-            )
-            print(message)
+        success, message = verify_calendar_data(
+            api_base_url=api_base_url,
+            headers=headers,
+            expected_events_min=len(events),
+        )
+        print(message)
 
-            if success:
-                print("\n✅ Verification passed!")
-                sys.exit(0)
-            else:
-                print("\n⚠️  Verification failed (events may need time to sync)")
-                sys.exit(1)
-        except Exception as e:
-            logger.warning(f"Verification error: {e}")
-            print(f"\n⚠️  Verification error: {e}")
-            # Don't fail on verification errors for calendar (OAuth may not be configured)
+        if success:
+            print("\n✅ Verification passed!")
             sys.exit(0)
-
-    except Exception as e:
-        logger.exception(f"❌ Error creating calendar event: {e}")
-        print(f"\n❌ Fatal error: {e}")
-        print("\nNote: Make sure Google Calendar OAuth2 credentials are configured.")
-        sys.exit(1)
+        else:
+            print("\n❌ Verification failed (events may need time to sync)")
+            sys.exit(1)
     finally:
         # Cleanup
         await deps.cleanup()

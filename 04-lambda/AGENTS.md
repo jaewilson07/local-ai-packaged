@@ -418,6 +418,16 @@ async def test_rag_agent():
   - Subsequent restarts reuse existing packages (no reinstallation)
   - Volume persists across container restarts and rebuilds
 
+### Database Validation & Migrations
+- **Startup Validation**: Lambda server validates core database tables exist on startup
+- **Automatic Migration Application**: Migrations from `01-data/supabase/migrations/` are automatically applied if tables are missing
+- **Core Tables**: `profiles` table is validated (CRITICAL - required for authentication)
+- **Optional Tables**: `comfyui_workflows`, `comfyui_workflow_runs`, `comfyui_lora_models` are checked but missing them won't prevent startup
+- **Service**: `DatabaseValidationService` in `server/projects/auth/services/database_validation_service.py`
+- **Integration**: Validation runs during FastAPI lifespan startup (before accepting requests)
+- **Protection**: Core tables are validated on every startup to prevent accidental deletion
+- **Documentation**: See [Supabase Migrations README](../01-data/supabase/migrations/README.md)
+
 ## Patterns
 
 ### Project Structure
@@ -765,7 +775,7 @@ The Discord Characters project provides AI character management and interaction 
 - **Persona Service**: Uses `PersonaDeps` for character definitions and voice instructions
 - **Conversation Orchestrator**: Uses `ConversationOrchestrator` for multi-agent responses
 - **MongoDB**: Stores channel state and conversation history
-- **Discord Bot**: `03-apps/discord-character-bot` calls these APIs
+- **Discord Bot**: `03-apps/discord-bot` (with `ENABLED_CAPABILITIES=character`) calls these APIs
 
 ### Service Layer
 The project includes a service layer (`server/services/discord_characters/`) with:
@@ -819,6 +829,13 @@ async def endpoint(user: User = Depends(get_current_user)):
 - `Neo4jService`: User node provisioning in Neo4j graph
 - `MinIOService`: User folder provisioning in MinIO object storage
 - `AuthService`: Helper functions (admin checks)
+- `DatabaseValidationService`: Validates core database tables and applies migrations on startup
+
+**Database Schema Management:**
+- **Automatic Migrations**: Migrations are automatically applied during Lambda server startup
+- **Core Table Validation**: `profiles` table is validated and auto-created if missing
+- **Startup Integration**: Validation runs in FastAPI lifespan before accepting requests
+- **Location**: `server/projects/auth/services/database_validation_service.py`
 
 See [server/projects/auth/README.md](server/projects/auth/README.md) for detailed documentation.
 

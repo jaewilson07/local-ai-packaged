@@ -124,9 +124,8 @@ async def test_storm_research():
                 print(f"\n⚠️  Verification skipped: {e}")
 
             return True
-        else:
-            print("⚠️  Warning: Report seems incomplete or missing")
-            return False
+        print("⚠️  Warning: Report seems incomplete or missing")
+        return False
 
     except Exception as e:
         print(f"❌ Error: {e}")

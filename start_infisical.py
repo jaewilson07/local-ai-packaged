@@ -267,7 +267,7 @@ Examples:
     print("Next steps:")
     print("  1. Open Infisical UI in your browser")
     print("  2. Create a project and add secrets")
-    print("  3. Sync secrets to .env: python 00-infrastructure/scripts/sync-infisical-to-env.py")
+    print("  3. Sync secrets to .env: infisical export --format=dotenv > .env.infisical")
     print()
     print("Note: Infisical runs independently from local-ai-packaged services.")
 

@@ -118,7 +118,7 @@ volumes:
 
     # Write the updated content
     target_path = Path(target)
-    os.makedirs(target_path.parent, exist_ok=True)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
     with target_path.open("w", encoding="utf-8") as f:
         f.write(content)
 
