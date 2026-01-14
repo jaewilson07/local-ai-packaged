@@ -1,4 +1,4 @@
-"""Google Docs API low-level wrapper."""
+"""Google Docs API low-level wrapper with composition-based architecture."""
 
 import io
 from typing import Any
@@ -10,14 +10,17 @@ from googleapiclient.http import MediaIoBaseDownload
 from markdownify import markdownify as md
 
 from ..models import GoogleDocumentTab
-from .google_drive_api import GoogleDrive
-from .google_drive_authenticator import GoogleAuth
+from .google_auth import GoogleAuth
+from .exceptions import GoogleDriveException
+
+from .google_drive import GoogleDrive
 
 
 class GoogleDoc(GoogleDrive):
-    """Low-level wrapper for Google Docs API operations with integrated tab export.
+    """Low-level wrapper for Google Docs API operations with composition-based architecture.
 
     Inherits from GoogleDrive to access Drive API methods and file operations.
+    Overrides Search and Export with Docs-specific implementations.
     Provides access to document structure and tabs metadata when available.
     """
 
@@ -29,7 +32,18 @@ class GoogleDoc(GoogleDrive):
             authenticator: GoogleAuth instance
         """
         super().__init__(authenticator)
-        self.docs_service = build("docs", "v1", credentials=authenticator.get_credentials())
+        self._docs_service = None
+        
+        # Override with Docs-specific implementations
+        self.Search = GoogleDoc.Search(self)
+        self.Export = GoogleDoc.Export(self)
+    
+    @property
+    def docs_service(self):
+        """Lazy-loaded Google Docs API service client."""
+        if self._docs_service is None:
+            self._docs_service = build("docs", "v1", credentials=self.authenticator.get_credentials())
+        return self._docs_service
 
     def get_by_id(self, document_id: str, include_tabs: bool = False) -> dict[str, Any]:
         """Fetch a Google Doc with optional tabs content included.
@@ -40,8 +54,11 @@ class GoogleDoc(GoogleDrive):
 
         Returns:
             Raw Docs API response
+            
+        Raises:
+            GoogleDriveException: If API call fails
         """
-        self.authenticator.refresh_if_needed()
+        self.refresh_credentials_if_needed()
         try:
             if include_tabs:
                 # Some environments may not support this param; surface errors clearly
@@ -50,9 +67,10 @@ class GoogleDoc(GoogleDrive):
                     .get(documentId=document_id, includeTabsContent=True)
                     .execute()
                 )
-            return self.docs_service.documents().get(documentId=document_id).execute()
+            else:
+                return self.docs_service.documents().get(documentId=document_id).execute()
         except HttpError as e:
-            raise ValueError(f"Failed to fetch Docs document {document_id}: {e}") from e
+            raise GoogleDriveException(f"Failed to get Google Doc {document_id}: {e}", e) from e
 
     def get_tabs_metadata(self, document_id: str) -> list[dict[str, Any]]:
         """Extract tabs metadata list from Docs API response when present.

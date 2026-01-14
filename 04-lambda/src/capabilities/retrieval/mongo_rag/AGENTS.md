@@ -424,7 +424,7 @@ MongoDB RAG implements Row-Level Security (RLS) for multi-tenant data isolation.
 **MongoDB User Provisioning:**
 - **JIT Provisioning**: Users are automatically provisioned in MongoDB on first authentication
 - **RBAC Roles**: Each user gets a `rag_user` role with read/write access to RAG collections
-- **Service**: `server/projects/auth/services/mongodb_service.py` handles user creation and management
+- **Service**: `src/services/auth/services/mongodb_service.py` handles user creation and management
 - **Credentials Storage**: MongoDB username/password stored in Supabase `profiles` table
 
 **User Context in Dependencies:**

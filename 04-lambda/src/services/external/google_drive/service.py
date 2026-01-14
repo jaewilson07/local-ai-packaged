@@ -71,7 +71,7 @@ class GoogleDriveService:
         Returns:
             SearchResult with matching files
         """
-        return self.api.search(
+        return self.api.Search.search(
             query=query,
             top_n=top_n,
             folder_id=folder_id,
@@ -100,7 +100,7 @@ class GoogleDriveService:
         Returns:
             List of document IDs
         """
-        return self.api.search_ids(
+        return self.api.Search.search_ids(
             query=query,
             top_n=top_n,
             folder_id=folder_id,
@@ -154,7 +154,7 @@ class GoogleDriveService:
         Raises:
             ValueError: If download fails
         """
-        return self.api.download_file(file_id)
+        return self.api.Export.download_file(file_id)
 
     def export_as_markdown(
         self,
@@ -176,7 +176,7 @@ class GoogleDriveService:
         Raises:
             ValueError: If document cannot be exported or doesn't exist
         """
-        return self.api.export_as_markdown(
+        return self.api.Export.export_as_markdown(
             document_id=document_id,
             include_metadata=include_metadata,
             output_path=output_path,

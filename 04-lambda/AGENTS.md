@@ -1,5 +1,7 @@
 # Lambda Stack - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for Lambda server concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Lambda stack rules take precedence.
 
 ## Overview
@@ -10,14 +12,15 @@ FastAPI multi-project server providing REST APIs and MCP (Model Context Protocol
 
 ### Core Philosophy
 
-**Multi-Project Lambda Server**: A unified FastAPI application that hosts multiple independent projects (agents, pipelines, integrations) while maintaining clean boundaries and shared infrastructure.
+**Multi-Project Lambda Server**: A unified FastAPI application that hosts multiple independent capabilities and workflows while maintaining clean boundaries and shared infrastructure.
 
 **Key Principles:**
-1. **Project Isolation**: Each project is self-contained in `server/projects/{name}/`
-2. **Dual Interface**: Every project exposes both REST API and MCP endpoints
-3. **Shared Infrastructure**: Common utilities (logging, config, exceptions) in `server/core/`
-4. **Type Safety**: Pydantic models for all data structures
-5. **Async First**: All I/O operations are async
+1. **Capability Isolation**: Each capability is self-contained in `src/capabilities/{category}/{name}/`
+2. **Workflow Organization**: Workflows are organized in `src/workflows/{category}/{name}/`
+3. **Dual Interface**: Every capability/workflow exposes both REST API and MCP endpoints
+4. **Shared Infrastructure**: Common utilities (logging, config, exceptions) in `src/shared/`
+5. **Type Safety**: Pydantic models for all data structures
+6. **Async First**: All I/O operations are async
 6. **Clean Architecture**: No backward compatibility concerns, modern patterns only
 
 ### Architecture Layers
@@ -116,7 +119,7 @@ async def tool_name(ctx: RunContext[ProjectDeps], arg: str) -> str:
 - Tools MUST use `RunContext[DepsType]` as first parameter
 - Access dependencies via `ctx.deps` (never initialize dependencies inside tools)
 - Samples and tests MUST use `create_run_context()` helper for RunContext creation
-- See `server/projects/shared/context_helpers.py` for helper implementation
+- See `src/shared/context_helpers.py` for helper implementation
 
 # 7. Output Validation (optional)
 @project_agent.output_validator
@@ -135,12 +138,12 @@ async def validate_output(
 Each project follows this structure:
 
 ```
-server/projects/{project_name}/
+src/capabilities/{category}/{name}/
 ├── __init__.py
-├── config.py              # Project-specific configuration
-├── dependencies.py        # ProjectDeps class (follows standard)
-├── agent.py              # Agent definition (follows standard)
-├── tools.py              # Agent tools (if complex)
+├── config.py              # Capability-specific configuration
+├── dependencies.py        # CapabilityDeps class
+├── agent.py              # Agent definition
+├── tools.py              # Agent tools
 ├── prompts.py            # System prompts
 └── {domain}/             # Domain-specific modules
     ├── pipeline.py       # Data processing pipelines
@@ -262,7 +265,7 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-2. **Project Config** (`server/projects/{project}/config.py`):
+2. **Project Config** (`src/capabilities/{category}/{name}/config.py` or `src/workflows/{category}/{name}/config.py`):
 ```python
 from server.config import settings as global_settings
 
@@ -359,7 +362,7 @@ async def test_endpoint():
 
 ### RunContext Patterns for Testing
 
-**Helper Function**: `server/projects/shared/context_helpers.create_run_context()`
+**Helper Function**: `src/shared/context_helpers.create_run_context()`
 
 **Testing Tools Directly:**
 ```python
@@ -423,7 +426,7 @@ async def test_rag_agent():
 - **Automatic Migration Application**: Migrations from `01-data/supabase/migrations/` are automatically applied if tables are missing
 - **Core Tables**: `profiles` table is validated (CRITICAL - required for authentication)
 - **Optional Tables**: `comfyui_workflows`, `comfyui_workflow_runs`, `comfyui_lora_models` are checked but missing them won't prevent startup
-- **Service**: `DatabaseValidationService` in `server/projects/auth/services/database_validation_service.py`
+- **Service**: `DatabaseValidationService` in `src/services/auth/services/database_validation_service.py`
 - **Integration**: Validation runs during FastAPI lifespan startup (before accepting requests)
 - **Protection**: Core tables are validated on every startup to prevent accidental deletion
 - **Documentation**: See [Supabase Migrations README](../01-data/supabase/migrations/README.md)
@@ -452,7 +455,7 @@ server/
 
 ### Configuration
 - **Global**: `server/config.py` (Pydantic Settings from env vars)
-- **Project-specific**: `server/projects/{project}/config.py` (derives from global)
+- **Project-specific**: `src/capabilities/{category}/{name}/config.py` or `src/workflows/{category}/{name}/config.py` (derives from global)
 - **Environment**: `.env` file (Docker Compose injects into container)
 
 ### Database Connections
@@ -539,7 +542,7 @@ async def endpoint(request: RequestModel):
 
 ## Adding New Projects
 
-1. **Create project folder**: `server/projects/your_project/`
+1. **Create project folder**: `src/capabilities/{category}/{name}/` or `src/workflows/{category}/{name}/`
    - `config.py` - Project configuration
    - `dependencies.py` - External connections
    - `tools.py` - Core functionality
@@ -584,6 +587,148 @@ async def endpoint(request: RequestModel):
 - `LLM_BASE_URL` - API base URL (default: http://ollama:11434/v1)
 - `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
 - `LOG_LEVEL` - Logging level (default: info)
+
+## Service Composition Patterns
+
+### Composition Class Architecture
+
+**Rule**: When creating service classes that need to be broken down for SOLID principles, use **inner classes with Capital letters for composition**.
+
+**Pattern**: `ServiceClass.ComponentName` (e.g., `GoogleDrive.Search`, `GoogleDrive.Export`)
+
+#### Base Class Hierarchy
+
+**Always use ABC and Protocol when reasonable:**
+
+```python
+from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class ServiceProtocol(Protocol):
+    """Protocol for service with common operations."""
+    authenticator: AuthType
+    
+    def core_operation(self, param: str) -> dict: ...
+
+class BaseService(ABC):
+    """Base service with shared authentication and setup."""
+    
+    def __init__(self, authenticator: AuthType):
+        self.authenticator = authenticator
+    
+    @abstractmethod
+    def initialize(self): ...
+
+class BaseComponent(ABC):
+    """Base class for service components."""
+    
+    def __init__(self, parent: ServiceProtocol):
+        """Always pass parent reference for access to service."""
+        self._parent = parent
+    
+    @abstractmethod
+    def component_operation(self, **kwargs): ...
+```
+
+#### Service Implementation Pattern
+
+```python
+class GoogleDrive(BaseService):
+    """Service with composition-based architecture."""
+    
+    def __init__(self, authenticator: GoogleAuth):
+        super().__init__(authenticator)
+        
+        # Composition: Initialize inner class instances
+        self.Search = GoogleDrive.Search(self)
+        self.Export = GoogleDrive.Export(self)
+    
+    class Search(BaseSearch):
+        """Search operations as inner class."""
+        
+        def _execute_search(self, query: str, **kwargs) -> dict:
+            # Access parent service via self._parent
+            return self._parent.api_call(query)
+    
+    class Export(BaseExport):
+        """Export operations as inner class."""
+        
+        def _download_content(self, file_id: str) -> str:
+            return self._parent.download(file_id)
+```
+
+#### Usage Pattern
+
+```python
+# Create service instance
+service = GoogleDrive(authenticator)
+
+# Use composed functionality
+results = service.Search.search("query")
+content = service.Export.export_as_markdown("doc_id")
+
+# Service still has core methods
+metadata = service.get_file_metadata("file_id")
+```
+
+#### Configuration Pattern
+
+**Always move hardcoded constants to config files:**
+
+```python
+# config.py
+DEFAULT_FOLDER_ID = "13ICM72u7cnvCb0ATpVXdHWqxH1SmiG_Q"
+DEFAULT_PAGE_SIZE = 10
+EXPORT_MIME_TYPES = {
+    "markdown": "text/plain",
+    "html": "text/html"
+}
+
+# service.py
+from .config import DEFAULT_FOLDER_ID, DEFAULT_PAGE_SIZE
+```
+
+### Exception Patterns
+
+**Create service-specific exception hierarchies:**
+
+```python
+class ServiceException(Exception):
+    """Base exception for service operations."""
+    
+    def __init__(self, message: str, original_error: Exception | None = None):
+        super().__init__(message)
+        self.original_error = original_error
+
+class ServiceAuthError(ServiceException): ...
+class ServiceNotFoundError(ServiceException): ...
+class ServiceExportError(ServiceException): ...
+```
+
+**Usage in methods:**
+
+```python
+try:
+    result = api_call()
+except HttpError as e:
+    if e.resp.status == 404:
+        raise ServiceNotFoundError(f"Resource not found: {resource_id}", e)
+    raise ServiceException(f"API call failed: {e}", e)
+```
+
+### When to Apply This Pattern
+
+**Use composition with inner classes when:**
+- Service has multiple distinct responsibilities (Search, Export, Import)
+- Components share common parent functionality
+- Want to maintain single entry point but organize by concern
+- Each component needs access to parent service methods
+
+**Example services to refactor:**
+- `ComfyUIService` → `ComfyUI.Workflow`, `ComfyUI.Model`, `ComfyUI.Queue`
+- `MinIOService` → `MinIO.Upload`, `MinIO.Download`, `MinIO.Bucket`
+- `Neo4jService` → `Neo4j.Query`, `Neo4j.Graph`, `Neo4j.Schema`
 
 ## Common Patterns
 
@@ -687,7 +832,7 @@ docker exec mongodb mongosh --eval "db.adminCommand('ping')"
 ### Overview
 The N8n Workflow project provides agentic workflow management for N8n automation platform. It enables AI agents to create, update, delete, activate, and execute N8n workflows through natural language.
 
-**Standards Compliance**: This project fully complies with the Pydantic AI Agent Implementation Standard. See [STANDARDS_COMPLIANCE.md](server/projects/n8n_workflow/docs/STANDARDS_COMPLIANCE.md) for details.
+**Standards Compliance**: This project fully complies with the Pydantic AI Agent Implementation Standard. See [STANDARDS_COMPLIANCE.md](src/workflows/automation/n8n_workflow/docs/STANDARDS_COMPLIANCE.md) for details.
 
 ### Architecture
 - **Agent**: Pydantic AI agent with N8n workflow management tools
@@ -733,7 +878,7 @@ The agent uses Retrieval-Augmented Generation (RAG) to:
 3. **Find examples**: Searches for node configuration examples
 4. **Cite sources**: References knowledge base sources in responses
 
-See [ENHANCEMENT_RESEARCH.md](server/projects/n8n_workflow/docs/ENHANCEMENT_RESEARCH.md) for detailed research and implementation strategy.
+See [ENHANCEMENT_RESEARCH.md](src/workflows/automation/n8n_workflow/docs/ENHANCEMENT_RESEARCH.md) for detailed research and implementation strategy.
 
 ### Integration Points
 - **N8n Service**: `http://n8n:5678` (from 03-apps stack)
@@ -835,9 +980,9 @@ async def endpoint(user: User = Depends(get_current_user)):
 - **Automatic Migrations**: Migrations are automatically applied during Lambda server startup
 - **Core Table Validation**: `profiles` table is validated and auto-created if missing
 - **Startup Integration**: Validation runs in FastAPI lifespan before accepting requests
-- **Location**: `server/projects/auth/services/database_validation_service.py`
+- **Location**: `src/services/auth/services/database_validation_service.py`
 
-See [server/projects/auth/README.md](server/projects/auth/README.md) for detailed documentation.
+See [src/services/auth/README.md](src/services/auth/README.md) for detailed documentation.
 
 ## Data Viewing APIs
 
@@ -933,10 +1078,10 @@ rg -n "def.*tool" server/mcp/
 rg -n "class.*Config" server/
 
 # Find dependencies
-rg -n "class.*Dependencies" server/projects/
+rg -n "class.*Dependencies" src/capabilities/ src/workflows/
 
 # Find auth services
-rg -n "class.*Service" server/projects/auth/services/
+rg -n "class.*Service" src/services/auth/services/
 
 # Find response models
 rg -n "class.*Response" server/api/
