@@ -85,7 +85,7 @@ A directory map pointing to sub-files:
 * **GitHub Copilot**: Reads AGENTS.md files automatically (experimental feature)
 * **Cursor AI**: Reads AGENTS.md files automatically in workspace and subfolders
 * **Single Source of Truth**: Keep all behavioral rules in AGENTS.md hierarchy, not in editor-specific config files
-* **Supplementary Configs**: 
+* **Supplementary Configs**:
   - `.github/copilot-instructions.md` - Summarized version for Copilot
   - `.cursor/rules/*.md` - Path-specific overrides for Cursor
   - Both should reference AGENTS.md as source of truth

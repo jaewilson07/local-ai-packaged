@@ -18,21 +18,21 @@ from services.external.google_drive import GoogleDriveService
 
 def main():
     """Search Google Drive and display results."""
-    
+
     # Initialize service
     service = GoogleDriveService()
-    
+
     # Search query
     query = "copilot agent"
-    
+
     print(f"🔍 Searching Google Drive for: '{query}'\n")
-    
+
     # Search for files
     results = service.search_files(query=query, top_n=10)
-    
+
     print(f"✅ Found {results.total_results} files\n")
     print(f"{'='*80}\n")
-    
+
     # Display results
     for idx, file in enumerate(results.files, 1):
         print(f"[{idx}] {file.name}")
