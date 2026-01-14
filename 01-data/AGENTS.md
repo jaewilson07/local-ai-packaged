@@ -1,5 +1,7 @@
 # Data Stack - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for data layer concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Data layer rules take precedence.
 
 ## Component Identity
@@ -98,14 +100,14 @@
 **User Provisioning**:
 - **JIT Provisioning**: Lambda server automatically creates user profiles in `profiles` table
 - **Table Schema**: `id` (UUID), `email` (unique), `role` (default: "user"), `tier` (default: "free"), `created_at`
-- **Location**: `04-lambda/server/projects/auth/services/supabase_service.py`
+- **Location**: `04-lambda/src/services/auth/services/supabase_service.py`
 - **Pattern**: `get_or_provision_user(email)` creates user if doesn't exist
 
 **Database Migrations**:
 - **Automatic Application**: Lambda server automatically applies migrations from `01-data/supabase/migrations/` on startup
 - **Core Tables**: `profiles` table is validated and auto-created if missing (CRITICAL for system operation)
 - **Optional Tables**: `comfyui_workflows`, `comfyui_workflow_runs`, `comfyui_lora_models` are checked but missing them won't prevent startup
-- **Validation Service**: `04-lambda/server/projects/auth/services/database_validation_service.py` handles validation and migration application
+- **Validation Service**: `04-lambda/src/services/auth/services/database_validation_service.py` handles validation and migration application
 - **Migration Files**: Numbered migrations (e.g., `000_profiles_table.sql`, `001_comfyui_workflows.sql`) are applied in order
 - **Idempotent**: All migrations use `CREATE TABLE IF NOT EXISTS` to be safe to run multiple times
 - **Protection**: Core tables are validated on every Lambda server startup to prevent accidental deletion
@@ -179,7 +181,7 @@ cat supabase/docker/volumes/api/kong.yml
 **User Provisioning**:
 - **JIT Provisioning**: Lambda server automatically creates `:User` nodes
 - **Node Pattern**: `(:User {email: "user@example.com"})`
-- **Location**: `04-lambda/server/projects/auth/services/neo4j_service.py`
+- **Location**: `04-lambda/src/services/auth/services/neo4j_service.py`
 - **Pattern**: `provision_user(email)` creates user node if doesn't exist
 
 **Data Isolation**:
@@ -252,7 +254,7 @@ cat supabase/docker/volumes/api/kong.yml
 **User Provisioning**:
 - **JIT Provisioning**: Lambda server automatically creates user folders
 - **Folder Pattern**: `user-{uuid}/` (e.g., `user-123e4567-e89b-12d3-a456-426614174000/`)
-- **Location**: `04-lambda/server/projects/auth/services/minio_service.py`
+- **Location**: `04-lambda/src/services/auth/services/minio_service.py`
 - **Pattern**: `provision_user(user_id, email)` creates folder structure if doesn't exist
 
 **Data Isolation**:
@@ -343,7 +345,7 @@ docker exec minio mc ready local
 - Enforce data isolation in all queries (filter by user email/UUID)
 - Use user anchoring pattern for Neo4j queries
 - Check admin status before bypassing data isolation
-- Reference [Auth Project README](../04-lambda/server/projects/auth/README.md) for user management patterns
+- Reference [Auth Project README](../04-lambda/src/services/auth/README.md) for user management patterns
 
 ### ❌ DON'T
 - do not put any files in the root folder.  files should be created within their respective service stack
@@ -373,5 +375,5 @@ docker exec minio mc ready local
 **See Also**:
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [supabase/README.md](../supabase/README.md) for Supabase-specific docs
-- [Auth Project README](../04-lambda/server/projects/auth/README.md) - User provisioning and data isolation patterns
+- [Auth Project README](../04-lambda/src/services/auth/README.md) - User provisioning and data isolation patterns
 - [Neo4j Data Isolation Guide](neo4j/docs/data-isolation.md) - Neo4j user anchoring patterns

@@ -1,5 +1,7 @@
 # Apps Stack - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for application layer concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Application layer rules take precedence.
 
 ## Component Identity

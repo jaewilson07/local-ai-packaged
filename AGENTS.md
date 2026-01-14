@@ -1,5 +1,7 @@
 # AGENTS.md - Universal Constitution
 
+> **Multi-Editor Support**: These instructions apply to both GitHub Copilot and Cursor AI editors. Both read AGENTS.md files as the universal source of truth for AI-assisted development.
+
 > **Nearest-wins hierarchy**: Sub-folder AGENTS.md files override this root document. Always check for component-specific rules first.
 
 ## Agent Behavioral Protocols
@@ -26,6 +28,21 @@
 - Do not output unchanged code blocks. Use `// ... existing code ...` for context.
 - Do not repeat the user's prompt verbatim in responses.
 - When referencing files, use code references: `startLine:endLine:filepath`
+
+## File Organization & Root Directory Standards
+
+**Do not create new root-level files or directories.** Use designated locations:
+
+- **`.github/`** - GitHub-specific configs (workflows, Copilot instructions)
+- **`.cursor/`** - Cursor-specific configs (rules, commands, plans)
+- **`.venv/`** - Python virtual environment (always use `uv`)
+- **`docs/`** - Project documentation
+- **`sample/`** - User-facing sample code and examples
+- **`scripts/`** - Maintenance scripts (agents: do not modify these)
+- **`setup/`** - Installation scripts (CLIs, pre-commit hooks, etc.)
+- **`test/`** - Test files to validate generated code
+- **`temp/`** - Temporary files during code generation (gitignored)
+- **Stack directories** (`00-infrastructure/`, `01-data/`, `02-compute/`, `03-apps/`, `04-lambda/`) - Service stacks
 
 ## Universal Tech Stack
 
@@ -89,8 +106,8 @@ The Lambda server implements a centralized authentication system using Cloudflar
 - **JIT Provisioning**: Automatically creates users in Supabase, Neo4j, MinIO, MongoDB, and Immich on first access
 - **Data Isolation**: Enforces user-scoped data access across all storage layers
 - **Admin Override**: Users with `role: "admin"` can view all data
-- **Location**: `04-lambda/server/projects/auth/`
-- **Documentation**: See [Auth Project README](04-lambda/server/projects/auth/README.md) and [04-lambda/AGENTS.md](04-lambda/AGENTS.md)
+- **Location**: `04-lambda/src/services/auth/`
+- **Documentation**: See [Auth Project README](04-lambda/src/services/auth/README.md) and [04-lambda/AGENTS.md](04-lambda/AGENTS.md)
 
 ### Database Schema Management
 
@@ -101,7 +118,7 @@ The Lambda server automatically validates and applies database migrations on sta
 - **Idempotent Migrations**: All migrations use `CREATE TABLE IF NOT EXISTS` to be safe to run multiple times
 - **Startup Validation**: Lambda server validates core tables exist and applies missing migrations before accepting requests
 - **Protection**: Core tables are validated on every startup to prevent accidental deletion
-- **Location**: `04-lambda/server/projects/auth/services/database_validation_service.py`
+- **Location**: `04-lambda/src/services/auth/services/database_validation_service.py`
 - **Migration Files**: `01-data/supabase/migrations/*.sql`
 - **Documentation**: See [Supabase Migrations README](01-data/supabase/migrations/README.md)
 
@@ -131,20 +148,28 @@ For detailed component rules, see:
 - **[setup/AGENTS.md](setup/AGENTS.md)** - Setup scripts and configuration utilities
 
 ### Lambda Project-Level Documentation
-For Lambda server projects, see project-specific AGENTS.md files:
+For Lambda server capabilities and workflows, see project-specific AGENTS.md files:
 
-- **[04-lambda/server/projects/calendar/AGENTS.md](04-lambda/server/projects/calendar/AGENTS.md)** - Google Calendar integration and sync
-- **[04-lambda/server/projects/conversation/AGENTS.md](04-lambda/server/projects/conversation/AGENTS.md)** - Multi-agent conversation orchestration
-- **[04-lambda/server/projects/crawl4ai_rag/AGENTS.md](04-lambda/server/projects/crawl4ai_rag/AGENTS.md)** - Web crawling and automatic ingestion into MongoDB RAG knowledge base
-- **[04-lambda/server/projects/graphiti_rag/AGENTS.md](04-lambda/server/projects/graphiti_rag/AGENTS.md)** - Graph-based RAG using Graphiti and Neo4j
-- **[04-lambda/server/projects/knowledge/AGENTS.md](04-lambda/server/projects/knowledge/AGENTS.md)** - Event extraction from web content
-- **[04-lambda/server/projects/mongo_rag/AGENTS.md](04-lambda/server/projects/mongo_rag/AGENTS.md)** - MongoDB RAG with enhanced search, memory tools, and knowledge graph
-- **[04-lambda/server/projects/n8n_workflow/AGENTS.md](04-lambda/server/projects/n8n_workflow/AGENTS.md)** - N8n workflow management with RAG
-- **[04-lambda/server/projects/openwebui_export/AGENTS.md](04-lambda/server/projects/openwebui_export/AGENTS.md)** - Export Open WebUI conversations to MongoDB RAG system for searchability
-- **[04-lambda/server/projects/openwebui_topics/AGENTS.md](04-lambda/server/projects/openwebui_topics/AGENTS.md)** - Classify conversation topics using LLM for organization and filtering
-- **[04-lambda/server/projects/persona/AGENTS.md](04-lambda/server/projects/persona/AGENTS.md)** - Persona state management (mood, relationship, context)
-- **[04-lambda/server/projects/discord_characters/AGENTS.md](04-lambda/server/projects/discord_characters/AGENTS.md)** - Discord character management and interaction
-- **[04-lambda/server/projects/auth/README.md](04-lambda/server/projects/auth/README.md)** - Authentication system (Cloudflare Access, JIT provisioning, data isolation)
+**Capabilities**:
+- **[04-lambda/src/capabilities/calendar/calendar_sync/AGENTS.md](04-lambda/src/capabilities/calendar/calendar_sync/AGENTS.md)** - Google Calendar integration and sync
+- **[04-lambda/src/capabilities/retrieval/mongo_rag/AGENTS.md](04-lambda/src/capabilities/retrieval/mongo_rag/AGENTS.md)** - MongoDB RAG with enhanced search, memory tools, and knowledge graph
+- **[04-lambda/src/capabilities/retrieval/graphiti_rag/AGENTS.md](04-lambda/src/capabilities/retrieval/graphiti_rag/AGENTS.md)** - Graph-based RAG using Graphiti and Neo4j
+- **[04-lambda/src/capabilities/knowledge_graph/knowledge/AGENTS.md](04-lambda/src/capabilities/knowledge_graph/knowledge/AGENTS.md)** - Event extraction from web content
+- **[04-lambda/src/capabilities/knowledge_graph/knowledge_base/AGENTS.md](04-lambda/src/capabilities/knowledge_graph/knowledge_base/AGENTS.md)** - Knowledge base management
+- **[04-lambda/src/capabilities/processing/openwebui_topics/AGENTS.md](04-lambda/src/capabilities/processing/openwebui_topics/AGENTS.md)** - Classify conversation topics using LLM
+- **[04-lambda/src/capabilities/persona/persona_state/AGENTS.md](04-lambda/src/capabilities/persona/persona_state/AGENTS.md)** - Persona state management (mood, relationship, context)
+- **[04-lambda/src/capabilities/persona/discord_characters/AGENTS.md](04-lambda/src/capabilities/persona/discord_characters/AGENTS.md)** - Discord character management and interaction
+
+**Workflows**:
+- **[04-lambda/src/workflows/automation/n8n_workflow/AGENTS.md](04-lambda/src/workflows/automation/n8n_workflow/AGENTS.md)** - N8n workflow management with RAG
+- **[04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md](04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md)** - Web crawling and automatic ingestion into MongoDB RAG
+- **[04-lambda/src/workflows/ingestion/openwebui_export/AGENTS.md](04-lambda/src/workflows/ingestion/openwebui_export/AGENTS.md)** - Export Open WebUI conversations to MongoDB RAG
+- **[04-lambda/src/workflows/ingestion/youtube_rag/AGENTS.md](04-lambda/src/workflows/ingestion/youtube_rag/AGENTS.md)** - YouTube video ingestion and transcription
+- **[04-lambda/src/workflows/chat/conversation/AGENTS.md](04-lambda/src/workflows/chat/conversation/AGENTS.md)** - Multi-agent conversation orchestration
+- **[04-lambda/src/workflows/research/deep_research/AGENTS.md](04-lambda/src/workflows/research/deep_research/AGENTS.md)** - Deep research workflows
+
+**Services**:
+- **[04-lambda/src/services/auth/README.md](04-lambda/src/services/auth/README.md)** - Authentication system (Cloudflare Access, JIT provisioning, data isolation)
 
 ## Common Patterns
 
@@ -312,7 +337,7 @@ async def protected_endpoint(user: User = Depends(get_current_user)):
 - Failures are logged but don't block authentication
 - Immich users get auto-generated API keys stored in `profiles.immich_api_key`
 
-See [Auth Project README](04-lambda/server/projects/auth/README.md) for complete patterns.
+See [Auth Project README](04-lambda/src/services/auth/README.md) for complete patterns.
 
 **Sample Script Authentication Pattern**:
 

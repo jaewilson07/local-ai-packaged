@@ -1,5 +1,7 @@
 # Setup Scripts - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for setup and installation concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Setup-specific rules take precedence.
 
 ## Component Identity

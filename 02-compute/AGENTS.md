@@ -1,5 +1,7 @@
 # Compute Stack - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for compute layer concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Compute layer rules take precedence.
 
 ## Component Identity

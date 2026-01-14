@@ -1,4 +1,4 @@
-"""Exception hierarchy for Google Drive API operations."""
+f"""Exception hierarchy for Google Drive API operations."""
 
 
 class GoogleDriveException(Exception):

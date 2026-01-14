@@ -1,5 +1,7 @@
 # Infrastructure Stack - AGENTS.md
 
+> **Multi-Editor Support**: Both GitHub Copilot and Cursor AI read this file. Rules here override the root AGENTS.md for infrastructure-specific concerns.
+
 > **Override**: This file extends [../AGENTS.md](../AGENTS.md). Infrastructure-specific rules take precedence.
 
 ## Component Identity
@@ -51,7 +53,7 @@
 - **Security**: Configured to trust Cloudflare IP ranges (when using Tunnel)
   - All traffic comes through Cloudflare network
   - Caddy forwards `Cf-Access-Jwt-Assertion` header to Lambda server
-  - See [Auth Project Security](../04-lambda/server/projects/auth/SECURITY.md) for details
+  - See [Auth Project Security](../04-lambda/src/services/auth/SECURITY.md) for details
 
 ### Cloudflare Tunnel
 - **Image**: `cloudflare/cloudflared:latest`
