@@ -26,7 +26,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy application
-COPY server/ /app/server/
+COPY src/ /app/src/
 COPY pyproject.toml /app/
 
 # Copy entrypoint script
@@ -48,4 +48,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.server.main:app", "--host", "0.0.0.0", "--port", "8000"]
