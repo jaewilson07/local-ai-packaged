@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from server.projects.mongo_rag.nodes.citations import extract_citations, format_citations
 from server.projects.mongo_rag.nodes.decompose import decompose_query
 from server.projects.mongo_rag.nodes.grade import grade_documents

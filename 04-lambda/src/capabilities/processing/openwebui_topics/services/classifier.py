@@ -4,9 +4,8 @@ import json
 import logging
 
 import httpx
-
-from server.projects.openwebui_topics.config import config
-from server.projects.openwebui_topics.models import (
+from capabilities.processing.openwebui_topics.config import config
+from capabilities.processing.openwebui_topics.models import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )

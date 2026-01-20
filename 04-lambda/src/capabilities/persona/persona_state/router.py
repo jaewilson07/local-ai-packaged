@@ -3,17 +3,18 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.persona.persona_state.dependencies import PersonaDeps
-from src.capabilities.persona.persona_state.models import (
+from capabilities.persona.persona_state.dependencies import PersonaDeps
+from capabilities.persona.persona_state.models import (
     GetVoiceInstructionsRequest,
     PersonaStateResponse,
     RecordInteractionRequest,
     UpdateMoodRequest,
     VoiceInstructionsResponse,
 )
-from src.capabilities.persona.persona_state.tools import get_voice_instructions, record_interaction
-from src.shared.dependency_factory import create_dependency_factory
+from capabilities.persona.persona_state.tools import get_voice_instructions, record_interaction
+from fastapi import APIRouter, Depends, HTTPException
+
+from shared.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -81,13 +82,13 @@ async def get_persona_state_endpoint(
 
         if not mood:
             # Create default mood
-            from src.capabilities.persona.persona_state.models import MoodState
+            from capabilities.persona.persona_state.models import MoodState
 
             mood = MoodState(primary_emotion="neutral", intensity=0.5)
 
         if not relationship:
             # Create default relationship
-            from src.capabilities.persona.persona_state.models import RelationshipState
+            from capabilities.persona.persona_state.models import RelationshipState
 
             relationship = RelationshipState(
                 user_id=user_id,
@@ -99,11 +100,11 @@ async def get_persona_state_endpoint(
 
         if not context:
             # Create default context
-            from src.capabilities.persona.persona_state.models import ConversationContext
+            from capabilities.persona.persona_state.models import ConversationContext
 
             context = ConversationContext(mode="balanced", depth_level=3)
 
-        from src.capabilities.persona.persona_state.models import PersonaState
+        from capabilities.persona.persona_state.models import PersonaState
 
         persona_state = PersonaState(
             base_profile=personality,
@@ -136,7 +137,7 @@ async def update_mood_endpoint(
 
         from datetime import datetime
 
-        from src.capabilities.persona.persona_state.models import MoodState
+        from capabilities.persona.persona_state.models import MoodState
 
         mood = MoodState(
             primary_emotion=request.primary_emotion,

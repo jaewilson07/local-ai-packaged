@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Discord Characters project enables AI characters with distinct personalities to interact in Discord channels. It provides character management, chat interactions, and integration with the persona and conversation services.
@@ -23,7 +27,7 @@ The Discord Characters project enables AI characters with distinct personalities
 ## Component Identity
 
 - **Project**: `discord_characters`
-- **Location**: `04-lambda/server/projects/discord_characters/`
+- **Location**: `04-lambda/src/discord_characters/`
 - **Purpose**: Discord character management and interaction system
 - **Dependencies**: MongoDB (01-data), Persona service, Conversation service, Ollama (02-compute)
 - **Agent**: `discord_characters_agent` (Pydantic AI agent with StateDeps)

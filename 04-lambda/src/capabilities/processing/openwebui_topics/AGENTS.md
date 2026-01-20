@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Open WebUI Topics project provides automated topic classification for conversations using LLM-based analysis. It analyzes conversation messages and automatically generates 3-5 relevant topics that describe the main themes, enabling better organization, filtering, and discovery of conversations.
@@ -21,7 +25,7 @@ The Open WebUI Topics project provides automated topic classification for conver
 ## Component Identity
 
 - **Project**: `openwebui_topics`
-- **Location**: `04-lambda/server/projects/openwebui_topics/`
+- **Location**: `04-lambda/src/openwebui_topics/`
 - **Purpose**: Classify conversation topics using LLM for organization and filtering
 - **Dependencies**: Ollama (02-compute for LLM)
 - **Agent**: `openwebui_topics_agent` (Pydantic AI agent with StateDeps)
@@ -169,13 +173,13 @@ openwebui_topics/
 **Search Hints:**
 ```bash
 # Find Open WebUI topics agent tools
-rg -n "@openwebui_topics_agent\.tool" 04-lambda/server/projects/openwebui_topics/
+rg -n "@openwebui_topics_agent\.tool" 04-lambda/src/openwebui_topics/
 
 # Find classification operations
-rg -n "classify_topics|_format_conversation" 04-lambda/server/projects/openwebui_topics/
+rg -n "classify_topics|_format_conversation" 04-lambda/src/openwebui_topics/
 
 # Find LLM calls
-rg -n "http_client\.post.*chat/completions" 04-lambda/server/projects/openwebui_topics/
+rg -n "http_client\.post.*chat/completions" 04-lambda/src/openwebui_topics/
 ```
 
 ## Testing & Validation
@@ -212,7 +216,7 @@ curl -X POST http://lambda-server:8000/api/v1/openwebui/classify \
 
 - **Ollama**: LLM for topic classification (`ollama:11434`)
 - **REST API**: Endpoints in `server/api/openwebui_topics.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 - **Open WebUI**: Can be integrated with Open WebUI for automatic topic tagging
 
 ## Configuration

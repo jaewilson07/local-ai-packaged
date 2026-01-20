@@ -36,7 +36,7 @@ python setup/cloudflare/setup_tunnel.py
 ```
 
 **Prerequisites:**
-- `cloudflared` CLI installed (see [Cloudflare Setup Guide](../docs/cloudflare/setup.md#installing-cloudflared-cli))
+- `cloudflared` CLI installed (see [cloudflare-access-setup skill](../.cursor/skills/cloudflare-access-setup/SKILL.md))
 - Domain added to Cloudflare account
 - Cloudflare account access
 
@@ -160,9 +160,8 @@ Scripts may use or update the following environment variables:
 ## Documentation
 
 For detailed setup instructions, see:
-- [Cloudflare Setup Guide](../docs/cloudflare/setup.md) - Complete setup walkthrough
-- [Email Health Troubleshooting](../docs/cloudflare/email-health.md) - Email configuration help
-- [Design Choices](../docs/cloudflare/design-choices.md) - Architecture decisions and challenges
+- [cloudflare-access-setup skill](../.cursor/skills/cloudflare-access-setup/SKILL.md) - Cloudflare Access setup
+- [00-infrastructure/AGENTS.md](../00-infrastructure/AGENTS.md) - Infrastructure stack details
 
 ## Troubleshooting
 

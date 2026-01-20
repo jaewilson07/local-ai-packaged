@@ -1,0 +1,15 @@
+[
+  {
+    "name": "youtube:A3DKwLORVe4:overview",
+    "type": "overview",
+    "description": "YouTube: LangChain",
+    "reference_time": "2026-01-19T17:04:27.974343",
+    "content_preview": "[00:00] Hey folks, it's Sydney from LinkChain\n[00:02] and I'm super excited to chat with you\n[00:04] today about a specific application of\n[00:06] context engineering and that is design\n[00:08] decisions when building a multi- aent\n[00:10] system with a sub aent architecture.\n[00:13] Let's first do a quick review of the sub\n[00:14] aents architecture. So in a sub agents\n[00:17] often called supervisor architecture, we\n[00:19] have a user request coming into the main\n[00:21] agent which can then ..."
+  },
+  {
+    "name": "youtube:A3DKwLORVe4:transcript",
+    "type": "transcript",
+    "description": "Full transcript: Building with Subagents: Design Decisions",
+    "reference_time": "2026-01-19T17:04:27.974361"
+  }
+]

@@ -16,7 +16,7 @@ This document confirms that the N8n Workflow agent implementation follows the **
 ### ✅ File Structure
 
 ```
-server/projects/n8n_workflow/
+src/workflows/automation/n8n_workflow/
 ├── __init__.py          # Package marker
 ├── config.py            # Project-specific configuration
 ├── dependencies.py      # N8nWorkflowDeps class
@@ -184,7 +184,7 @@ async def create_workflow(
    - `n8n_api_url`
    - `n8n_api_key`
 
-2. **Project Config** (`server/projects/n8n_workflow/config.py`):
+2. **Project Config** (`src/workflows/automation/n8n_workflow/config.py`):
    ```python
    class N8nWorkflowConfig:
        n8n_api_url: str = getattr(global_settings, 'n8n_api_url', 'http://n8n:5678/api/v1')
@@ -247,7 +247,7 @@ async def create_workflow_endpoint(request: CreateWorkflowRequest):
 
 ### ✅ MCP Server Integration
 
-**File**: `server/mcp/server.py`
+**File**: `src/mcp_server/server.py`
 
 **Compliance**: ✓
 - Tool definitions in `get_tool_definitions()`
@@ -258,7 +258,7 @@ async def create_workflow_endpoint(request: CreateWorkflowRequest):
 ## Architecture Compliance
 
 ### ✅ Project Isolation
-- Self-contained in `server/projects/n8n_workflow/`
+- Self-contained in `src/workflows/automation/n8n_workflow/`
 - No cross-project dependencies
 - Clean boundaries
 

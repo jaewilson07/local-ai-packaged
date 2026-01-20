@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Open WebUI Export project enables exporting conversations from Open WebUI into the MongoDB RAG system, making them searchable via semantic search. It processes conversation messages, chunks them, generates embeddings, and stores them in MongoDB for retrieval.
@@ -23,7 +27,7 @@ The Open WebUI Export project enables exporting conversations from Open WebUI in
 ## Component Identity
 
 - **Project**: `openwebui_export`
-- **Location**: `04-lambda/server/projects/openwebui_export/`
+- **Location**: `04-lambda/src/openwebui_export/`
 - **Purpose**: Export Open WebUI conversations to MongoDB RAG system for searchability
 - **Dependencies**: MongoDB (01-data), Ollama (02-compute for embeddings)
 - **Agent**: `openwebui_export_agent` (Pydantic AI agent with StateDeps)
@@ -174,13 +178,13 @@ openwebui_export/
 **Search Hints:**
 ```bash
 # Find Open WebUI export agent tools
-rg -n "@openwebui_export_agent\.tool" 04-lambda/server/projects/openwebui_export/
+rg -n "@openwebui_export_agent\.tool" 04-lambda/src/openwebui_export/
 
 # Find export operations
-rg -n "export_conversation|get_conversations" 04-lambda/server/projects/openwebui_export/
+rg -n "export_conversation|get_conversations" 04-lambda/src/openwebui_export/
 
 # Find conversation formatting
-rg -n "_format_conversation_text" 04-lambda/server/projects/openwebui_export/
+rg -n "_format_conversation_text" 04-lambda/src/openwebui_export/
 ```
 
 ## Testing & Validation
@@ -221,14 +225,14 @@ curl -X POST http://lambda-server:8000/api/v1/openwebui/list \
 - **MongoDB RAG**: Stores exported conversations as searchable documents (`mongodb:27017`)
 - **Ollama**: Generates embeddings for conversation chunks (`ollama:11434`)
 - **REST API**: Endpoints in `server/api/openwebui_export.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 
 ## Configuration
 
 **Required Environment Variables:**
 - `MONGODB_URI` - MongoDB connection string
 - `MONGODB_DATABASE` - Database name
-- `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
+- `EMBEDDING_MODEL` - Embedding model (default: qwen3-embedding:4b)
 - `EMBEDDING_BASE_URL` - Embedding API base URL (default: http://ollama:11434/v1)
 
 **Export Configuration:**

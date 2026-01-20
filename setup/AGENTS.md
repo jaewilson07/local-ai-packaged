@@ -225,4 +225,4 @@ dig +short n8n.yourdomain.com
 **See Also**:
 - [../AGENTS.md](../AGENTS.md) for universal rules
 - [README.md](README.md) for detailed script documentation
-- [../docs/cloudflare/setup.md](../docs/cloudflare/setup.md) for Cloudflare setup guide
+- [cloudflare-access-setup skill](../.cursor/skills/cloudflare-access-setup/SKILL.md) for Cloudflare setup guide

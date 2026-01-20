@@ -17,13 +17,12 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
 from neo4j import AsyncGraphDatabase  # noqa: E402
-
 from server.config import settings  # noqa: E402
 
 # Configure logging

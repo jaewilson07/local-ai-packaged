@@ -1,8 +1,11 @@
-"""Retrieval capability - Vector and graph search."""
+"""Retrieval capability - Vector and graph search.
 
-from .ai import RetrievalDeps, RetrievalState, graph_search, retrieval_agent, vector_search
-from .retrieval_workflow import graph_search_workflow, vector_search_workflow
-from .router import get_retrieval_deps, router
+IMPORTANT: To avoid circular imports, import specific items from submodules:
+    - from capabilities.retrieval.ai.dependencies import RetrievalDeps
+    - from capabilities.retrieval.schemas import VectorSearchRequest
+"""
+
+# Only export schemas which don't cause circular imports
 from .schemas import (
     GraphSearchRequest,
     GraphSearchResponse,
@@ -16,18 +19,6 @@ from .schemas import (
 )
 
 __all__ = [
-    # Router
-    "router",
-    "get_retrieval_deps",
-    # Workflows
-    "vector_search_workflow",
-    "graph_search_workflow",
-    # AI
-    "RetrievalDeps",
-    "RetrievalState",
-    "retrieval_agent",
-    "vector_search",
-    "graph_search",
     # Schemas
     "VectorSearchRequest",
     "VectorSearchResponse",

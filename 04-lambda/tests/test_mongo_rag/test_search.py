@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pymongo.errors import OperationFailure
-
 from server.projects.mongo_rag.tools import (
     SearchResult,
     hybrid_search,
     semantic_search,
     text_search,
 )
+
 from tests.conftest import MockRunContext, async_iter
 
 

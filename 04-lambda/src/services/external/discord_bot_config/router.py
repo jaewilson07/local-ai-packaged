@@ -1,32 +1,37 @@
-"""FastAPI router for Discord bot configuration management."""
+"""FastAPI router for Discord bot configuration management.
+
+This router provides endpoints for managing Discord bot configuration.
+Configuration is stored in Supabase using the hierarchical preferences system,
+replacing the previous MongoDB-based storage.
+
+Migration Note:
+    As of 2026-01-20, Discord bot configuration has been migrated from MongoDB
+    to Supabase preferences. The API remains backward-compatible.
+    See: 01-data/supabase/migrations/010_discord_preferences.sql
+"""
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from src.server.config import settings
-from src.services.auth.config import config as auth_config
-from src.services.auth.dependencies import User, get_current_user
-from src.services.auth.services.auth_service import AuthService
-
-from .models import (
+from services.auth.config import config as auth_config
+from services.auth.dependencies import User, get_current_user
+from services.auth.services.auth_service import AuthService
+from services.preferences.discord_service import (
     AVAILABLE_CAPABILITIES,
     CapabilityInfo,
     DiscordBotConfig,
     DiscordBotConfigUpdate,
+    DiscordConfigService,
     validate_capabilities,
 )
-from .store import DiscordBotConfigStore
 
-router = APIRouter(tags=["Discord Bot Config"])
+router = APIRouter(prefix="/api/v1/admin", tags=["admin", "discord"])
 logger = logging.getLogger(__name__)
 
 
-def get_config_store() -> DiscordBotConfigStore:
-    """Get Discord bot config store instance."""
-    return DiscordBotConfigStore(
-        mongodb_url=settings.mongodb_uri,
-        db_name=settings.mongodb_database,
-    )
+def get_config_service() -> DiscordConfigService:
+    """Get Discord config service instance (Supabase-based)."""
+    return DiscordConfigService()
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
@@ -43,7 +48,7 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-@router.get("/admin/discord/capabilities", response_model=list[CapabilityInfo])
+@router.get("/discord/capabilities", response_model=list[CapabilityInfo])
 async def list_available_capabilities(
     user: User = Depends(get_current_user),
 ) -> list[CapabilityInfo]:
@@ -60,7 +65,7 @@ async def list_available_capabilities(
     return AVAILABLE_CAPABILITIES
 
 
-@router.get("/admin/discord/config", response_model=DiscordBotConfig)
+@router.get("/discord/config", response_model=DiscordBotConfig)
 async def get_discord_bot_config(
     config_id: str = "global",
     user: User = Depends(get_current_user),
@@ -74,15 +79,12 @@ async def get_discord_bot_config(
     Returns:
         Current Discord bot configuration including enabled capabilities and their settings.
     """
-    store = get_config_store()
-    try:
-        config = await store.get_config(config_id)
-        return config
-    finally:
-        await store.close()
+    service = get_config_service()
+    config = await service.get_config(config_id)
+    return config
 
 
-@router.put("/admin/discord/config", response_model=DiscordBotConfig)
+@router.put("/discord/config", response_model=DiscordBotConfig)
 async def update_discord_bot_config(
     update: DiscordBotConfigUpdate,
     config_id: str = "global",
@@ -122,26 +124,23 @@ async def update_discord_bot_config(
                 detail=f"Invalid capability names in settings: {invalid_settings}. Valid options are: {valid_names}",
             )
 
-    store = get_config_store()
-    try:
-        config = await store.update_config(
-            config_id=config_id,
-            enabled_capabilities=update.enabled_capabilities,
-            capability_settings=update.capability_settings,
-            updated_by=user.email,
-        )
+    service = get_config_service()
+    config = await service.update_config(
+        config_id=config_id,
+        enabled_capabilities=update.enabled_capabilities,
+        capability_settings=update.capability_settings,
+        updated_by=user.email,
+    )
 
-        logger.info(
-            f"Discord bot config updated by {user.email}: "
-            f"capabilities={config.enabled_capabilities}"
-        )
+    logger.info(
+        f"Discord bot config updated by {user.email}: "
+        f"capabilities={config.enabled_capabilities}"
+    )
 
-        return config
-    finally:
-        await store.close()
+    return config
 
 
-@router.post("/admin/discord/config/capability/{capability_name}", response_model=DiscordBotConfig)
+@router.post("/discord/config/capability/{capability_name}", response_model=DiscordBotConfig)
 async def add_capability(
     capability_name: str,
     config_id: str = "global",
@@ -165,24 +164,19 @@ async def add_capability(
             detail=f"Invalid capability: {capability_name}. Valid options are: {valid_names}",
         )
 
-    store = get_config_store()
-    try:
-        config = await store.add_capability(
-            capability=capability_name,
-            config_id=config_id,
-            updated_by=user.email,
-        )
+    service = get_config_service()
+    config = await service.add_capability(
+        capability=capability_name,
+        config_id=config_id,
+        updated_by=user.email,
+    )
 
-        logger.info(f"Capability '{capability_name}' added by {user.email}")
+    logger.info(f"Capability '{capability_name}' added by {user.email}")
 
-        return config
-    finally:
-        await store.close()
+    return config
 
 
-@router.delete(
-    "/admin/discord/config/capability/{capability_name}", response_model=DiscordBotConfig
-)
+@router.delete("/discord/config/capability/{capability_name}", response_model=DiscordBotConfig)
 async def remove_capability(
     capability_name: str,
     config_id: str = "global",
@@ -198,23 +192,20 @@ async def remove_capability(
     Returns:
         Updated Discord bot configuration.
     """
-    store = get_config_store()
-    try:
-        config = await store.remove_capability(
-            capability=capability_name,
-            config_id=config_id,
-            updated_by=user.email,
-        )
+    service = get_config_service()
+    config = await service.remove_capability(
+        capability=capability_name,
+        config_id=config_id,
+        updated_by=user.email,
+    )
 
-        logger.info(f"Capability '{capability_name}' removed by {user.email}")
+    logger.info(f"Capability '{capability_name}' removed by {user.email}")
 
-        return config
-    finally:
-        await store.close()
+    return config
 
 
 @router.put(
-    "/admin/discord/config/capability/{capability_name}/settings",
+    "/discord/config/capability/{capability_name}/settings",
     response_model=DiscordBotConfig,
 )
 async def update_capability_settings(
@@ -242,17 +233,14 @@ async def update_capability_settings(
             detail=f"Invalid capability: {capability_name}. Valid options are: {valid_names}",
         )
 
-    store = get_config_store()
-    try:
-        config = await store.update_capability_settings(
-            capability=capability_name,
-            settings=settings,
-            config_id=config_id,
-            updated_by=user.email,
-        )
+    service = get_config_service()
+    config = await service.update_capability_settings(
+        capability=capability_name,
+        settings=settings,
+        config_id=config_id,
+        updated_by=user.email,
+    )
 
-        logger.info(f"Capability '{capability_name}' settings updated by {user.email}: {settings}")
+    logger.info(f"Capability '{capability_name}' settings updated by {user.email}: {settings}")
 
-        return config
-    finally:
-        await store.close()
+    return config

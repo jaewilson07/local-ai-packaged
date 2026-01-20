@@ -3,24 +3,25 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.processing.ai import ProcessingDeps
-from src.capabilities.processing.processing_workflow import classify_topics_workflow
-from src.capabilities.processing.schemas import (
+from capabilities.processing.ai import ProcessingDeps
+from capabilities.processing.processing_workflow import classify_topics_workflow
+from capabilities.processing.schemas import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )
-from src.shared.dependency_factory import create_dependency_factory
+from fastapi import APIRouter, Depends, HTTPException
+
+from shared.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/processing", tags=["Processing"])
+router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities", "processing"])
 
 # Use dependency factory to create deps getter (eliminates boilerplate)
 get_processing_deps = create_dependency_factory(ProcessingDeps)
 
 
-@router.post("/classify-topics", response_model=TopicClassificationResponse)
+@router.post("/processing/classify-topics", response_model=TopicClassificationResponse)
 async def classify_topics_endpoint(
     request: TopicClassificationRequest,
     deps: Annotated[ProcessingDeps, Depends(get_processing_deps)],

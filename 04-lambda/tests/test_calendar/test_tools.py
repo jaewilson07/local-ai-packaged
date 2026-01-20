@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from server.projects.calendar.dependencies import CalendarDeps
 from server.projects.calendar.tools import (
     create_calendar_event,

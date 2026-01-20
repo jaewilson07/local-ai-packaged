@@ -1,0 +1,258 @@
+# Known Models Database
+# This file maps model filenames to their download URLs
+# Auto-generated from provisioning scripts
+# Manually maintainable for custom models
+
+# Model categories map to ComfyUI directory structure
+
+checkpoints:
+  # Stable Diffusion 1.5
+  - name: v1-5-pruned-emaonly.ckpt
+    url: https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt
+    description: Stable Diffusion 1.5
+  - name: v1-5-pruned-emaonly.safetensors
+    url: https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors
+    description: Stable Diffusion 1.5 (safetensors format)
+
+  # Stable Diffusion 2.1 (requires HuggingFace token - gated model)
+  - name: v2-1_768-ema-pruned.ckpt
+    url: https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.ckpt
+    description: Stable Diffusion 2.1 (requires HF token)
+
+  # Stable Diffusion XL
+  - name: sd_xl_base_1.0.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+    description: Stable Diffusion XL Base
+  - name: sd_xl_refiner_1.0.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0/resolve/main/sd_xl_refiner_1.0.safetensors
+    description: Stable Diffusion XL Refiner
+
+  # Stable Diffusion 3
+  - name: sd3_medium_incl_clips_t5xxlfp16.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-3-medium/resolve/main/sd3_medium_incl_clips_t5xxlfp16.safetensors
+    description: Stable Diffusion 3 Medium with CLIP/T5 encoders
+
+vae:
+  # Standard VAEs
+  - name: vae-ft-ema-560000-ema-pruned.safetensors
+    url: https://huggingface.co/stabilityai/sd-vae-ft-ema-original/resolve/main/vae-ft-ema-560000-ema-pruned.safetensors
+    description: VAE EMA for SD 1.x
+  - name: vae-ft-mse-840000-ema-pruned.safetensors
+    url: https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors
+    description: VAE MSE for better image quality
+
+  # SDXL VAE
+  - name: sdxl_vae.safetensors
+    url: https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors
+    description: SDXL VAE
+  - name: sdxl_vae_fp16_fix.safetensors
+    url: https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors
+    description: SDXL VAE FP16 Fix
+
+  # FLUX VAE
+  - name: ae.safetensors
+    url: https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors
+    description: FLUX.1 VAE (Autoencoder)
+    aliases:
+      - ae.sft
+
+  # Z-Image-Turbo VAE
+  - name: z_image_turbo_ae.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors
+    description: Z-Image-Turbo VAE (AE)
+
+unet:
+  # FLUX models
+  - name: flux1-dev.safetensors
+    url: https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors
+    description: FLUX.1 Dev (requires HF token)
+  - name: flux1-schnell.safetensors
+    url: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors
+    description: FLUX.1 Schnell (fast, no license)
+
+  # Z-Image-Turbo models
+  - name: z_image_turbo-Q8_0.gguf
+    url: https://huggingface.co/city96/z-image-turbo-gguf/resolve/main/z_image_turbo-Q8_0.gguf
+    description: Z-Image-Turbo GGUF UNET model
+  - name: z_image_turbo_bf16.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/z_image_turbo_bf16.safetensors
+    description: Z-Image-Turbo BF16 diffusion model
+  - name: z_image_turbo_fp8.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/z_image_turbo_fp8.safetensors
+    description: Z-Image-Turbo FP8 diffusion model
+
+clip:
+  # FLUX Text Encoders
+  - name: t5xxl_fp16.safetensors
+    url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+    description: T5-XXL FP16 text encoder for FLUX
+  - name: clip_l.safetensors
+    url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
+    description: CLIP-L text encoder for FLUX
+  - name: t5xxl_fp8_e4m3fn.safetensors
+    url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors
+    description: T5-XXL FP8 text encoder for FLUX
+
+  # Qwen CLIP for Z-Image-Turbo
+  # Note: Qwen3-4B-UD-Q6_K_XL.gguf requires HuggingFace auth (bartowski repo)
+  # Using official Qwen3-4B-Q6_K.gguf as public alternative
+  - name: Qwen3-4B-Q6_K.gguf
+    url: https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf
+    description: Qwen3 4B GGUF CLIP encoder for Z-Image-Turbo (public)
+  - name: Qwen3-4B-UD-Q6_K_XL.gguf
+    url: https://huggingface.co/bartowski/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-UD-Q6_K_XL.gguf
+    description: Qwen3 4B GGUF CLIP encoder (requires HF auth)
+  - name: qwen_3_4b.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors
+    description: Qwen3 4B text encoder for Z-Image-Turbo
+
+loras:
+  # SDXL LoRAs (NOT compatible with Z-Image-Turbo)
+  - name: sd_xl_offset_example-lora_1.0.safetensors
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_offset_example-lora_1.0.safetensors
+    description: SDXL Offset Example LoRA
+    base_model: SDXL 1.0
+
+  # Z-Image-Turbo Compatible LoRAs (HuggingFace - no auth required)
+  - name: z_image_turbo_realism.safetensors
+    url: https://huggingface.co/suayptalha/Z-Image-Turbo-Realism-LoRA/resolve/main/pytorch_lora_weights.safetensors
+    description: Ultra-realistic photos with enhanced detail (trigger "Realism", strength 0.6-0.9)
+    base_model: Z-Image-Turbo
+    source: huggingface
+
+  - name: z_image_turbo_dejpeg_v3.safetensors
+    url: https://huggingface.co/wcde/Z-Image-Turbo-DeJPEG-Lora/resolve/main/dejpeg_v3.safetensors
+    description: Removes JPEG artifacts, enhances image detail and quality (strength 0.5-1.0)
+    base_model: Z-Image-Turbo
+    source: huggingface
+
+  - name: z_image_turbo_classic_painting.safetensors
+    url: https://huggingface.co/renderartist/Classic-Painting-Z-Image-Turbo-LoRA/resolve/main/Classic_Painting_Z_Image_Turbo_v1_renderartist_1750.safetensors
+    description: Classic oil painting artistic style
+    base_model: Z-Image-Turbo
+    source: huggingface
+
+  # CivitAI Z-Image-Turbo LoRAs (require CIVITAI_TOKEN for download)
+  # Popular options - set CIVITAI_TOKEN env var to enable automatic download
+  - name: amateur_photography_zimage_v1.safetensors
+    url: https://civitai.com/api/download/models/2524532
+    description: Natural candid/selfie photography look (62k+ downloads)
+    base_model: Z-Image-Turbo
+    source: civitai
+    requires_auth: true
+
+  - name: lenovo_z.safetensors
+    url: https://civitai.com/api/download/models/2452071
+    description: Lenovo UltraReal - ultra-realistic faces (60k+ downloads)
+    base_model: Z-Image-Turbo
+    source: civitai
+    requires_auth: true
+
+  - name: zy_CinematicShot_zit.safetensors
+    url: https://civitai.com/api/download/models/2454927
+    description: Cinematic professional lighting (40k+ downloads)
+    base_model: Z-Image-Turbo
+    source: civitai
+    requires_auth: true
+
+  - name: skin_texture_v2.1.safetensors
+    url: https://civitai.com/api/download/models/2524277
+    description: Realistic skin texture and detail (111k+ downloads)
+    base_model: Z-Image-Turbo
+    source: civitai
+    requires_auth: true
+
+controlnet:
+  # SDXL ControlNet
+  - name: diffusers_xl_canny_mid.safetensors
+    url: https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/diffusers_xl_canny_mid.safetensors
+    description: SDXL Canny ControlNet (mid)
+  - name: diffusers_xl_depth_mid.safetensors
+    url: https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/diffusers_xl_depth_mid.safetensors
+    description: SDXL Depth ControlNet (mid)
+  - name: t2i-adapter_diffusers_xl_openpose.safetensors
+    url: https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/t2i-adapter_diffusers_xl_openpose.safetensors
+    description: SDXL OpenPose T2I Adapter
+
+  # SD 1.5 ControlNet
+  - name: control_canny-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors
+    description: SD 1.5 Canny ControlNet
+  - name: control_depth-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_depth-fp16.safetensors
+    description: SD 1.5 Depth ControlNet
+  - name: diff_control_sd15_depth_fp16.safetensors
+    url: https://huggingface.co/kohya-ss/ControlNet-diff-modules/resolve/main/diff_control_sd15_depth_fp16.safetensors
+    description: SD 1.5 Depth ControlNet (Kohya)
+  - name: control_hed-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_hed-fp16.safetensors
+    description: SD 1.5 HED ControlNet
+  - name: control_mlsd-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_mlsd-fp16.safetensors
+    description: SD 1.5 MLSD ControlNet
+  - name: control_normal-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_normal-fp16.safetensors
+    description: SD 1.5 Normal ControlNet
+  - name: control_openpose-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_openpose-fp16.safetensors
+    description: SD 1.5 OpenPose ControlNet
+  - name: control_scribble-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_scribble-fp16.safetensors
+    description: SD 1.5 Scribble ControlNet
+  - name: control_seg-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_seg-fp16.safetensors
+    description: SD 1.5 Segmentation ControlNet
+
+  # SD 1.5 T2I Adapters
+  - name: t2iadapter_canny-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_canny-fp16.safetensors
+    description: SD 1.5 Canny T2I Adapter
+  - name: t2iadapter_color-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_color-fp16.safetensors
+    description: SD 1.5 Color T2I Adapter
+  - name: t2iadapter_depth-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_depth-fp16.safetensors
+    description: SD 1.5 Depth T2I Adapter
+  - name: t2iadapter_keypose-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_keypose-fp16.safetensors
+    description: SD 1.5 Keypose T2I Adapter
+  - name: t2iadapter_openpose-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_openpose-fp16.safetensors
+    description: SD 1.5 OpenPose T2I Adapter
+  - name: t2iadapter_seg-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_seg-fp16.safetensors
+    description: SD 1.5 Segmentation T2I Adapter
+  - name: t2iadapter_sketch-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_sketch-fp16.safetensors
+    description: SD 1.5 Sketch T2I Adapter
+  - name: t2iadapter_style-fp16.safetensors
+    url: https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_style-fp16.safetensors
+    description: SD 1.5 Style T2I Adapter
+
+upscale_models:
+  # ESRGAN models
+  - name: RealESRGAN_x4.pth
+    url: https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x4.pth
+    description: Real-ESRGAN 4x upscaler
+  - name: 4x_foolhardy_Remacri.pth
+    url: https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth
+    description: Remacri 4x upscaler
+  - name: 4x_NMKD-Siax_200k.pth
+    url: https://huggingface.co/Akumetsu971/SD_Anime_Futuristic_Armor/resolve/main/4x_NMKD-Siax_200k.pth
+    description: NMKD-Siax 4x upscaler
+  - name: 4x-UltraSharp.pth
+    url: https://huggingface.co/uwg/upscaler/resolve/main/ESRGAN/4x-UltraSharp.pth
+    description: UltraSharp 4x upscaler
+
+# Model patches (ControlNet, etc.)
+model_patches:
+  # Z-Image-Turbo ControlNet
+  - name: Z-Image-Turbo-Fun-Controlnet-Union.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/z_image_turbo_fun_controlnet_union.safetensors
+    description: Z-Image-Turbo Fun ControlNet Union model
+
+# AnimateDiff models (stored in custom_nodes/ComfyUI-AnimateDiff-Evolved/models)
+animatediff:
+  - name: mm_sd_v15.ckpt
+    url: https://huggingface.co/guoyww/animatediff/resolve/main/mm_sd_v15.ckpt
+    description: AnimateDiff Motion Module for SD 1.5

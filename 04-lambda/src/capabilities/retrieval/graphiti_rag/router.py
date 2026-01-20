@@ -3,11 +3,9 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic_ai import RunContext
-from src.capabilities.retrieval.graphiti_rag.config import config as graphiti_config
-from src.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
-from src.capabilities.retrieval.graphiti_rag.models import (
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.graphiti_rag.models import (
     GraphitiSearchRequest,
     GraphitiSearchResponse,
     ParseRepositoryRequest,
@@ -17,13 +15,16 @@ from src.capabilities.retrieval.graphiti_rag.models import (
     ValidateScriptRequest,
     ValidateScriptResponse,
 )
-from src.capabilities.retrieval.graphiti_rag.tools import (
+from capabilities.retrieval.graphiti_rag.tools import (
     parse_github_repository,
     query_knowledge_graph,
     search_graphiti_knowledge_graph,
     validate_ai_script,
 )
-from src.shared.dependency_factory import create_dependency_factory
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic_ai import RunContext
+
+from shared.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 

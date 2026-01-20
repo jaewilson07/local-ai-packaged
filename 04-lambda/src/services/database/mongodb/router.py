@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from .client import MongoDBClient
 
-router = APIRouter(prefix="/mongodb", tags=["Infrastructure"])
+router = APIRouter(prefix="/api/v1/data/mongodb", tags=["data", "mongodb"])
 
 
 @router.get("/health")

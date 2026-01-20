@@ -1,8 +1,8 @@
 """Persona workflow - orchestration for character interaction and state."""
 
+from capabilities.persona.ai import PersonaDeps
+from capabilities.persona.schemas import ChatRequest, ChatResponse
 from pydantic_ai import RunContext
-from src.capabilities.persona.ai import PersonaDeps
-from src.capabilities.persona.schemas import ChatRequest, ChatResponse
 
 
 async def character_chat_workflow(
@@ -28,7 +28,7 @@ async def character_chat_workflow(
     await deps.initialize()
     try:
         # Import here to avoid circular dependencies
-        from src.capabilities.persona.discord_characters.tools import generate_response
+        from capabilities.persona.discord_characters.tools import generate_response
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await generate_response(ctx, request)
@@ -60,7 +60,7 @@ async def update_persona_mood_workflow(
 
     await deps.initialize()
     try:
-        from src.capabilities.persona.persona_state.tools import update_mood
+        from capabilities.persona.persona_state.tools import update_mood
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         await update_mood(ctx, persona_id, new_mood, confidence)

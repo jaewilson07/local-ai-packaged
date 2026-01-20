@@ -83,6 +83,28 @@ docker compose -p localai-lambda ps    # Lambda
 - **Shell**: POSIX-compliant, use `#!/bin/bash` for bash-specific features
 - **Docker Compose**: Use anchors (`x-service: &service-name`) for shared configs
 
+### Python Import Guidelines
+- **Never use `TYPE_CHECKING`**: Do not use `from typing import TYPE_CHECKING` with conditional imports. This pattern obscures dependencies and makes debugging harder.
+- **Fix circular imports properly**: If you encounter a circular import:
+  1. **Restructure modules**: Move shared code to a separate module that both can import
+  2. **Use lazy imports**: Import inside functions/methods when the import is only needed at runtime
+  3. **Simplify `__init__.py`**: Only export leaf modules that don't have circular dependencies
+  4. **Import from submodules directly**: Instead of `from package import X`, use `from package.module import X`
+- **Example - Fixing circular imports in `__init__.py`**:
+  ```python
+  # BAD - causes circular import if router.py imports from dependencies.py
+  from .dependencies import get_current_user
+  from .router import router  # router imports dependencies, triggering __init__ again
+
+  # GOOD - only export leaf modules, document how to import others
+  """Import specific items directly from submodules:
+      from package.dependencies import get_current_user
+      from package.router import router
+  """
+  from .config import Config  # Safe - no internal dependencies
+  from .models import User    # Safe - no internal dependencies
+  ```
+
 ## Architecture Overview
 
 ### Stack Organization
@@ -90,7 +112,7 @@ Services are organized into numbered stacks with explicit dependencies:
 
 1. **00-infrastructure**: Foundation services (cloudflared, caddy, redis) - Project: `localai-infra`
 2. **infisical-standalone**: Secret management (external standalone project) - Project: `localai-infisical`
-3. **01-data**: Data stores (supabase, qdrant, neo4j, mongodb, minio) - Project: `localai-data`
+3. **01-data**: Data stores (supabase, neo4j, mongodb, minio) - Project: `localai-data`
 4. **02-compute**: AI compute (ollama, comfyui) - Project: `localai-compute`
 5. **03-apps**: Application layer (n8n, flowise, open-webui, searxng, langfuse, clickhouse) - Project: `localai-apps`
 6. **04-lambda**: FastAPI server with MCP and REST APIs - Project: `localai-lambda`
@@ -141,7 +163,7 @@ For detailed component rules, see:
 
 ### Stack-Level Documentation
 - **[00-infrastructure/AGENTS.md](00-infrastructure/AGENTS.md)** - Infrastructure services (Caddy, Cloudflare Tunnel, Infisical, Redis)
-- **[01-data/AGENTS.md](01-data/AGENTS.md)** - Data layer (Supabase, Qdrant, Neo4j, MongoDB, MinIO)
+- **[01-data/AGENTS.md](01-data/AGENTS.md)** - Data layer (Supabase, Neo4j, MongoDB, MinIO)
 - **[02-compute/AGENTS.md](02-compute/AGENTS.md)** - AI compute (Ollama, ComfyUI)
 - **[03-apps/AGENTS.md](03-apps/AGENTS.md)** - Application services (n8n, Flowise, Open WebUI, SearXNG, Langfuse, ClickHouse, Discord bots)
 - **[04-lambda/AGENTS.md](04-lambda/AGENTS.md)** - Lambda FastAPI server with MCP and REST APIs
@@ -217,10 +239,14 @@ For Lambda server capabilities and workflows, see project-specific AGENTS.md fil
 │   ├── docker-compose.yml      # Service-specific compose
 │   ├── config/                 # Supabase configs
 │   └── docs/                   # Supabase-specific docs
-├── qdrant/
+├── mongodb/
+│   └── docker-compose.yml      # MongoDB with Atlas vector search
+├── neo4j/
 │   └── docker-compose.yml
-└── neo4j/
-    └── docker-compose.yml
+├── minio/
+│   └── docker-compose.yml
+└── qdrant/                     # REMOVED - kept for reference only
+    └── docker-compose.yml      # Commented out
 
 02-compute/
 ├── docker-compose.yml          # Stack-level compose (ollama, comfyui)
@@ -283,7 +309,7 @@ services:
     # ... service-specific overrides
 ```
 
-**See**: [Docker Compose Optimization Guide](docs/docker-compose-optimization-guide.md) for complete details
+**See**: [docker-compose-patterns skill](.cursor/skills/docker-compose-patterns/SKILL.md) for complete details
 
 ### Profile-Based Services
 ```yaml
@@ -449,7 +475,7 @@ finally:
 ### Common Mistakes to Avoid
 1. **Port Conflicts**: Don't hardcode ports. Use environment variables or expose-only.
 2. **Network Isolation**: All services must use `ai-network`. Don't create new networks.
-3. **Volume Paths**: MUST use full paths from project root (e.g., `./03-apps/flowise/data`, not `./flowise/data`). See [docs/docker-compose-volume-paths.md](docs/docker-compose-volume-paths.md).
+3. **Volume Paths**: MUST use full paths from project root (e.g., `./03-apps/flowise/data`, not `./flowise/data`). See [docker-compose-patterns skill](.cursor/skills/docker-compose-patterns/SKILL.md).
 4. **Profile Mismatch**: Ensure GPU profile services match the `--profile` flag.
 5. **Secret Exposure**: Never commit `.env` files or hardcode secrets in compose files.
 6. **Health Check Tools**: Use `nc -z localhost PORT` for TCP port checks when `wget`/`curl` aren't available in container. Use HTTP checks (`wget`/`curl`) when service has HTTP endpoints. **Use `127.0.0.1` instead of `localhost` in health checks** to avoid IPv6 connection issues (e.g., `http://127.0.0.1:3000/api/health`).
@@ -477,20 +503,20 @@ rg -n "def " start_services.py
 rg -n "profile" --type yaml
 
 # Find Lambda project agents
-rg -n "^[a-z_]+_agent = Agent" 04-lambda/server/projects/
+rg -n "^[a-z_]+_agent = Agent" 04-lambda/src/
 
 # Find Pydantic AI tool definitions
-rg -n "@.*\.tool" 04-lambda/server/projects/
+rg -n "@.*\.tool" 04-lambda/src/
 
 # Find project dependencies classes
-rg -n "class.*Deps" 04-lambda/server/projects/
+rg -n "class.*Deps" 04-lambda/src/
 
 # Find authentication endpoints
-rg -n "get_current_user" 04-lambda/server/api/
-rg -n "Depends\(get_current_user\)" 04-lambda/server/
+rg -n "get_current_user" 04-lambda/src/server/api/
+rg -n "Depends\(get_current_user\)" 04-lambda/src/
 
 # Find data viewing endpoints
-rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" 04-lambda/server/api/
+rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" 04-lambda/src/server/api/
 ```
 
 ## Error Handling Protocol

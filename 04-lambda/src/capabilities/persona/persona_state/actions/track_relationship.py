@@ -7,7 +7,6 @@ import openai
 from capabilities.persona.persona_state.config import config
 from capabilities.persona.persona_state.models import RelationshipState
 from capabilities.persona.persona_state.protocols import PersonaStore
-
 from server.core.exceptions import LLMException
 
 

@@ -3,7 +3,7 @@
 import logging
 
 from services.auth.config import AuthConfig
-from src.services.database.supabase import SupabaseClient, SupabaseConfig
+from services.database.supabase import SupabaseClient, SupabaseConfig
 
 logger = logging.getLogger(__name__)
 

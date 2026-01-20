@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Deep Research Agent is an autonomous system designed to produce high-integrity, comprehensive research reports. Unlike standard RAG implementations that hallucinate when data is missing, this agent uses a "Search-Ingest-Verify-Write" loop.
@@ -30,7 +34,7 @@ Future phases:
 ## Component Identity
 
 - **Project**: `deep_research`
-- **Location**: `04-lambda/server/projects/deep_research/`
+- **Location**: `04-lambda/src/deep_research/`
 - **Purpose**: Deep research agent with zero-hallucination guarantee
 - **Dependencies**: SearXNG (03-apps), Crawl4AI, Docling, MongoDB (01-data), Neo4j (01-data)
 - **Status**: Phase 2 - Memory layer complete
@@ -214,7 +218,7 @@ graph TB
 
 ## MCP Tools
 
-All tools are registered in `04-lambda/server/mcp/fastmcp_server.py`:
+All tools are registered in `04-lambda/src/mcp_server/server.py`:
 
 ### Phase 1 Tools
 1. **`search_web`** - Web search via SearXNG ✅ Implemented

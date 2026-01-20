@@ -207,11 +207,21 @@ app.include_router(
 )
 ```
 
+## API Documentation
+
+For comprehensive API routing standards, error handling, and cross-linked capability/workflow documentation, see:
+
+- **[API Strategy](docs/API_STRATEGY.md)** - Central API documentation hub with:
+  - Route naming conventions and prefix standards
+  - Standardized error handling with `APIError` model
+  - Capability and workflow API documentation links
+  - Router registration patterns
+
 ### MCP Server Design
 
 **Tool Registration Pattern:**
 ```python
-# In server/mcp/server.py
+# In src/mcp_server/server.py
 def setup_routes(app: FastAPI):
     @app.post("/mcp/tools/list")
     async def list_tools():
@@ -478,7 +488,7 @@ async def endpoint(request: RequestModel):
 ```
 
 ### MCP Integration
-- Tools registered in `server/mcp/server.py`
+- Tools registered in `src/mcp_server/server.py`
 - Calls REST endpoints internally (no code duplication)
 - Returns formatted text responses
 
@@ -558,9 +568,8 @@ async def endpoint(request: RequestModel):
    app.include_router(your_project.router, prefix="/api/v1/your_project", tags=["your-project"])
    ```
 
-4. **Add MCP tools**: `server/mcp/server.py` (if using FastMCP)
+4. **Add MCP tools**: `src/mcp_server/server.py` (if using FastMCP)
    - Tools are automatically registered from project agent definitions
-   - Or manually add to FastMCP server in `server/mcp/fastmcp_server.py`
 
 ## Dependencies
 
@@ -585,7 +594,7 @@ async def endpoint(request: RequestModel):
 - `LLM_PROVIDER` - LLM provider (default: ollama)
 - `LLM_MODEL` - Model name (default: llama3.2)
 - `LLM_BASE_URL` - API base URL (default: http://ollama:11434/v1)
-- `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
+- `EMBEDDING_MODEL` - Embedding model (default: qwen3-embedding:4b)
 - `LOG_LEVEL` - Logging level (default: info)
 
 ## Service Composition Patterns
@@ -608,25 +617,25 @@ from typing import Protocol, runtime_checkable
 class ServiceProtocol(Protocol):
     """Protocol for service with common operations."""
     authenticator: AuthType
-    
+
     def core_operation(self, param: str) -> dict: ...
 
 class BaseService(ABC):
     """Base service with shared authentication and setup."""
-    
+
     def __init__(self, authenticator: AuthType):
         self.authenticator = authenticator
-    
+
     @abstractmethod
     def initialize(self): ...
 
 class BaseComponent(ABC):
     """Base class for service components."""
-    
+
     def __init__(self, parent: ServiceProtocol):
         """Always pass parent reference for access to service."""
         self._parent = parent
-    
+
     @abstractmethod
     def component_operation(self, **kwargs): ...
 ```
@@ -636,24 +645,24 @@ class BaseComponent(ABC):
 ```python
 class GoogleDrive(BaseService):
     """Service with composition-based architecture."""
-    
+
     def __init__(self, authenticator: GoogleAuth):
         super().__init__(authenticator)
-        
+
         # Composition: Initialize inner class instances
         self.Search = GoogleDrive.Search(self)
         self.Export = GoogleDrive.Export(self)
-    
+
     class Search(BaseSearch):
         """Search operations as inner class."""
-        
+
         def _execute_search(self, query: str, **kwargs) -> dict:
             # Access parent service via self._parent
             return self._parent.api_call(query)
-    
+
     class Export(BaseExport):
         """Export operations as inner class."""
-        
+
         def _download_content(self, file_id: str) -> str:
             return self._parent.download(file_id)
 ```
@@ -696,7 +705,7 @@ from .config import DEFAULT_FOLDER_ID, DEFAULT_PAGE_SIZE
 ```python
 class ServiceException(Exception):
     """Base exception for service operations."""
-    
+
     def __init__(self, message: str, original_error: Exception | None = None):
         super().__init__(message)
         self.original_error = original_error
@@ -1072,10 +1081,10 @@ rg -n "get_current_user" server/api/
 rg -n "data_view|data/storage|data/supabase|data/neo4j|data/mongodb" server/api/
 
 # Find MCP tools
-rg -n "def.*tool" server/mcp/
+rg -n "def.*tool" src/mcp_server/
 
 # Find configuration
-rg -n "class.*Config" server/
+rg -n "class.*Config" src/
 
 # Find dependencies
 rg -n "class.*Dependencies" src/capabilities/ src/workflows/

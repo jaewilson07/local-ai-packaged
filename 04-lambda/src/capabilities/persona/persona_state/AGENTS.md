@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Persona project manages character/persona state including mood, relationships, conversation context, and generates dynamic voice instructions that shape how the AI responds. It enables personalized, consistent AI interactions that adapt based on conversation history and relationship dynamics.
@@ -23,7 +27,7 @@ The Persona project manages character/persona state including mood, relationship
 ## Component Identity
 
 - **Project**: `persona`
-- **Location**: `04-lambda/server/projects/persona/`
+- **Location**: `04-lambda/src/persona/`
 - **Purpose**: Persona/character state management with mood tracking, relationship management, conversation context, and dynamic voice instruction generation
 - **Dependencies**: MongoDB (01-data), Ollama (02-compute for LLM-based analysis)
 - **Agent**: `persona_agent` (Pydantic AI agent with StateDeps)
@@ -254,16 +258,16 @@ store.update_mood(user_id, persona_id, mood)
 **Search Hints:**
 ```bash
 # Find persona agent tools
-rg -n "@persona_agent\.tool" 04-lambda/server/projects/persona/
+rg -n "@persona_agent\.tool" 04-lambda/src/persona/
 
 # Find state models
-rg -n "class (MoodState|RelationshipState|ConversationContext|PersonaState)" 04-lambda/server/projects/persona/
+rg -n "class (MoodState|RelationshipState|ConversationContext|PersonaState)" 04-lambda/src/persona/
 
 # Find store operations
-rg -n "def (get|update)_(mood|relationship|conversation_context)" 04-lambda/server/projects/persona/stores/
+rg -n "def (get|update)_(mood|relationship|conversation_context)" 04-lambda/src/persona/stores/
 
 # Find action tracking functions
-rg -n "def (analyze|track|calculate)" 04-lambda/server/projects/persona/actions/
+rg -n "def (analyze|track|calculate)" 04-lambda/src/persona/actions/
 ```
 
 ## Testing & Validation
@@ -309,7 +313,7 @@ curl -X POST http://lambda-server:8000/api/v1/persona/update-mood \
 - **MongoDB**: State storage (`mongodb:27017`)
 - **Ollama**: LLM for mood/relationship/context analysis (`ollama:11434`)
 - **REST API**: Endpoints in `server/api/persona.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 - **Conversation Project**: Uses persona voice instructions for response generation
 
 ## Configuration

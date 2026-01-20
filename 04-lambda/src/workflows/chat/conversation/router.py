@@ -3,14 +3,15 @@
 import logging
 from typing import Annotated
 
+from capabilities.persona.ai.dependencies import PersonaDeps
+from capabilities.persona.ai.tools import get_voice_instructions
 from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.persona.ai.dependencies import PersonaDeps
-from src.capabilities.persona.ai.tools import get_voice_instructions
-from src.shared.dependency_factory import create_dependency_factory
-from src.workflows.chat.conversation.schemas import ConversationRequest, ConversationResponse
-from src.workflows.chat.conversation.services.orchestrator import ConversationOrchestrator
+from workflows.chat.conversation.schemas import ConversationRequest, ConversationResponse
+from workflows.chat.conversation.services.orchestrator import ConversationOrchestrator
 
-router = APIRouter()
+from shared.dependency_factory import create_dependency_factory
+
+router = APIRouter(prefix="/api/v1/conversation", tags=["workflows", "conversation"])
 logger = logging.getLogger(__name__)
 
 # Use dependency factory to create deps getter (eliminates boilerplate)
@@ -65,7 +66,7 @@ async def orchestrate_conversation_endpoint(
 
         # Record interaction (async, don't wait)
         try:
-            from src.capabilities.persona.persona_state.tools import record_interaction
+            from capabilities.persona.persona_state.tools import record_interaction
 
             await record_interaction(
                 deps, request.user_id, request.persona_id, request.message, response

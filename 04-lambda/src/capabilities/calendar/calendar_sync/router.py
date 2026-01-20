@@ -3,12 +3,13 @@
 import logging
 from typing import Annotated
 
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from src.capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
-from src.server.core.api_utils import DependencyContext
-from src.shared.dependency_factory import create_dependency_factory
-from src.workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
+from server.core.api_utils import DependencyContext
+from workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
+
+from shared.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -119,9 +120,8 @@ async def sync_event_to_calendar(
     - Automatically crawls and ingests content if not in RAG
     """
     import httpx
-
-    from server.api.n8n_workflow import list_workflows_endpoint
     from server.config import settings
+    from workflows.automation.n8n_workflow.router import list_workflows_endpoint
 
     try:
         # Step 1: Check if content already exists in RAG and get HTML
@@ -132,7 +132,7 @@ async def sync_event_to_calendar(
         try:
             # Query MongoDB directly for document by source URL
             # deps_rag is already initialized via FastAPI dependency injection
-            from src.capabilities.retrieval.mongo_rag.config import config
+            from capabilities.retrieval.mongo_rag.config import config
 
             documents_collection = deps_rag.db[config.mongodb_collection_documents]
             # Find document by exact source URL match
@@ -160,8 +160,8 @@ async def sync_event_to_calendar(
         if not content_found:
             logger.info(f"Content not found in RAG. Crawling and ingesting: {request.url}")
             try:
-                from src.server.api.crawl4ai_rag import crawl_single
-                from src.workflows.ingestion.crawl4ai_rag.schemas import CrawlSinglePageRequest
+                from workflows.ingestion.crawl4ai_rag.router import crawl_single
+                from workflows.ingestion.crawl4ai_rag.schemas import CrawlSinglePageRequest
 
                 crawl_request = CrawlSinglePageRequest(
                     url=request.url, chunk_size=1000, chunk_overlap=200
@@ -233,8 +233,8 @@ async def sync_event_to_calendar(
                     result = response.json()
             else:
                 # Fallback: use execute_workflow API
-                from src.server.api.n8n_workflow import execute_workflow_endpoint
-                from src.workflows.automation.n8n_workflow.ai.models import ExecuteWorkflowRequest
+                from workflows.automation.n8n_workflow.ai.models import ExecuteWorkflowRequest
+                from workflows.automation.n8n_workflow.router import execute_workflow_endpoint
 
                 execute_request = ExecuteWorkflowRequest(
                     workflow_id=workflow_id, input_data={"body": payload}

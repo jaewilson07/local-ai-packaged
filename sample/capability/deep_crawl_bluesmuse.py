@@ -11,15 +11,14 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
 from pydantic_ai import RunContext  # noqa: E402
-
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_deep  # noqa: E402
+from workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies  # noqa: E402
+from workflows.ingestion.crawl4ai_rag.tools import crawl_and_ingest_deep  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

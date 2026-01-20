@@ -1,17 +1,17 @@
 """Main Calendar agent implementation."""
 
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
-
-from server.projects.calendar.dependencies import CalendarDeps
-from server.projects.calendar.tools import (
+from capabilities.calendar.calendar_sync.dependencies import CalendarDeps
+from capabilities.calendar.calendar_sync.tools import (
     create_calendar_event,
     delete_calendar_event,
     list_calendar_events,
     update_calendar_event,
 )
-from server.projects.shared.llm import get_llm_model
-from server.projects.shared.wrappers import DepsWrapper
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+
+from shared.llm import get_llm_model
+from shared.wrappers import DepsWrapper
 
 
 class CalendarState(BaseModel):

@@ -3,14 +3,15 @@
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
-from server.projects.graphiti_rag.tools import (
+from shared.llm import get_llm_model as _get_graphiti_model
+
+from .dependencies import GraphitiRAGDeps
+from .tools import (
     parse_github_repository,
     query_knowledge_graph,
     search_graphiti_knowledge_graph,
     validate_ai_script,
 )
-from server.projects.shared.llm import get_llm_model as _get_graphiti_model
 
 
 class GraphitiRAGState(BaseModel):

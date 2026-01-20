@@ -5,10 +5,8 @@ from collections.abc import AsyncGenerator
 from typing import Annotated, Any
 
 import openai
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pymongo import AsyncMongoClient
-from src.capabilities.knowledge_graph.knowledge_base.config import config
-from src.capabilities.knowledge_graph.knowledge_base.models import (
+from capabilities.knowledge_graph.knowledge_base.config import config
+from capabilities.knowledge_graph.knowledge_base.models import (
     Article,
     ArticleCreateRequest,
     ArticleEditProposal,
@@ -22,17 +20,20 @@ from src.capabilities.knowledge_graph.knowledge_base.models import (
     ProposalReviewRequest,
     ProposalStatus,
 )
-from src.capabilities.knowledge_graph.knowledge_base.services.article_service import ArticleService
-from src.capabilities.knowledge_graph.knowledge_base.services.chat_service import ChatService
-from src.capabilities.knowledge_graph.knowledge_base.services.notification_service import (
+from capabilities.knowledge_graph.knowledge_base.services.article_service import ArticleService
+from capabilities.knowledge_graph.knowledge_base.services.chat_service import ChatService
+from capabilities.knowledge_graph.knowledge_base.services.notification_service import (
     NotificationService,
 )
-from src.capabilities.knowledge_graph.knowledge_base.services.proposal_service import (
+from capabilities.knowledge_graph.knowledge_base.services.proposal_service import (
     ProposalService,
 )
-from src.services.auth.dependencies import get_current_user
-from src.services.auth.models import User
-from src.shared.constants import DatabaseDefaults
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pymongo import AsyncMongoClient
+from services.auth.dependencies import get_current_user
+from services.auth.models import User
+
+from shared.constants import DatabaseDefaults
 
 router = APIRouter(prefix="/api/v1/kb", tags=["knowledge_base"])
 logger = logging.getLogger(__name__)

@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.crawl4ai_rag.ingestion.adapter import CrawledContentIngester
 
 

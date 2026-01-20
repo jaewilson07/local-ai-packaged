@@ -4,17 +4,19 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from pymongo import ASCENDING
-from pymongo.database import Database
-from src.capabilities.persona.persona_state.config import config
-from src.capabilities.persona.persona_state.models import (
+# Import directly from submodules to avoid circular imports
+from capabilities.persona.persona_state.config import config
+from capabilities.persona.persona_state.models import (
     ActivePersona,
     ConversationContext,
     MoodState,
     Personality,
     RelationshipState,
 )
-from src.shared.stores.base import BaseMongoStore
+from pymongo import ASCENDING
+from pymongo.database import Database
+
+from shared.stores.base import BaseMongoStore
 
 logger = logging.getLogger(__name__)
 

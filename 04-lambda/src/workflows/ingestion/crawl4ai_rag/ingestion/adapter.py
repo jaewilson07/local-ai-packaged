@@ -3,7 +3,7 @@
 .. deprecated:: 2026-01
     This module is deprecated. Use the centralized ContentIngestionService instead:
 
-    from workflows.ingestion.mongo_rag.ingestion.content_service import ContentIngestionService
+    from capabilities.retrieval.mongo_rag.ingestion.content_service import ContentIngestionService
 
     service = ContentIngestionService()
     await service.initialize()
@@ -29,19 +29,18 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from pymongo import AsyncMongoClient
-from workflows.ingestion.crawl4ai_rag.config import config
-from workflows.ingestion.graphiti_rag.config import config as graphiti_config
-from workflows.ingestion.graphiti_rag.dependencies import GraphitiRAGDeps
-from workflows.ingestion.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
-from workflows.ingestion.mongo_rag.ingestion.chunker import (
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
+from capabilities.retrieval.mongo_rag.ingestion.chunker import (
     ChunkingConfig,
     DocumentChunk,
     create_chunker,
 )
-
-from server.projects.mongo_rag.ingestion.embedder import create_embedder
-from server.projects.mongo_rag.ingestion.pipeline import IngestionResult
+from capabilities.retrieval.mongo_rag.ingestion.embedder import create_embedder
+from capabilities.retrieval.mongo_rag.ingestion.pipeline import IngestionResult
+from pymongo import AsyncMongoClient
+from workflows.ingestion.crawl4ai_rag.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ class CrawledContentIngester:
     Ingests crawled web content into MongoDB using existing RAG pipeline.
 
     .. deprecated:: 2026-01
-        Use ContentIngestionService from server.projects.mongo_rag.ingestion.content_service
+        Use ContentIngestionService from capabilities.retrieval.mongo_rag.ingestion.content_service
         instead. This class is kept for backward compatibility but will be removed.
 
     This adapter converts crawled markdown content into the format expected

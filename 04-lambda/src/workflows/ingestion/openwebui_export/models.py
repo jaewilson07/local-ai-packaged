@@ -1,55 +1,56 @@
-"""Pydantic models for Open WebUI export API."""
+"""Models for OpenWebUI export operations."""
 
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class ConversationMessage(BaseModel):
-    """Single message in a conversation."""
+    """A single message in a conversation."""
 
     role: str = Field(..., description="Message role (user, assistant, system)")
     content: str = Field(..., description="Message content")
-    timestamp: datetime | None = None
+    timestamp: str | None = Field(None, description="Message timestamp")
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConversationExportRequest(BaseModel):
-    """Request to export a conversation to RAG."""
+    """Request to export a conversation."""
 
-    conversation_id: str = Field(..., description="Open WebUI conversation ID")
-    user_id: str | None = Field(None, description="User ID")
-    title: str | None = Field(None, description="Conversation title")
-    messages: list[ConversationMessage] = Field(..., description="Conversation messages")
-    topics: list[str] | None = Field(None, description="Conversation topics")
-    metadata: dict[str, Any] | None = Field(default_factory=dict, description="Additional metadata")
+    conversation_id: str = Field(..., description="Conversation ID to export")
+    include_metadata: bool = Field(True, description="Include metadata in export")
 
 
 class ConversationExportResponse(BaseModel):
-    """Response from conversation export."""
+    """Response containing exported conversation."""
 
-    success: bool
     conversation_id: str
-    document_id: str | None = None
-    chunks_created: int = 0
-    message: str
-    errors: list[str] = []
+    title: str | None = None
+    messages: list[ConversationMessage] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    success: bool = True
+    error: str | None = None
 
 
 class ConversationListRequest(BaseModel):
-    """Request to list conversations from Open WebUI."""
+    """Request to list conversations."""
 
-    user_id: str | None = Field(None, description="Filter by user ID")
-    limit: int = Field(
-        default=100, ge=1, le=1000, description="Maximum number of conversations to return"
-    )
-    offset: int = Field(default=0, ge=0, description="Offset for pagination")
+    limit: int = Field(100, description="Maximum conversations to return")
+    offset: int = Field(0, description="Pagination offset")
 
 
 class ConversationListResponse(BaseModel):
-    """Response with list of conversations."""
+    """Response containing list of conversations."""
 
-    conversations: list[dict[str, Any]]
-    total: int
-    limit: int
-    offset: int
+    conversations: list[dict[str, Any]] = Field(default_factory=list)
+    total: int = 0
+    success: bool = True
+
+
+__all__ = [
+    "ConversationExportRequest",
+    "ConversationExportResponse",
+    "ConversationListRequest",
+    "ConversationListResponse",
+    "ConversationMessage",
+]

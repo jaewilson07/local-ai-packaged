@@ -25,7 +25,12 @@ mcp = FastMCP("Lambda Server")
 
 @mcp.tool
 async def search_knowledge_base(
-    query: str, match_count: int = 5, search_type: Literal["semantic", "text", "hybrid"] = "hybrid"
+    query: str,
+    match_count: int = 5,
+    search_type: Literal["semantic", "text", "hybrid"] = "hybrid",
+    project_scope: str | None = None,
+    tags: list[str] | None = None,
+    source_type: str | None = None,
 ) -> dict:
     """
     Search the MongoDB RAG knowledge base using semantic, text, or hybrid search.
@@ -40,19 +45,83 @@ async def search_knowledge_base(
                     (best for conceptual queries), 'text' uses keyword matching
                     (best for exact terms), 'hybrid' combines both using Reciprocal
                     Rank Fusion (recommended). Default: "hybrid".
+        project_scope: Optional project scope to filter by (e.g., 'comfyui-lora-research').
+                      Use this to search only within research done for a specific project.
+        tags: Optional list of tags to filter by. All tags must match.
+        source_type: Optional source type filter (e.g., 'youtube', 'web', 'article').
 
     Returns:
         Dictionary containing search results with query, results array, and count.
     """
-    from capabilities.retrieval.mongo_rag.models import SearchRequest
+    from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
+    from capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_search, text_search
 
-    from server.api.mongo_rag import search
+    from shared.context_helpers import create_run_context
 
     try:
-        result = await search(
-            SearchRequest(query=query, match_count=match_count, search_type=search_type)
-        )
-        return result.dict()
+        # Create dependencies for the search
+        deps = AgentDependencies.from_settings()
+        await deps.initialize()
+
+        try:
+            # Create RunContext wrapper for tools that expect ctx.deps pattern
+            ctx = create_run_context(deps)
+
+            # Build metadata filter for project_scope, tags, and source_type
+            metadata_filter = {}
+            if project_scope:
+                metadata_filter["project_scope"] = project_scope
+            if tags:
+                metadata_filter["tags"] = {"$all": tags}
+            if source_type:
+                metadata_filter["source_type"] = source_type
+
+            # Call appropriate search based on type
+            # Note: The underlying tools don't yet support metadata_filter,
+            # so we add it to results for future enhancement
+            if search_type == "semantic":
+                results = await semantic_search(ctx, query, match_count)
+            elif search_type == "text":
+                results = await text_search(ctx, query, match_count)
+            else:  # hybrid
+                results = await hybrid_search(ctx, query, match_count)
+
+            # Filter results by metadata if specified (client-side filtering)
+            if metadata_filter:
+                filtered_results = []
+                for r in results:
+                    metadata = r.get("metadata", {})
+                    match = True
+                    if project_scope and metadata.get("project_scope") != project_scope:
+                        match = False
+                    if source_type and metadata.get("source_type") != source_type:
+                        match = False
+                    if tags:
+                        result_tags = metadata.get("tags", [])
+                        if not all(t in result_tags for t in tags):
+                            match = False
+                    if match:
+                        filtered_results.append(r)
+                results = filtered_results
+
+            return {
+                "query": query,
+                "results": results,
+                "count": len(results),
+                "search_type": search_type,
+                "filters": (
+                    {
+                        "project_scope": project_scope,
+                        "tags": tags,
+                        "source_type": source_type,
+                    }
+                    if any([project_scope, tags, source_type])
+                    else None
+                ),
+            }
+        finally:
+            await deps.cleanup()
+
     except ValidationError as e:
         logger.warning("mcp_validation_error: search_knowledge_base", extra={"errors": e.errors()})
         raise ValueError(f"Invalid parameters: {e}") from e
@@ -85,8 +154,7 @@ async def agent_query(query: str) -> dict:
         Dictionary containing query and response text.
     """
     from capabilities.retrieval.mongo_rag.models import AgentRequest
-
-    from server.api.mongo_rag import agent
+    from capabilities.retrieval.mongo_rag.router import agent
 
     try:
         result = await agent(AgentRequest(query=query))
@@ -147,8 +215,7 @@ async def search_code_examples(query: str, match_count: int = 5) -> dict:
         Dictionary containing code example search results.
     """
     from capabilities.retrieval.mongo_rag.models import CodeExampleSearchRequest
-
-    from server.api.mongo_rag import search_code_examples_endpoint
+    from capabilities.retrieval.mongo_rag.router import search_code_examples_endpoint
 
     try:
         request = CodeExampleSearchRequest(query=query, match_count=match_count)
@@ -174,7 +241,7 @@ async def get_available_sources() -> dict:
     Returns:
         Dictionary containing list of sources with metadata.
     """
-    from server.api.mongo_rag import get_sources
+    from capabilities.retrieval.mongo_rag.router import get_sources
 
     try:
         result = await get_sources()
@@ -208,8 +275,7 @@ async def search_graphiti(query: str, match_count: int = 10) -> dict:
         Dictionary containing graphiti search results.
     """
     from capabilities.retrieval.graphiti_rag.models import GraphitiSearchRequest
-
-    from server.api.graphiti_rag import search_graphiti_endpoint
+    from capabilities.retrieval.graphiti_rag.router import search_graphiti_endpoint
 
     try:
         request = GraphitiSearchRequest(query=query, match_count=match_count)
@@ -242,8 +308,7 @@ async def parse_github_repository(repo_url: str) -> dict:
         Dictionary containing parse results.
     """
     from capabilities.retrieval.graphiti_rag.models import ParseRepositoryRequest
-
-    from server.api.graphiti_rag import parse_github_repository_endpoint
+    from capabilities.retrieval.graphiti_rag.router import parse_github_repository_endpoint
 
     try:
         request = ParseRepositoryRequest(repo_url=repo_url)
@@ -277,8 +342,7 @@ async def check_ai_script_hallucinations(script_path: str) -> dict:
         Dictionary containing validation results.
     """
     from capabilities.retrieval.graphiti_rag.models import ValidateScriptRequest
-
-    from server.api.graphiti_rag import validate_ai_script_endpoint
+    from capabilities.retrieval.graphiti_rag.router import validate_ai_script_endpoint
 
     try:
         request = ValidateScriptRequest(script_path=script_path)
@@ -314,8 +378,7 @@ async def query_knowledge_graph(command: str) -> dict:
         Dictionary containing query results.
     """
     from capabilities.retrieval.graphiti_rag.models import QueryKnowledgeGraphRequest
-
-    from server.api.graphiti_rag import query_knowledge_graph_endpoint
+    from capabilities.retrieval.graphiti_rag.router import query_knowledge_graph_endpoint
 
     try:
         request = QueryKnowledgeGraphRequest(command=command)
@@ -366,8 +429,7 @@ async def crawl_single_page(
         chunks created, document IDs, and any errors.
     """
     from workflows.ingestion.crawl4ai_rag.models import CrawlSinglePageRequest
-
-    from server.api.crawl4ai_rag import crawl_single
+    from workflows.ingestion.crawl4ai_rag.router import crawl_single
 
     try:
         request = CrawlSinglePageRequest(
@@ -427,8 +489,7 @@ async def crawl_deep(
         chunks created, document IDs, and any errors.
     """
     from workflows.ingestion.crawl4ai_rag.models import CrawlDeepRequest
-
-    from server.api.crawl4ai_rag import crawl_deep_endpoint
+    from workflows.ingestion.crawl4ai_rag.router import crawl_deep_endpoint
 
     try:
         request = CrawlDeepRequest(
@@ -596,7 +657,7 @@ async def web_search(
     Returns:
         Dictionary containing search results with query, results array, and count.
     """
-    from server.api.searxng import SearXNGSearchRequest, search
+    from services.external.searxng.router import SearXNGSearchRequest, search
 
     try:
         request = SearXNGSearchRequest(
@@ -646,8 +707,7 @@ async def create_n8n_workflow(
         Dictionary containing created workflow details.
     """
     from workflows.automation.n8n_workflow.models import CreateWorkflowRequest, WorkflowNode
-
-    from server.api.n8n_workflow import create_workflow_endpoint
+    from workflows.automation.n8n_workflow.router import create_workflow_endpoint
 
     try:
         # Convert nodes if provided
@@ -696,8 +756,7 @@ async def update_n8n_workflow(
         Dictionary containing updated workflow details.
     """
     from workflows.automation.n8n_workflow.models import UpdateWorkflowRequest, WorkflowNode
-
-    from server.api.n8n_workflow import update_workflow_endpoint
+    from workflows.automation.n8n_workflow.router import update_workflow_endpoint
 
     try:
         workflow_nodes = None
@@ -732,8 +791,7 @@ async def delete_n8n_workflow(workflow_id: str) -> dict:
         Dictionary containing deletion confirmation.
     """
     from workflows.automation.n8n_workflow.models import DeleteWorkflowRequest
-
-    from server.api.n8n_workflow import delete_workflow_endpoint
+    from workflows.automation.n8n_workflow.router import delete_workflow_endpoint
 
     try:
         request = DeleteWorkflowRequest(workflow_id=workflow_id)
@@ -758,8 +816,7 @@ async def activate_n8n_workflow(workflow_id: str, active: bool) -> dict:
         Dictionary containing activation status.
     """
     from workflows.automation.n8n_workflow.models import ActivateWorkflowRequest
-
-    from server.api.n8n_workflow import activate_workflow_endpoint
+    from workflows.automation.n8n_workflow.router import activate_workflow_endpoint
 
     try:
         request = ActivateWorkflowRequest(workflow_id=workflow_id, active=active)
@@ -782,7 +839,7 @@ async def list_n8n_workflows(active_only: bool = False) -> dict:
     Returns:
         Dictionary containing list of workflows.
     """
-    from server.api.n8n_workflow import list_workflows_endpoint
+    from workflows.automation.n8n_workflow.router import list_workflows_endpoint
 
     try:
         result = await list_workflows_endpoint(active_only=active_only)
@@ -807,8 +864,7 @@ async def execute_n8n_workflow(workflow_id: str, input_data: dict[str, Any] | No
         Dictionary containing execution results.
     """
     from workflows.automation.n8n_workflow.models import ExecuteWorkflowRequest
-
-    from server.api.n8n_workflow import execute_workflow_endpoint
+    from workflows.automation.n8n_workflow.router import execute_workflow_endpoint
 
     try:
         request = ExecuteWorkflowRequest(workflow_id=workflow_id, input_data=input_data or {})
@@ -1014,8 +1070,7 @@ async def export_openwebui_conversation(
         ConversationExportRequest,
         ConversationMessage,
     )
-
-    from server.api.openwebui_export import export_conversation_endpoint
+    from workflows.ingestion.openwebui_export.router import export_conversation_endpoint
 
     try:
         # Convert messages to ConversationMessage objects
@@ -1059,8 +1114,7 @@ async def classify_conversation_topics(
         Dictionary containing classified topics.
     """
     from capabilities.processing.openwebui_topics.models import TopicClassificationRequest
-
-    from server.api.openwebui_topics import classify_topics_endpoint
+    from capabilities.processing.openwebui_topics.router import classify_topics_endpoint
 
     try:
         request = TopicClassificationRequest(
@@ -1100,8 +1154,7 @@ async def search_conversations(
         Dictionary containing search results.
     """
     from capabilities.retrieval.mongo_rag.models import SearchRequest
-
-    from server.api.mongo_rag import search
+    from capabilities.retrieval.mongo_rag.router import search
 
     try:
         request = SearchRequest(
@@ -1160,8 +1213,11 @@ async def create_calendar_event(
     Returns:
         Dictionary containing the created event details.
     """
-    from server.api.calendar import create_calendar_event_endpoint
-    from server.projects.calendar.models import CalendarEventData, CreateCalendarEventRequest
+    from capabilities.calendar.calendar_sync.models import (
+        CalendarEventData,
+        CreateCalendarEventRequest,
+    )
+    from capabilities.calendar.router import create_calendar_event_endpoint
 
     try:
         event_data = CalendarEventData(
@@ -1222,8 +1278,11 @@ async def update_calendar_event(
     Returns:
         Dictionary containing the updated event details.
     """
-    from server.api.calendar import update_calendar_event_endpoint
-    from server.projects.calendar.models import CalendarEventData, UpdateCalendarEventRequest
+    from capabilities.calendar.calendar_sync.models import (
+        CalendarEventData,
+        UpdateCalendarEventRequest,
+    )
+    from capabilities.calendar.router import update_calendar_event_endpoint
 
     try:
         event_data = CalendarEventData(
@@ -1263,8 +1322,8 @@ async def delete_calendar_event(user_id: str, event_id: str, calendar_id: str = 
     Returns:
         Dictionary containing the deletion result.
     """
-    from server.api.calendar import delete_calendar_event_endpoint
-    from server.projects.calendar.models import DeleteCalendarEventRequest
+    from capabilities.calendar.calendar_sync.models import DeleteCalendarEventRequest
+    from capabilities.calendar.router import delete_calendar_event_endpoint
 
     try:
         request = DeleteCalendarEventRequest(
@@ -1300,7 +1359,7 @@ async def list_calendar_events(
     Returns:
         Dictionary containing the list of events and count.
     """
-    from server.api.calendar import list_calendar_events_endpoint
+    from capabilities.calendar.router import list_calendar_events_endpoint
 
     try:
         result = await list_calendar_events_endpoint(
@@ -1338,8 +1397,8 @@ async def extract_events_from_content(
     Returns:
         Dictionary containing extracted events.
     """
-    from server.api.knowledge import extract_events_endpoint
-    from server.projects.knowledge.models import ExtractEventsRequest
+    from capabilities.knowledge_graph.knowledge.models import ExtractEventsRequest
+    from capabilities.knowledge_graph.knowledge.router import extract_events_endpoint
 
     try:
         request = ExtractEventsRequest(content=content, url=url, use_llm=use_llm)
@@ -1374,8 +1433,8 @@ async def extract_events_from_crawled(
     Returns:
         Dictionary containing extracted events.
     """
-    from server.api.knowledge import extract_events_from_crawled_endpoint
-    from server.projects.knowledge.models import ExtractEventsFromCrawledRequest
+    from capabilities.knowledge_graph.knowledge.models import ExtractEventsFromCrawledRequest
+    from capabilities.knowledge_graph.knowledge.router import extract_events_from_crawled_endpoint
 
     try:
         request = ExtractEventsFromCrawledRequest(crawled_pages=crawled_pages, use_llm=use_llm)
@@ -1423,7 +1482,7 @@ async def upload_file_to_storage(
     import base64
     from uuid import UUID
 
-    from server.api.blob_storage import upload_file_endpoint
+    from services.storage.blob_storage.router import upload_file_endpoint
 
     try:
         user_uuid = UUID(user_id)
@@ -1458,7 +1517,7 @@ async def list_storage_files(
     """
     from uuid import UUID
 
-    from server.api.blob_storage import list_files_endpoint
+    from services.storage.blob_storage.router import list_files_endpoint
 
     try:
         user_uuid = UUID(user_id)
@@ -1491,7 +1550,7 @@ async def download_file_from_storage(
     import base64
     from uuid import UUID
 
-    from server.api.blob_storage import download_file_endpoint
+    from services.storage.blob_storage.router import download_file_endpoint
 
     try:
         user_uuid = UUID(user_id)
@@ -1529,7 +1588,7 @@ async def delete_file_from_storage(
     """
     from uuid import UUID
 
-    from server.api.blob_storage import delete_file_endpoint
+    from services.storage.blob_storage.router import delete_file_endpoint
 
     try:
         user_uuid = UUID(user_id)
@@ -1563,7 +1622,7 @@ async def get_storage_file_url(
     """
     from uuid import UUID
 
-    from server.api.blob_storage import get_file_url_endpoint
+    from services.storage.blob_storage.router import get_file_url_endpoint
 
     try:
         user_uuid = UUID(user_id)
@@ -1601,7 +1660,7 @@ async def record_message(user_id: str, persona_id: str, content: str, role: str 
     Returns:
         Dictionary with success status.
     """
-    from server.api.mongo_rag import record_message_endpoint
+    from capabilities.retrieval.mongo_rag.router import record_message_endpoint
 
     try:
         result = await record_message_endpoint(user_id, persona_id, content, role)
@@ -1623,7 +1682,7 @@ async def get_context_window(user_id: str, persona_id: str, limit: int = 20) -> 
     Returns:
         Dictionary containing messages and count.
     """
-    from server.api.mongo_rag import get_context_window_endpoint
+    from capabilities.retrieval.mongo_rag.router import get_context_window_endpoint
 
     try:
         result = await get_context_window_endpoint(user_id, persona_id, limit)
@@ -1648,7 +1707,7 @@ async def store_fact(
     Returns:
         Dictionary with success status.
     """
-    from server.api.mongo_rag import store_fact_endpoint
+    from capabilities.retrieval.mongo_rag.router import store_fact_endpoint
 
     try:
         result = await store_fact_endpoint(user_id, persona_id, fact, tags)
@@ -1671,7 +1730,7 @@ async def search_facts(user_id: str, persona_id: str, query: str, limit: int = 1
     Returns:
         Dictionary containing facts and count.
     """
-    from server.api.mongo_rag import search_facts_endpoint
+    from capabilities.retrieval.mongo_rag.router import search_facts_endpoint
 
     try:
         result = await search_facts_endpoint(user_id, persona_id, query, limit)
@@ -1705,7 +1764,7 @@ async def store_web_content(
     Returns:
         Dictionary with success status and chunks count.
     """
-    from server.api.mongo_rag import store_web_content_endpoint
+    from capabilities.retrieval.mongo_rag.router import store_web_content_endpoint
 
     try:
         result = await store_web_content_endpoint(
@@ -1750,7 +1809,7 @@ async def enhanced_search(
     Returns:
         Dictionary containing search results with citations.
     """
-    from server.api.mongo_rag import enhanced_search_endpoint
+    from capabilities.retrieval.mongo_rag.router import enhanced_search_endpoint
 
     try:
         result = await enhanced_search_endpoint(
@@ -1787,8 +1846,7 @@ async def get_persona_voice_instructions(user_id: str, persona_id: str) -> dict:
         Dictionary containing voice instructions.
     """
     from capabilities.persona.persona_state.models import GetVoiceInstructionsRequest
-
-    from server.api.persona import get_voice_instructions_endpoint
+    from capabilities.persona.persona_state.router import get_voice_instructions_endpoint
 
     try:
         request = GetVoiceInstructionsRequest(user_id=user_id, persona_id=persona_id)
@@ -1815,8 +1873,7 @@ async def record_persona_interaction(
         Dictionary containing updated state.
     """
     from capabilities.persona.persona_state.models import RecordInteractionRequest
-
-    from server.api.persona import record_interaction_endpoint
+    from capabilities.persona.persona_state.router import record_interaction_endpoint
 
     try:
         request = RecordInteractionRequest(
@@ -1843,7 +1900,7 @@ async def get_persona_state(user_id: str, persona_id: str) -> dict:
     Returns:
         Dictionary containing persona state.
     """
-    from server.api.persona import get_persona_state_endpoint
+    from capabilities.persona.persona_state.router import get_persona_state_endpoint
 
     try:
         result = await get_persona_state_endpoint(user_id, persona_id)
@@ -1869,8 +1926,7 @@ async def update_persona_mood(
         Dictionary containing updated mood.
     """
     from capabilities.persona.persona_state.models import UpdateMoodRequest
-
-    from server.api.persona import update_mood_endpoint
+    from capabilities.persona.persona_state.router import update_mood_endpoint
 
     try:
         request = UpdateMoodRequest(
@@ -1906,9 +1962,8 @@ async def orchestrate_conversation(user_id: str, persona_id: str, message: str) 
     Returns:
         Dictionary containing response and metadata.
     """
+    from workflows.chat.conversation.router import orchestrate_conversation_endpoint
     from workflows.chat.conversation.schemas import ConversationRequest
-
-    from server.api.conversation import orchestrate_conversation_endpoint
 
     try:
         request = ConversationRequest(user_id=user_id, persona_id=persona_id, message=message)
@@ -1938,7 +1993,7 @@ async def add_discord_character(
     Returns:
         Dictionary with success status and message.
     """
-    from server.projects.discord_characters.tools import add_discord_character_tool
+    from capabilities.persona.discord_characters.tools import add_discord_character_tool
 
     try:
         result = await add_discord_character_tool(channel_id, character_id, persona_id)
@@ -1959,7 +2014,7 @@ async def remove_discord_character(channel_id: str, character_id: str) -> dict:
     Returns:
         Dictionary with success status and message.
     """
-    from server.projects.discord_characters.tools import remove_discord_character_tool
+    from capabilities.persona.discord_characters.tools import remove_discord_character_tool
 
     try:
         result = await remove_discord_character_tool(channel_id, character_id)
@@ -1979,7 +2034,7 @@ async def list_discord_characters(channel_id: str) -> list[dict]:
     Returns:
         List of character dictionaries with channel_id, character_id, persona_id, etc.
     """
-    from server.projects.discord_characters.tools import list_discord_characters_tool
+    from capabilities.persona.discord_characters.tools import list_discord_characters_tool
 
     try:
         result = await list_discord_characters_tool(channel_id)
@@ -2000,7 +2055,7 @@ async def clear_discord_history(channel_id: str, character_id: str | None = None
     Returns:
         Dictionary with success status and message.
     """
-    from server.projects.discord_characters.tools import clear_discord_history_tool
+    from capabilities.persona.discord_characters.tools import clear_discord_history_tool
 
     try:
         result = await clear_discord_history_tool(channel_id, character_id)
@@ -2025,7 +2080,7 @@ async def chat_with_discord_character(
     Returns:
         Dictionary with success status, response text, and character_id.
     """
-    from server.projects.discord_characters.tools import chat_with_discord_character_tool
+    from capabilities.persona.discord_characters.tools import chat_with_discord_character_tool
 
     try:
         result = await chat_with_discord_character_tool(channel_id, character_id, user_id, message)
@@ -2057,9 +2112,9 @@ async def search_web(query: str, engines: list[str] | None = None, result_count:
         Dictionary containing search results with query, results array, and count.
         Each result includes title, url, snippet, engine, and score.
     """
-    from server.projects.deep_research.dependencies import DeepResearchDeps
-    from server.projects.deep_research.models import SearchWebRequest
-    from server.projects.deep_research.tools import search_web as search_web_tool
+    from workflows.research.deep_research.ai.dependencies import DeepResearchDeps
+    from workflows.research.deep_research.models import SearchWebRequest
+    from workflows.research.deep_research.tools import search_web as search_web_tool
 
     try:
         deps = DeepResearchDeps.from_settings()
@@ -2093,9 +2148,9 @@ async def fetch_page(url: str) -> dict:
     Returns:
         Dictionary containing url, content (markdown), metadata, and success status.
     """
-    from server.projects.deep_research.dependencies import DeepResearchDeps
-    from server.projects.deep_research.models import FetchPageRequest
-    from server.projects.deep_research.tools import fetch_page as fetch_page_tool
+    from workflows.research.deep_research.ai.dependencies import DeepResearchDeps
+    from workflows.research.deep_research.models import FetchPageRequest
+    from workflows.research.deep_research.tools import fetch_page as fetch_page_tool
 
     try:
         deps = DeepResearchDeps.from_settings()
@@ -2135,9 +2190,9 @@ async def parse_document(
     Returns:
         Dictionary containing chunks (list of structured chunks), metadata, and success status.
     """
-    from server.projects.deep_research.dependencies import DeepResearchDeps
-    from server.projects.deep_research.models import ParseDocumentRequest
-    from server.projects.deep_research.tools import parse_document as parse_document_tool
+    from workflows.research.deep_research.ai.dependencies import DeepResearchDeps
+    from workflows.research.deep_research.models import ParseDocumentRequest
+    from workflows.research.deep_research.tools import parse_document as parse_document_tool
 
     try:
         deps = DeepResearchDeps.from_settings()
@@ -2174,9 +2229,9 @@ async def ingest_knowledge(
     Returns:
         Dictionary containing document_id, chunks_created, facts_added, success, and errors.
     """
-    from server.projects.deep_research.dependencies import DeepResearchDeps
-    from server.projects.deep_research.models import DocumentChunk, IngestKnowledgeRequest
-    from server.projects.deep_research.tools import ingest_knowledge as ingest_knowledge_tool
+    from workflows.research.deep_research.ai.dependencies import DeepResearchDeps
+    from workflows.research.deep_research.models import DocumentChunk, IngestKnowledgeRequest
+    from workflows.research.deep_research.tools import ingest_knowledge as ingest_knowledge_tool
 
     try:
         deps = DeepResearchDeps.from_settings(session_id=session_id)
@@ -2225,9 +2280,9 @@ async def query_knowledge(
         Dictionary containing results (list of cited chunks), count, and success status.
         Each result includes: chunk_id, content, document_id, document_source, similarity, metadata.
     """
-    from server.projects.deep_research.dependencies import DeepResearchDeps
-    from server.projects.deep_research.models import QueryKnowledgeRequest
-    from server.projects.deep_research.tools import query_knowledge as query_knowledge_tool
+    from workflows.research.deep_research.ai.dependencies import DeepResearchDeps
+    from workflows.research.deep_research.models import QueryKnowledgeRequest
+    from workflows.research.deep_research.tools import query_knowledge as query_knowledge_tool
 
     try:
         deps = DeepResearchDeps.from_settings(session_id=session_id)
@@ -2306,9 +2361,9 @@ async def ingest_youtube_video(
         - processing_time_ms: float - Processing time
         - errors: list - Any errors encountered
     """
-    from server.projects.youtube_rag.dependencies import YouTubeRAGDeps
-    from server.projects.youtube_rag.models import IngestYouTubeRequest
-    from server.projects.youtube_rag.tools import ingest_youtube_video as ingest_tool
+    from workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
+    from workflows.ingestion.youtube_rag.models import IngestYouTubeRequest
+    from workflows.ingestion.youtube_rag.tools import ingest_youtube_video as ingest_tool
 
     try:
         deps = YouTubeRAGDeps.from_settings(preferred_language=preferred_language)
@@ -2359,9 +2414,9 @@ async def get_youtube_metadata(
         - chapters: list - Chapter markers if available
         - errors: list - Any errors encountered
     """
-    from server.projects.youtube_rag.dependencies import YouTubeRAGDeps
-    from server.projects.youtube_rag.models import GetYouTubeMetadataRequest
-    from server.projects.youtube_rag.tools import get_youtube_metadata as get_metadata_tool
+    from workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
+    from workflows.ingestion.youtube_rag.models import GetYouTubeMetadataRequest
+    from workflows.ingestion.youtube_rag.tools import get_youtube_metadata as get_metadata_tool
 
     try:
         deps = YouTubeRAGDeps.from_settings()
@@ -2408,8 +2463,7 @@ async def search_youtube_videos(
         Each result includes video title, channel, timestamp context, and relevance score.
     """
     from capabilities.retrieval.mongo_rag.models import SearchRequest
-
-    from server.api.mongo_rag import search
+    from capabilities.retrieval.mongo_rag.router import search
 
     try:
         # Build metadata filter for YouTube source type
@@ -2434,3 +2488,131 @@ async def search_youtube_videos(
             extra={"status_code": e.status_code, "detail": e.detail},
         )
         raise RuntimeError(f"Search failed: {e.detail}") from e
+
+
+# ============================================================================
+# Research and Store Tool (Composite Tool for Cursor Agent)
+# ============================================================================
+
+
+@mcp.tool
+async def research_and_store(
+    query: str,
+    focus: Literal["videos", "articles", "communities", "all", "both"] = "all",
+    sources: list[str] | None = None,
+    video_recency_days: int = 90,
+    max_videos: int = 3,
+    max_articles: int = 5,
+    max_community_posts: int = 10,
+    tags: list[str] | None = None,
+    project_scope: str | None = None,
+    subreddits: list[str] | None = None,
+    extract_entities: bool = False,
+    extract_topics: bool = True,
+) -> dict:
+    """
+    Research a topic and automatically store findings in the knowledge base.
+
+    This is a composite tool designed for Cursor agent integration. It performs
+    a complete research workflow in a single call:
+
+    1. Searches multiple sources (YouTube, web, Reddit, Hacker News, Dev.to)
+    2. Filters results by recency and relevance
+    3. Ingests matching content into the MongoDB RAG knowledge base
+    4. Returns a summary of what was stored
+
+    Supported sources:
+    - youtube: YouTube videos (via transcript extraction)
+    - web: General web articles (via SearXNG)
+    - reddit: Reddit discussions (via site: search)
+    - hackernews: Hacker News posts (via free Algolia API)
+    - devto: Dev.to articles (via free public API)
+
+    Use this when you need to:
+    - Research emerging AI/coding trends from developer communities
+    - Ingest recent YouTube videos on a specific subject
+    - Build a project-specific knowledge base during development
+    - Gather community discussions about a technology
+
+    Example: "Research z-image-turbo LORA fidelity settings" will search
+    YouTube, Reddit, Hacker News, and Dev.to for relevant content and
+    store it for future reference via search_knowledge_base.
+
+    Args:
+        query: Research query/topic to investigate (e.g., "z-image-turbo LORA
+              fidelity settings", "ComfyUI controlnet workflows").
+        focus: What type of content to search for:
+              - "videos": Only YouTube videos
+              - "articles": Only web articles
+              - "communities": Reddit, Hacker News, Dev.to
+              - "all": All sources (default)
+              - "both": Videos + articles (legacy, same as videos+articles)
+        sources: Explicit list of sources to search. Options: youtube, web,
+                reddit, hackernews, devto. If not specified, uses default
+                sources based on focus parameter.
+        video_recency_days: Only ingest videos published within this many days.
+                           Range: 1-365. Default: 90 (last 3 months).
+        max_videos: Maximum number of videos to ingest. Range: 1-10. Default: 3.
+        max_articles: Maximum number of articles to ingest. Range: 1-20. Default: 5.
+        max_community_posts: Maximum community posts (Reddit, HN, Dev.to) to ingest
+                            per source. Range: 1-30. Default: 10.
+        tags: Optional tags to apply to ingested content for filtering later.
+        project_scope: Optional project scope for organizing research
+                      (e.g., "comfyui-lora-research"). Useful for isolating
+                      research by project.
+        subreddits: Optional list of specific subreddits to search
+                   (e.g., ["LocalLLaMA", "StableDiffusion", "comfyui"]).
+        extract_entities: Use LLM to extract named entities from videos
+                         (people, products, concepts). Slower but provides
+                         richer metadata. Default: False.
+        extract_topics: Use LLM to classify topics. Default: True.
+
+    Returns:
+        Dictionary containing:
+        - success: bool - Whether any content was successfully ingested
+        - query: str - The original research query
+        - focus: str - The focus type used
+        - sources_searched: list - Sources that were searched
+        - items_found: int - Total items found in search
+        - items_ingested: int - Successfully ingested items
+        - videos_ingested: int - Number of videos ingested
+        - articles_ingested: int - Number of articles ingested
+        - community_posts_ingested: int - Total community posts ingested
+        - reddit_ingested: int - Reddit posts ingested
+        - hackernews_ingested: int - Hacker News stories ingested
+        - devto_ingested: int - Dev.to articles ingested
+        - total_chunks_created: int - Total document chunks created
+        - ingested_items: list - Details of each ingested item
+        - skipped_items: list - Items that were skipped (duplicates, too old)
+        - errors: list - Any errors encountered
+        - processing_time_ms: float - Total processing time
+
+    After calling this tool, use search_knowledge_base to query the ingested
+    content. Example: search_knowledge_base(query="LORA fidelity settings")
+    """
+    from workflows.research.deep_research.models import ResearchAndStoreRequest
+    from workflows.research.deep_research.tools import research_and_store as research_tool
+
+    try:
+        request = ResearchAndStoreRequest(
+            query=query,
+            focus=focus,
+            sources=sources,
+            video_recency_days=video_recency_days,
+            max_videos=max_videos,
+            max_articles=max_articles,
+            max_community_posts=max_community_posts,
+            tags=tags,
+            project_scope=project_scope,
+            subreddits=subreddits,
+            extract_entities=extract_entities,
+            extract_topics=extract_topics,
+        )
+        result = await research_tool(request)
+        return result.dict()
+    except ValidationError as e:
+        logger.warning("mcp_validation_error: research_and_store", extra={"errors": e.errors()})
+        raise ValueError(f"Invalid parameters: {e}") from e
+    except Exception as e:
+        logger.exception("mcp_error: research_and_store")
+        return {"success": False, "query": query, "errors": [str(e)]}

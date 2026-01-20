@@ -4,11 +4,11 @@ import logging
 from dataclasses import dataclass
 
 from capabilities.persona.discord_characters.config import config
+from capabilities.persona.discord_characters.services_legacy import DiscordCharacterManager
+from capabilities.persona.discord_characters.services_legacy.store import DiscordCharacterStore
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
-from server.services.discord_characters import DiscordCharacterManager
-from server.services.discord_characters.store import DiscordCharacterStore
 from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)

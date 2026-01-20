@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from server.projects.graphiti_rag.tools import search_graphiti_knowledge_graph
+
 from tests.conftest import MockRunContext
 
 

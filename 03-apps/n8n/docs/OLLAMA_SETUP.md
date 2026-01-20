@@ -46,7 +46,7 @@ If Ollama runs locally on your Mac (not in Docker):
 Models are pulled automatically when the Ollama service starts. Common models include:
 
 - **Chat Models**: `qwen2.5:7b-instruct-q4_K_M`, `llama3.1:latest`, `llama3.2:latest`
-- **Embedding Models**: `nomic-embed-text:latest`
+- **Embedding Models**: `qwen3-embedding:4b`
 
 To see all available models, check the Ollama service logs or use:
 ```bash

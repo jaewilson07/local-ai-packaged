@@ -2,11 +2,11 @@
 
 import hashlib
 import logging
-import secrets
-import string
 
 from pymongo import AsyncMongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
+
+from shared.security import generate_secure_password
 
 from .config import RAGConfig
 from .schemas import MongoCredentials
@@ -35,19 +35,6 @@ class MongoDBClient:
             logger.info("Created MongoDB admin client for provisioning")
 
         return self._admin_client
-
-    def _generate_password(self, length: int = 32) -> str:
-        """
-        Generate a secure random password.
-
-        Args:
-            length: Password length (default: 32)
-
-        Returns:
-            Random password string
-        """
-        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-        return "".join(secrets.choice(alphabet) for _ in range(length))
 
     def _sanitize_username(self, email: str) -> str:
         """
@@ -148,7 +135,7 @@ class MongoDBClient:
 
         client = await self._get_admin_client()
         username = self._sanitize_username(email)
-        password = self._generate_password()
+        password = generate_secure_password(include_special=True)
         role_name = "rag_user"
 
         # Check if user already exists

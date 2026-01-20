@@ -7,32 +7,32 @@
 **All SearXNG integration work is complete and tested.**
 
 #### 1. Core Implementation ✅
-- **Location**: `04-lambda/server/projects/deep_research/tools.py`
+- **Location**: `04-lambda/src/workflows/research/deep_research/tools.py`
 - **Function**: `search_web()`
 - **Status**: Fully implemented
 - **Implementation**: Calls `server.api.searxng.search()` REST API
 - **Validation**: Tested and working (32+ results for "blues muse")
 
 #### 2. MCP Tool Registration ✅
-- **Location**: `04-lambda/server/mcp/fastmcp_server.py`
+- **Location**: `04-lambda/src/mcp_server/server.py`
 - **Tool**: `search_web`
 - **Status**: Registered and working
 - **Endpoint**: `/api/v1/mcp/tools/call`
 - **Documentation**: Complete with parameters and return types
 
 #### 3. Pydantic-AI Agent Tool ✅
-- **Location**: `04-lambda/server/projects/deep_research/agent.py`
+- **Location**: `04-lambda/src/workflows/research/deep_research/agent.py`
 - **Tool**: `search_web_tool()`
 - **Status**: Wrapped as Pydantic-AI tool
 - **Usage**: Available to Linear Researcher agent
 
 #### 4. Configuration ✅
-- **Location**: `04-lambda/server/projects/deep_research/config.py`
+- **Location**: `04-lambda/src/workflows/research/deep_research/config.py`
 - **Setting**: `searxng_url` from global settings
 - **Status**: Properly configured
 
 #### 5. Dependencies ✅
-- **Location**: `04-lambda/server/projects/deep_research/dependencies.py`
+- **Location**: `04-lambda/src/workflows/research/deep_research/dependencies.py`
 - **Component**: `http_client` for SearXNG requests
 - **Status**: Initialized and ready
 

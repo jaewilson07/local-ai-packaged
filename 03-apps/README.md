@@ -334,6 +334,5 @@ All services use environment variables from the root `.env` file. Key variables:
 
 - [Main README](../README.md) - Overall project overview
 - [Lambda Server README](../04-lambda/README.md) - MCP tools and REST APIs
-- [Workflows Documentation](../docs/WORKFLOWS.md) - Detailed workflow documentation
-- [Architecture Documentation](../docs/ARCHITECTURE.md) - System architecture
-- [Services Documentation](../docs/SERVICES.md) - Complete service catalog
+- [Root AGENTS.md](../AGENTS.md) - Architecture and rules
+- [Apps Stack AGENTS.md](./AGENTS.md) - Apps stack details

@@ -3,15 +3,14 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.calendar.ai import CalendarDeps
-from src.capabilities.calendar.calendar_workflow import (
+from capabilities.calendar.ai.dependencies import CalendarDeps
+from capabilities.calendar.calendar_workflow import (
     create_event_workflow,
     delete_event_workflow,
     list_events_workflow,
     update_event_workflow,
 )
-from src.capabilities.calendar.schemas import (
+from capabilities.calendar.schemas import (
     CalendarEventResponse,
     CalendarEventsListResponse,
     CreateCalendarEventRequest,
@@ -19,16 +18,18 @@ from src.capabilities.calendar.schemas import (
     ListCalendarEventsRequest,
     UpdateCalendarEventRequest,
 )
-from src.shared.dependency_factory import create_dependency_factory
+from fastapi import APIRouter, Depends, HTTPException
 
-router = APIRouter(prefix="/calendar", tags=["Calendar"])
+from shared.dependency_factory import create_dependency_factory
+
+router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities", "calendar"])
 logger = logging.getLogger(__name__)
 
 # Use dependency factory to create deps getter (eliminates boilerplate)
 get_calendar_deps = create_dependency_factory(CalendarDeps)
 
 
-@router.post("/create", response_model=CalendarEventResponse)
+@router.post("/calendar/create", response_model=CalendarEventResponse)
 async def create_calendar_event_endpoint(
     request: CreateCalendarEventRequest,
     deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],
@@ -53,7 +54,7 @@ async def create_calendar_event_endpoint(
         raise HTTPException(status_code=500, detail=f"Event creation failed: {e!s}") from e
 
 
-@router.post("/update", response_model=CalendarEventResponse)
+@router.post("/calendar/update", response_model=CalendarEventResponse)
 async def update_calendar_event_endpoint(
     request: UpdateCalendarEventRequest,
     deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],
@@ -72,7 +73,7 @@ async def update_calendar_event_endpoint(
         raise HTTPException(status_code=500, detail=f"Event update failed: {e!s}") from e
 
 
-@router.post("/delete", response_model=CalendarEventResponse)
+@router.post("/calendar/delete", response_model=CalendarEventResponse)
 async def delete_calendar_event_endpoint(
     request: DeleteCalendarEventRequest,
     deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],
@@ -96,7 +97,7 @@ async def delete_calendar_event_endpoint(
         raise HTTPException(status_code=500, detail=f"Event deletion failed: {e!s}") from e
 
 
-@router.get("/list", response_model=CalendarEventsListResponse)
+@router.get("/calendar/list", response_model=CalendarEventsListResponse)
 async def list_calendar_events_endpoint(
     user_id: str,
     deps: Annotated[CalendarDeps, Depends(get_calendar_deps)],

@@ -6,7 +6,7 @@ This script demonstrates:
 3. Organizing exports by document with clean filenames
 
 Usage:
-    python sample/external/google_drive_search_and_download_tabs.py
+    uv run sample/external/google_drive/search_and_download_tabs.py
 
 Environment variables required:
 - GDOC_CLIENT: OAuth client configuration JSON
@@ -20,11 +20,15 @@ OR
 import sys
 from pathlib import Path
 
-# Add project root to path
+# Add paths for imports
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "04-lambda" / "src"))
+lambda_src = project_root / "04-lambda" / "src"
+sample_root = project_root / "sample"
+sys.path.insert(0, str(lambda_src))
+sys.path.insert(0, str(sample_root))
 
 from services.external.google_drive import GoogleDriveService
+
 from shared.text_utils import clean_filename, slugify
 
 

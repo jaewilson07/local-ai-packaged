@@ -55,7 +55,7 @@ The persona management system from wandering-athena provides sophisticated chara
 ### Existing Systems
 
 - **Memory Systems**: Basic memory exists in MongoDB and Neo4j
-- **Agent Systems**: Pydantic AI agents exist in `04-lambda/server/projects/`
+- **Agent Systems**: Pydantic AI agents exist in `04-lambda/src/`
 - **Graphiti RAG**: Knowledge graph system exists
 
 ### Missing Capabilities
@@ -70,7 +70,7 @@ The persona management system from wandering-athena provides sophisticated chara
 
 ### Option 1: Add as Lambda Project
 
-**Approach**: Create new project in `04-lambda/server/projects/persona/`
+**Approach**: Create new project in `04-lambda/src/capabilities/persona/persona_state/`
 
 **Pros**:
 - Matches wandering-athena pattern
@@ -83,7 +83,7 @@ The persona management system from wandering-athena provides sophisticated chara
 - May need adaptation to Pydantic AI pattern (local-ai-packaged uses Pydantic AI, not LangGraph)
 
 **Implementation Steps**:
-1. Create `04-lambda/server/projects/persona/` directory
+1. Create `04-lambda/src/capabilities/persona/persona_state/` directory
 2. Port state models and protocols
 3. Adapt orchestrator to Pydantic AI pattern (or use LangGraph if available)
 4. Create persona store implementations (MongoDB, Neo4j, file-based)
@@ -169,7 +169,7 @@ await orchestrator.execute({
 
 ### With Existing Services
 
-1. **Memory Systems** (`04-lambda/server/projects/mongo_rag/`, `graphiti_rag/`)
+1. **Memory Systems** (`04-lambda/src/capabilities/retrieval/mongo_rag/`, `graphiti_rag/`)
    - Can store persona state in MongoDB
    - Can use Neo4j for relationship graphs
    - Can integrate with existing fact storage
@@ -188,7 +188,7 @@ await orchestrator.execute({
 ## Recommended Approach
 
 **Phase 1**: Add as Lambda project with Pydantic AI adaptation
-- Create `04-lambda/server/projects/persona/`
+- Create `04-lambda/src/capabilities/persona/persona_state/`
 - Port state models (Personality, MoodState, RelationshipState, etc.)
 - Create Pydantic AI agent (adapt from LangGraph orchestrator)
 - Create MongoDB persona store implementation

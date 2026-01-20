@@ -236,7 +236,7 @@ MongoDB (01-data stack) + Neo4j (01-data stack, optional) + Ollama (02-compute s
 
 **Security Note**: Without Cloudflare Access, anyone on the internet can access your API endpoints. It's strongly recommended to enable authentication before using the external URL in production.
 
-**See**: [MCP Security Setup Guide](../../docs/MCP_SECURITY_SETUP.md) for detailed setup instructions.
+**See**: [cloudflare-access-setup skill](../../.cursor/skills/cloudflare-access-setup/SKILL.md) for detailed setup instructions.
 
 ## Troubleshooting
 
@@ -294,7 +294,7 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 ## Related Documentation
 
-- [Lambda Stack README](../04-lambda/README.md)
-- [Lambda AGENTS.md](../04-lambda/AGENTS.md)
-- [Cloudflare Setup Guide](./docs/cloudflare/setup/cloudflare_design_choices.md)
-- [Caddy Configuration](./caddy/QUICK_REFERENCE.md)
+- [Lambda Stack README](../README.md)
+- [Lambda AGENTS.md](../AGENTS.md)
+- [cloudflare-access-setup skill](../../.cursor/skills/cloudflare-access-setup/SKILL.md)
+- [Caddy Configuration](../../00-infrastructure/caddy/QUICK_REFERENCE.md)

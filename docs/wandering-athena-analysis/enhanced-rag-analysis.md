@@ -66,14 +66,14 @@ The enhanced knowledge RAG system from wandering-athena provides sophisticated r
 
 ### Existing RAG Systems
 
-- **MongoDB RAG** (`04-lambda/server/projects/mongo_rag/`)
+- **MongoDB RAG** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
   - Basic hybrid search (semantic + text)
   - Document ingestion
   - Conversational agent
   - Code example extraction
   - Uses Pydantic AI for agents
 
-- **Graphiti RAG** (`04-lambda/server/projects/graphiti_rag/`)
+- **Graphiti RAG** (`04-lambda/src/capabilities/retrieval/graphiti_rag/`)
   - Graph-based search
   - Temporal fact storage
   - GitHub repository parsing
@@ -188,18 +188,18 @@ documents, doc_strings = enhanced_retriever.retrieve(
 
 ### With Existing Services
 
-1. **MongoDB RAG** (`04-lambda/server/projects/mongo_rag/`)
+1. **MongoDB RAG** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
    - Can enhance retrieval with grading
    - Can add query decomposition
    - Can add citation extraction
    - Can add result synthesis
 
-2. **Graphiti RAG** (`04-lambda/server/projects/graphiti_rag/`)
+2. **Graphiti RAG** (`04-lambda/src/capabilities/retrieval/graphiti_rag/`)
    - Can add enhanced retrieval
    - Can add query decomposition
    - Can integrate with knowledge graph
 
-3. **Crawl4AI RAG** (`04-lambda/server/projects/crawl4ai_rag/`)
+3. **Crawl4AI RAG** (`04-lambda/src/workflows/ingestion/crawl4ai_rag/`)
    - Can add web crawling integration
    - Can add event extraction
    - Can enhance with tool registry

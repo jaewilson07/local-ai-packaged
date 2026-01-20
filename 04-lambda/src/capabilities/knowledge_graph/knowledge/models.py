@@ -1,43 +1,49 @@
-"""Pydantic models for Knowledge project operations."""
+"""Models for Knowledge extraction."""
 
 from typing import Any
 
-from capabilities.knowledge_graph.knowledge.event_extractor import ExtractedEvent
 from pydantic import BaseModel, Field
 
 
 class ExtractEventsRequest(BaseModel):
-    """Request to extract events from content."""
+    """Request to extract events from text content."""
 
-    content: str = Field(..., description="Web content (HTML, markdown, or plain text)")
+    content: str = Field(..., description="Text content to extract events from")
     url: str | None = Field(None, description="Source URL")
-    use_llm: bool | None = Field(None, description="Use LLM for extraction (overrides default)")
-
-
-class ExtractEventsResponse(BaseModel):
-    """Response from event extraction."""
-
-    success: bool = Field(..., description="Whether extraction was successful")
-    events: list[ExtractedEvent] = Field(
-        default_factory=list, description="List of extracted events"
-    )
-    count: int = Field(0, description="Number of events extracted")
+    use_llm: bool = Field(False, description="Whether to use LLM for extraction")
 
 
 class ExtractEventsFromCrawledRequest(BaseModel):
-    """Request to extract events from crawled pages."""
+    """Request to extract events from a crawled URL."""
 
-    crawled_pages: list[dict[str, Any]] = Field(
-        ..., description="List of crawled page dictionaries"
-    )
-    use_llm: bool | None = Field(None, description="Use LLM for extraction (overrides default)")
+    url: str = Field(..., description="URL to crawl and extract events from")
+    use_llm: bool = Field(False, description="Whether to use LLM for extraction")
 
 
-class ExtractEventsFromCrawledResponse(BaseModel):
-    """Response from event extraction from crawled pages."""
+class ExtractedEventResponse(BaseModel):
+    """Response containing extracted event."""
 
-    success: bool = Field(..., description="Whether extraction was successful")
-    events: list[ExtractedEvent] = Field(
-        default_factory=list, description="List of extracted events"
-    )
-    count: int = Field(0, description="Number of events extracted")
+    title: str = Field(..., description="Event title")
+    date: str | None = Field(None, description="Event date")
+    time: str | None = Field(None, description="Event time")
+    location: str | None = Field(None, description="Event location")
+    instructor: str | None = Field(None, description="Event instructor/teacher")
+    description: str | None = Field(None, description="Event description")
+    url: str | None = Field(None, description="Source URL")
+    source: str = Field("web_crawl", description="Source of the event")
+
+
+class ExtractEventsResponse(BaseModel):
+    """Response containing list of extracted events."""
+
+    events: list[ExtractedEventResponse] = Field(default_factory=list)
+    source_url: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+__all__ = [
+    "ExtractEventsFromCrawledRequest",
+    "ExtractEventsRequest",
+    "ExtractEventsResponse",
+    "ExtractedEventResponse",
+]

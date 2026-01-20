@@ -1,5 +1,8 @@
-"""YouTube RAG project for ingesting YouTube videos into the knowledge base."""
+"""YouTube RAG project for ingesting YouTube videos into the knowledge base.
 
-from server.projects.youtube_rag.config import config
+Import specific items from submodules:
+    from workflows.ingestion.youtube_rag.config import config
+    from workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
+"""
 
-__all__ = ["config"]
+__all__: list[str] = []

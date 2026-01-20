@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Graphiti RAG project provides graph-based retrieval using Graphiti, a knowledge graph system built on Neo4j. It enables semantic search over knowledge graphs, repository code structure parsing, and AI script validation against real codebases.
@@ -24,7 +28,7 @@ The Graphiti RAG project provides graph-based retrieval using Graphiti, a knowle
 ## Component Identity
 
 - **Project**: `graphiti_rag`
-- **Location**: `04-lambda/server/projects/graphiti_rag/`
+- **Location**: `04-lambda/src/graphiti_rag/`
 - **Purpose**: Graph-based RAG using Graphiti for knowledge graph search, repository parsing, and AI script validation
 - **Dependencies**: Neo4j (01-data), Ollama (02-compute)
 - **Agent**: `graphiti_rag_agent` (Pydantic AI agent with StateDeps)
@@ -250,16 +254,16 @@ async def parse_github_repository(
 **Search Hints:**
 ```bash
 # Find Graphiti agent tools
-rg -n "@graphiti_rag_agent\.tool" 04-lambda/server/projects/graphiti_rag/
+rg -n "@graphiti_rag_agent\.tool" 04-lambda/src/graphiti_rag/
 
 # Find Graphiti operations
-rg -n "graphiti\.(search|parse_repository|validate)" 04-lambda/server/projects/graphiti_rag/
+rg -n "graphiti\.(search|parse_repository|validate)" 04-lambda/src/graphiti_rag/
 
 # Find Neo4j usage
-rg -n "neo4j|Neo4j" 04-lambda/server/projects/graphiti_rag/
+rg -n "neo4j|Neo4j" 04-lambda/src/graphiti_rag/
 
 # Find knowledge graph queries
-rg -n "query.*graph|Cypher" 04-lambda/server/projects/graphiti_rag/
+rg -n "query.*graph|Cypher" 04-lambda/src/graphiti_rag/
 ```
 
 ## Testing & Validation
@@ -307,7 +311,7 @@ curl -X POST http://lambda-server:8000/api/v1/graphiti/knowledge-graph/query \
 - **Neo4j**: Knowledge graph storage (`neo4j:7687`)
 - **Ollama**: LLM for Graphiti operations (`ollama:11434`)
 - **REST API**: Endpoints in `server/api/graphiti_rag.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 - **MongoDB RAG**: Can be used alongside for hybrid search
 
 ## Configuration

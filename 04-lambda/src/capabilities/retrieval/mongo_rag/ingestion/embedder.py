@@ -8,10 +8,9 @@ from datetime import datetime
 from pathlib import Path
 
 import openai
+from capabilities.retrieval.mongo_rag.config import config
+from capabilities.retrieval.mongo_rag.ingestion.chunker import DocumentChunk
 from dotenv import load_dotenv
-
-from server.projects.mongo_rag.config import config
-from server.projects.mongo_rag.ingestion.chunker import DocumentChunk
 
 # Load environment variables from project root (works from any directory)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent

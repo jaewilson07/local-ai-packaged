@@ -16,19 +16,18 @@ from typing import Any
 
 # Add server to path
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
+from capabilities.retrieval.mongo_rag.search import search_knowledge_base  # noqa: E402
 from pydantic_ai import RunContext  # noqa: E402
-
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
-from server.projects.crawl4ai_rag.tools import (
+from workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies  # noqa: E402
+from workflows.ingestion.crawl4ai_rag.tools import (  # noqa: E402
     crawl_and_ingest_deep,
     crawl_and_ingest_single_page,
 )
-from server.projects.mongo_rag.search import search_knowledge_base  # noqa: E402
 
 # Configuration
 BLUES_MUSE_URL = "https://www.bluesmuse.dance/"
@@ -136,7 +135,7 @@ async def validate_mongodb_ingestion_direct(
     print()
 
     try:
-        from server.projects.mongo_rag.dependencies import AgentDependencies
+        from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
 
         # Create agent dependencies for search
         agent_deps = AgentDependencies()

@@ -1,12 +1,12 @@
 """Main Open WebUI Topics agent implementation."""
 
+from capabilities.processing.openwebui_topics.dependencies import OpenWebUITopicsDeps
+from capabilities.processing.openwebui_topics.models import TopicClassificationRequest
+from capabilities.processing.openwebui_topics.tools import classify_topics
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
-from server.projects.openwebui_topics.models import TopicClassificationRequest
-from server.projects.openwebui_topics.tools import classify_topics
-from server.projects.shared.llm import get_llm_model as _get_openwebui_topics_model
+from shared.llm import get_llm_model as _get_openwebui_topics_model
 
 
 class OpenWebUITopicsState(BaseModel):

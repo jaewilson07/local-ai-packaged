@@ -10,7 +10,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
 from server.mcp.fastmcp_server import mcp
 
 logger = logging.getLogger(__name__)

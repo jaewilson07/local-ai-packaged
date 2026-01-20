@@ -17,10 +17,11 @@ import logging
 
 from fastapi import HTTPException, Request, status
 from services.auth.config import config
-from src.services.auth.jwt import JWTService
-from src.services.database.mongodb import MongoDBClient
-from src.services.database.neo4j import Neo4jClient
-from src.services.database.supabase import SupabaseClient, SupabaseConfig
+from services.auth.jwt import JWTService
+from services.auth.services.minio_service import MinIOService
+from services.database.mongodb import MongoDBClient
+from services.database.neo4j import Neo4jClient
+from services.database.supabase import SupabaseClient, SupabaseConfig
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)

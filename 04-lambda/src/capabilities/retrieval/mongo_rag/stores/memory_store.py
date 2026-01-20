@@ -3,11 +3,12 @@
 import logging
 from typing import Any
 
+from capabilities.retrieval.mongo_rag.memory_models import MemoryFact, MemoryMessage, WebContent
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 from pymongo.database import Database
-from src.capabilities.retrieval.mongo_rag.memory_models import MemoryFact, MemoryMessage, WebContent
-from src.shared.stores.base import BaseMongoStore
+
+from shared.stores.base import BaseMongoStore
 
 logger = logging.getLogger(__name__)
 

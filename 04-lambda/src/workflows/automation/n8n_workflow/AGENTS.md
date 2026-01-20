@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The N8n Workflow project provides agentic workflow management for the N8n automation platform. It enables AI agents to create, update, delete, activate, and execute N8n workflows through natural language, with RAG-enhanced knowledge base search for informed workflow design.
@@ -24,7 +28,7 @@ The N8n Workflow project provides agentic workflow management for the N8n automa
 ## Component Identity
 
 - **Project**: `n8n_workflow`
-- **Location**: `04-lambda/server/projects/n8n_workflow/`
+- **Location**: `04-lambda/src/n8n_workflow/`
 - **Purpose**: N8n workflow management with RAG-enhanced workflow creation, node discovery, and workflow operations
 - **Dependencies**: N8n API (03-apps), MongoDB RAG project (for knowledge base search)
 - **Agent**: `n8n_workflow_agent` (Pydantic AI agent with StateDeps)
@@ -290,16 +294,16 @@ async def discover_n8n_nodes(
 **Search Hints:**
 ```bash
 # Find N8n workflow agent tools
-rg -n "@n8n_workflow_agent\.tool" 04-lambda/server/projects/n8n_workflow/
+rg -n "@n8n_workflow_agent\.tool" 04-lambda/src/n8n_workflow/
 
 # Find N8n API calls
-rg -n "http_client\.(get|post|put|delete)" 04-lambda/server/projects/n8n_workflow/
+rg -n "http_client\.(get|post|put|delete)" 04-lambda/src/n8n_workflow/
 
 # Find RAG integration
-rg -n "search_n8n_knowledge_base|search_node_examples" 04-lambda/server/projects/n8n_workflow/
+rg -n "search_n8n_knowledge_base|search_node_examples" 04-lambda/src/n8n_workflow/
 
 # Find node discovery
-rg -n "discover_n8n_nodes|node-types" 04-lambda/server/projects/n8n_workflow/
+rg -n "discover_n8n_nodes|node-types" 04-lambda/src/n8n_workflow/
 ```
 
 ## Testing & Validation
@@ -347,7 +351,7 @@ curl -X POST http://lambda-server:8000/api/v1/n8n/search-knowledge-base \
 - **N8n Service**: Workflow management API (`n8n:5678` from 03-apps stack)
 - **MongoDB RAG**: Knowledge base for N8n documentation and examples
 - **REST API**: Endpoints in `server/api/n8n_workflow.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 
 ## Configuration
 

@@ -10,10 +10,10 @@
 **Purpose**: Data persistence layer (PostgreSQL, vector store, graph database)  
 **Docker Compose Files**:
 - `01-data/supabase/docker-compose.yml` - Supabase (PostgreSQL + Auth + Storage)
-- `01-data/qdrant/docker-compose.yml` - Qdrant vector store
 - `01-data/neo4j/docker-compose.yml` - Neo4j graph database
-- `01-data/mongodb/docker-compose.yml` - MongoDB with Atlas Search
+- `01-data/mongodb/docker-compose.yml` - MongoDB with Atlas Search (includes vector search)
 - `01-data/minio/docker-compose.yml` - MinIO S3-compatible storage
+- `01-data/qdrant/docker-compose.yml` - **REMOVED** (kept for historical reference only)
 
 **Network**: Uses external `ai-network` (created by infrastructure stack)
 
@@ -31,9 +31,9 @@
   - `upstream/` - Cloned `supabase/supabase` repository (docker config source)
   - `docs/` - Supabase-specific documentation
   - `README.md` - Supabase setup and usage
-- `qdrant/` - Qdrant vector store
-  - `docker-compose.yml` - Service-specific compose
-  - `data/` - Persistent vector data
+- `qdrant/` - **REMOVED** (Qdrant vector store - replaced by MongoDB vector search)
+  - `docker-compose.yml` - Commented out (kept for reference)
+  - `data/` - Persistent vector data (can be removed)
 - `neo4j/` - Neo4j graph database
   - `docker-compose.yml` - Service-specific compose
   - `data/` - Persistent graph data
@@ -143,23 +143,31 @@ rg -n "POSTGRES_\|DB_POSTGRES" --type yaml
 cat supabase/docker/volumes/api/kong.yml
 ```
 
-## Qdrant
+## Qdrant (REMOVED)
 
-### Architecture
-- **Image**: `qdrant/qdrant:latest`
-- **Container**: `qdrant`
-- **Port**: 6333 (API), 6334 (gRPC)
-- **Volume**: `qdrant_data` (persistent storage)
+> **❌ REMOVED**: Qdrant has been removed from the stack as of 2026-01-20. MongoDB Atlas vector search provides all vector search capabilities.
 
-### Patterns
-- **API Key**: Optional for local (can be any value)
-- **Internal URL**: `http://qdrant:6333`
-- **Use Case**: High-performance vector search (faster than Supabase for RAG)
+### Removal Rationale
+- **Not used by Lambda server**: MongoDB handles all vector search
+- **MongoDB provides better features**: Hybrid search (vector + keyword) with RRF ranking
+- **Simplified infrastructure**: One less service to maintain
 
-### Configuration
-- No authentication required for local deployment
-- Storage: Persistent volume for vector data
-- Network: `ai-network` only
+### Migration Complete
+All RAG implementations now use MongoDB Atlas Search with vector search capabilities:
+- **Hybrid Search**: MongoDB provides vector + keyword search with RRF ranking
+- **Endpoint**: `/api/v1/rag/search` (Lambda API)
+- **Implementation**: `04-lambda/src/capabilities/retrieval/mongo_rag/`
+
+### Legacy Reference
+The `01-data/qdrant/docker-compose.yml` file is kept for reference but has services commented out. To completely remove Qdrant from your deployment:
+
+```bash
+# Remove Qdrant data volume (if it exists)
+docker volume rm localai-data_qdrant_storage 2>/dev/null || true
+
+# Verify Qdrant container is not running
+docker ps -a | grep qdrant
+```
 
 ## Neo4j
 
@@ -221,6 +229,45 @@ cat supabase/docker/volumes/api/kong.yml
 - **Search**: Integrated Atlas Search (mongot) process
 - **Network**: `ai-network` only
 
+### Atlas Search Indexes
+
+The RAG system requires Atlas Search indexes for vector and text search. These are automatically created by the `mongodb-init` container on startup.
+
+**Required Indexes:**
+
+| Index Name | Collection | Type | Purpose |
+|------------|------------|------|---------|
+| `vector_index` | `chunks` | vectorSearch | Semantic search via embeddings |
+| `text_index` | `chunks` | search | Full-text search with fuzzy matching |
+| `documents_text_index` | `documents` | search | Document title/source search |
+
+**Manual Index Setup:**
+
+If indexes need to be recreated manually:
+
+```bash
+# Using the JavaScript setup script
+docker exec mongodb mongosh -u admin -p <password> --authenticationDatabase admin \
+  /scripts/setup_search_indexes.js
+
+# Or using the Python script
+cd 01-data/mongodb/scripts
+python setup_search_indexes.py
+
+# Verify indexes
+python setup_search_indexes.py --verify-only
+```
+
+**Index Configuration:**
+- Vector dimensions: 2560 (for Qwen3-Embedding-4B model)
+- Similarity: cosine
+- Text analyzer: lucene.standard
+
+**Troubleshooting:**
+- If vector search returns empty results, verify indexes exist: `db.chunks.getSearchIndexes()`
+- Index status must be "READY" for queries to work
+- Allow 10-30 seconds after creation for indexes to become queryable
+
 ## MinIO
 
 ### Architecture
@@ -268,13 +315,12 @@ cat supabase/docker/volumes/api/kong.yml
 ### Service Discovery
 All data services use container names as hostnames:
 - `supabase-db:5432` - PostgreSQL
-- `qdrant:6333` - Qdrant API
 - `neo4j:7687` - Neo4j Bolt
-- `mongodb:27017` - MongoDB
+- `mongodb:27017` - MongoDB (includes vector search)
 - `minio:9000` - MinIO API
 
 ### Volume Management
-- **Persistent**: All data volumes are named (e.g., `qdrant_data`, `neo4j_data`)
+- **Persistent**: All data volumes are named (e.g., `neo4j_data`, `mongodb_data`)
 - **Backup**: Not automated. Manual backup via volume exports.
 - **Location**: Managed by Docker (not in repo)
 
@@ -295,9 +341,6 @@ docker exec supabase-storage nc -z localhost 5000
 
 # Supabase Vector (TCP port check)
 docker exec supabase-vector nc -z localhost 9001
-
-# Qdrant
-curl http://qdrant:6333/health
 
 # Neo4j
 curl http://neo4j:7474
@@ -362,13 +405,13 @@ docker exec minio mc ready local
 ## Domain Dictionary
 
 - **Supabase**: Full-stack PostgreSQL platform (Auth, DB, Storage, Realtime)
-- **Qdrant**: Vector database for embeddings and similarity search
 - **Neo4j**: Graph database for relationship modeling
 - **Kong**: API gateway (routes requests to Supabase services)
 - **GoTrue**: Supabase authentication service
 - **MinIO**: S3-compatible object storage (for Langfuse and other services)
 - **Supabase MinIO**: Separate MinIO instance for Supabase Storage (different service)
 - **Atlas Search**: MongoDB's full-text and vector search engine (provided by `mongot` container)
+- ~~**Qdrant**~~: *(REMOVED)* Vector database - replaced by MongoDB Atlas vector search
 
 ---
 

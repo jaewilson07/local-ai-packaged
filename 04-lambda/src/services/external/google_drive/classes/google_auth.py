@@ -1,4 +1,4 @@
-"""Google Drive OAuth authenticator."""
+"""Google OAuth authenticator with configurable scopes."""
 
 import json
 import os
@@ -8,10 +8,18 @@ from google.oauth2.credentials import Credentials
 
 
 class GoogleAuth:
-    """Manages OAuth credentials for Google Drive API access."""
+    """Manages OAuth credentials for Google API access with configurable scopes."""
 
-    # Google Drive API scopes
-    SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+    # Default scopes (Google Drive read-only for backward compatibility)
+    DEFAULT_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+    # Predefined scope sets for common use cases
+    DRIVE_READONLY_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+    DRIVE_FULL_SCOPES = ["https://www.googleapis.com/auth/drive"]
+    CALENDAR_SCOPES = [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+    ]
 
     def __init__(
         self,
@@ -19,6 +27,7 @@ class GoogleAuth:
         token_json: str | None = None,
         client_id: str | None = None,
         client_secret: str | None = None,
+        scopes: list[str] | None = None,
     ):
         """
         Initialize authenticator with OAuth credentials.
@@ -33,10 +42,14 @@ class GoogleAuth:
             token_json: Serialized token JSON (from GDOC_TOKEN env var)
             client_id: OAuth client ID (alternative to JSON)
             client_secret: OAuth client secret (alternative to JSON)
+            scopes: List of OAuth scopes to request (defaults to Drive read-only)
 
         Raises:
             ValueError: If credentials are missing or invalid
         """
+        # Store scopes (use default if not provided)
+        self.scopes = scopes or self.DEFAULT_SCOPES
+
         # Try to get credentials from various sources
         self.credentials_json = credentials_json or os.getenv("GDOC_CLIENT")
         self.token_json = token_json or os.getenv("GDOC_TOKEN")
@@ -74,7 +87,7 @@ class GoogleAuth:
                 token_uri=token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
                 client_id=token_data.get("client_id"),
                 client_secret=token_data.get("client_secret"),
-                scopes=token_data.get("scopes", self.SCOPES),
+                scopes=token_data.get("scopes", self.scopes),
             )
 
             if creds.expired and creds.refresh_token:
@@ -99,7 +112,7 @@ class GoogleAuth:
                     token_uri="https://oauth2.googleapis.com/token",
                     client_id=self.client_id,
                     client_secret=self.client_secret,
-                    scopes=self.SCOPES,
+                    scopes=self.scopes,
                 )
 
                 if creds.expired and creds.refresh_token:

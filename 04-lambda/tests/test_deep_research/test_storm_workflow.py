@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from server.projects.deep_research.orchestrator import (
     create_research_graph,
     get_research_graph,

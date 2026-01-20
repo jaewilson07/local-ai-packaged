@@ -8,7 +8,6 @@ from jwt.exceptions import (
     InvalidAudienceError,
     InvalidSignatureError,
 )
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.jwt_service import JWTService
 

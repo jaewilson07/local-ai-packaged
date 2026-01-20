@@ -5,9 +5,8 @@ import logging
 from typing import Any
 
 import openai
-
-from server.projects.youtube_rag.config import config
-from server.projects.youtube_rag.models import (
+from workflows.ingestion.youtube_rag.config import config
+from workflows.ingestion.youtube_rag.models import (
     EntityRelationship,
     ExtractedEntity,
     VideoTranscript,

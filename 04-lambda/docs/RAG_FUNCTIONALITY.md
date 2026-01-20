@@ -56,7 +56,7 @@ graph TB
 
 MongoDB RAG is a comprehensive vector-based retrieval system that combines semantic search, full-text search, and advanced RAG features. It supports document ingestion, memory operations, and enhanced query processing.
 
-**Location**: `04-lambda/server/projects/mongo_rag/`
+**Location**: `04-lambda/src/capabilities/retrieval/mongo_rag/`
 
 **Inspiration**: This implementation is inspired by [MongoDB-RAG-Agent](https://github.com/coleam00/MongoDB-RAG-Agent), which demonstrates best practices for building production-ready RAG systems with MongoDB Atlas Vector Search and Docling document processing.
 
@@ -238,7 +238,7 @@ MongoDB RAG is a comprehensive vector-based retrieval system that combines seman
 - `MONGODB_DATABASE` - Database name
 - `LLM_MODEL` - LLM model name (default: llama3.2)
 - `LLM_BASE_URL` - LLM API base URL (default: http://ollama:11434/v1)
-- `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
+- `EMBEDDING_MODEL` - Embedding model (default: qwen3-embedding:4b)
 
 **Docling Configuration**:
 - Docling is automatically configured with sensible defaults
@@ -259,7 +259,7 @@ MongoDB RAG is a comprehensive vector-based retrieval system that combines seman
 - **Neo4j**: Optional knowledge graph (`neo4j:7687`)
 - **Docling**: Document processing and chunking (integrated in ingestion pipeline)
 - **REST API**: `server/api/mongo_rag.py`
-- **MCP Tools**: `server/mcp/fastmcp_server.py`
+- **MCP Tools**: `src/mcp_server/server.py`
 
 ### Docling Implementation Details
 
@@ -293,7 +293,7 @@ MongoDB RAG is a comprehensive vector-based retrieval system that combines seman
 
 Graphiti RAG provides graph-based retrieval using Graphiti framework and Neo4j. It focuses on knowledge graph operations, repository parsing, and AI script validation.
 
-**Location**: `04-lambda/server/projects/graphiti_rag/`
+**Location**: `04-lambda/src/capabilities/retrieval/graphiti_rag/`
 
 ### Core Features
 
@@ -398,7 +398,7 @@ Graphiti RAG provides graph-based retrieval using Graphiti framework and Neo4j. 
 - **Neo4j**: Knowledge graph storage (`neo4j:7687`)
 - **Ollama**: LLM for Graphiti operations (`ollama:11434`)
 - **REST API**: `server/api/graphiti_rag.py`
-- **MCP Tools**: `server/mcp/fastmcp_server.py`
+- **MCP Tools**: `src/mcp_server/server.py`
 - **MongoDB RAG**: Can be used alongside for hybrid search
 
 ## Crawl4AI RAG
@@ -407,7 +407,7 @@ Graphiti RAG provides graph-based retrieval using Graphiti framework and Neo4j. 
 
 Crawl4AI RAG automatically crawls websites and ingests content into MongoDB RAG. It supports both single-page and deep recursive crawling with domain filtering.
 
-**Location**: `04-lambda/server/projects/crawl4ai_rag/`
+**Location**: `04-lambda/src/workflows/ingestion/crawl4ai_rag/`
 
 ### Core Features
 
@@ -477,6 +477,10 @@ Crawl4AI RAG automatically crawls websites and ingests content into MongoDB RAG.
 - `POST /api/v1/crawl/single` - Crawl single page
 - `POST /api/v1/crawl/deep` - Deep recursive crawl
 
+**Authentication**:
+- In production: Requires `Cf-Access-Jwt-Assertion` header (Cloudflare Access JWT)
+- In development (`DEV_MODE=true`): Can use `X-User-Email` header for RLS user context
+
 ### MCP Tools
 
 - `crawl_single_page` - Crawl single page and ingest
@@ -487,9 +491,10 @@ Crawl4AI RAG automatically crawls websites and ingests content into MongoDB RAG.
 
 **Required Environment Variables**:
 - `MONGODB_URI` - MongoDB connection string
-- `MONGODB_DATABASE` - Database name
+- `MONGODB_DATABASE` - Database name (default: `rag_db`)
 - `LLM_BASE_URL` - LLM API base URL (default: http://ollama:11434/v1)
-- `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
+- `EMBEDDING_MODEL` - Embedding model (default: qwen3-embedding:4b)
+- `DEV_MODE` - Enable development mode with auth bypass (default: false)
 
 **Crawl Configuration**:
 - `chunk_size`: Chunk size for document splitting (default: 1000)
@@ -500,10 +505,11 @@ Crawl4AI RAG automatically crawls websites and ingests content into MongoDB RAG.
 
 ### Integration Points
 
-- **MongoDB RAG**: Stores crawled content as searchable documents (`mongodb:27017`)
+- **MongoDB RAG**: Stores crawled content as searchable documents (`mongodb:27017`, database: `rag_db`)
 - **Ollama**: Generates embeddings for crawled content (`ollama:11434`)
-- **REST API**: `server/api/crawl4ai_rag.py`
-- **MCP Tools**: `server/mcp/fastmcp_server.py`
+- **REST API Router**: `src/workflows/ingestion/crawl4ai_rag/router.py`
+- **MCP Tools**: `src/mcp_server/tools/servers/crawl4ai_rag/`
+- **Validation Tests**: `tests/test_crawl4ai_rag/test_api_validation.py`
 
 ## Comparison Matrix
 
@@ -577,7 +583,7 @@ Crawl4AI RAG automatically crawls websites and ingests content into MongoDB RAG.
 - MongoDB with vector search index (`vector_index`)
 - MongoDB Atlas Search index (`text_index`) for text search
 - Ollama or compatible LLM API
-- Embedding model (default: nomic-embed-text)
+- Embedding model (default: qwen3-embedding:4b)
 
 ### Graphiti RAG
 - Neo4j database
@@ -648,8 +654,8 @@ POST /api/v1/rag/agent
 
 ## References
 
-- **MongoDB RAG AGENTS.md**: `04-lambda/server/projects/mongo_rag/AGENTS.md`
-- **Graphiti RAG AGENTS.md**: `04-lambda/server/projects/graphiti_rag/AGENTS.md`
-- **Crawl4AI RAG AGENTS.md**: `04-lambda/server/projects/crawl4ai_rag/AGENTS.md`
+- **MongoDB RAG AGENTS.md**: `04-lambda/src/capabilities/retrieval/mongo_rag/AGENTS.md`
+- **Graphiti RAG AGENTS.md**: `04-lambda/src/capabilities/retrieval/graphiti_rag/AGENTS.md`
+- **Crawl4AI RAG AGENTS.md**: `04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md`
 - **API Endpoints**: `04-lambda/server/api/mongo_rag.py`, `graphiti_rag.py`, `crawl4ai_rag.py`
-- **MCP Tools**: `04-lambda/server/mcp/fastmcp_server.py`
+- **MCP Tools**: `04-lambda/src/mcp_server/server.py`

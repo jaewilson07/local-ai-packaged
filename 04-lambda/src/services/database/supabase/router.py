@@ -6,7 +6,7 @@ from .client import SupabaseClient
 from .config import SupabaseConfig
 from .validation import DatabaseValidator
 
-router = APIRouter(prefix="/supabase", tags=["Supabase"])
+router = APIRouter(prefix="/api/v1/data/supabase", tags=["data", "supabase"])
 
 
 @router.get("/health")

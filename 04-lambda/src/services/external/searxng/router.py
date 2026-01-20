@@ -5,7 +5,6 @@ import logging
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
 from server.config import settings
 
 router = APIRouter(prefix="/api/v1/searxng", tags=["searxng"])

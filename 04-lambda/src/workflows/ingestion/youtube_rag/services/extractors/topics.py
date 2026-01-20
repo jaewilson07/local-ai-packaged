@@ -4,9 +4,8 @@ import json
 import logging
 
 import openai
-
-from server.projects.youtube_rag.config import config
-from server.projects.youtube_rag.models import VideoMetadata, VideoTranscript
+from workflows.ingestion.youtube_rag.config import config
+from workflows.ingestion.youtube_rag.models import VideoMetadata, VideoTranscript
 
 logger = logging.getLogger(__name__)
 

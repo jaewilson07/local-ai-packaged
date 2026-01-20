@@ -90,7 +90,7 @@ async def generate_character_response_tool(
         # Record the messages
         from datetime import datetime
 
-        from server.services.discord_characters.models import CharacterMessage
+        from capabilities.persona.discord_characters.services_legacy.models import CharacterMessage
 
         user_msg = CharacterMessage(
             channel_id=channel_id,

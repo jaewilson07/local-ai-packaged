@@ -27,7 +27,12 @@ class Config:
 
     # Lambda API configuration (for user-specific Immich API keys)
     LAMBDA_API_URL: str = os.getenv("LAMBDA_API_URL", "http://lambda-server:8000")
-    CLOUDFLARE_EMAIL: str = os.getenv("CLOUDFLARE_EMAIL", "")  # User's email for API authentication
+    CLOUDFLARE_EMAIL: str = os.getenv(
+        "CLOUDFLARE_EMAIL", ""
+    )  # User's email for internal network auth
+    # Lambda API Token - preferred authentication method (Bearer token)
+    # Generate via POST /api/v1/auth/me/token after authenticating via Cloudflare Access
+    LAMBDA_API_TOKEN: str = os.getenv("LAMBDA_API_TOKEN", "")
 
     # Immich configuration
     IMMICH_SERVER_URL: str = os.getenv("IMMICH_SERVER_URL", "http://immich-server:2283")
@@ -46,7 +51,7 @@ class Config:
 
     # Capability configuration
     # Comma-separated list of enabled capabilities
-    # Available: echo, upload, notification, character
+    # Available: echo, upload, notification, character, selfie_generation
     # Default: echo (simple @mention response for testing)
     ENABLED_CAPABILITIES: str = os.getenv("ENABLED_CAPABILITIES", "echo")
 

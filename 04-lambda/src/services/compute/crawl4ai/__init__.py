@@ -1,8 +1,8 @@
 """Crawl4AI web crawling service."""
 
 from .client import Crawl4AIClient
+from .crawler import crawl_deep, crawl_single_page
 from .schemas import CrawlRequest, CrawlResult, DeepCrawlRequest, DeepCrawlResult
-from .TODO.crawler import crawl_deep, crawl_single_page
 
 __all__ = [
     # Client

@@ -280,7 +280,7 @@ If you encounter authentication errors:
    INFISICAL_HOSTNAME=infisical.datacrew.space
    ```
 
-   See [docs/cloudflare/setup.md](docs/cloudflare/setup.md) for detailed Cloudflare Tunnel setup instructions.
+   See [cloudflare-access-setup skill](.cursor/skills/cloudflare-access-setup/SKILL.md) for detailed Cloudflare setup instructions.
 
 ## Infisical Secret Management (Optional)
 
@@ -347,7 +347,7 @@ This project includes [Infisical](https://infisical.com/) for managing secrets a
 - **Hybrid approach**: Keep non-sensitive config in `.env`, secrets in Infisical
 - **Disable Infisical**: Use `--skip-infisical` flag to use `.env` files only
 
-For detailed setup and migration instructions, see [docs/infisical/setup.md](docs/infisical/setup.md).
+For Infisical configuration details, see [00-infrastructure/AGENTS.md](00-infrastructure/AGENTS.md).
 
 ## Supabase Storage (S3 Compatible)
 
@@ -543,7 +543,7 @@ This script will:
 
 **Manual Setup:**
 
-If you prefer manual setup, follow the complete guide in [docs/cloudflare/setup.md](docs/cloudflare/setup.md)
+If you prefer manual setup, follow the [cloudflare-access-setup skill](.cursor/skills/cloudflare-access-setup/SKILL.md)
 
 **After Setup:**
 
@@ -645,7 +645,7 @@ Add to your MCP settings:
 }
 ```
 
-For complete MCP tools documentation, see [docs/MCP_INTEGRATION.md](docs/MCP_INTEGRATION.md).
+For MCP troubleshooting and connection guide, see the [mcp-troubleshooting skill](.cursor/skills/mcp-troubleshooting/SKILL.md). For tool catalog, see [04-lambda/AGENTS.md](04-lambda/AGENTS.md).
 
 ## Workflow Overview
 
@@ -684,11 +684,11 @@ The local-ai-packaged infrastructure supports several key workflows:
 3. **Integration**: Lambda tools interact with RAG, knowledge graphs, calendars, etc.
 4. **Response**: Results returned via webhook or stored in database
 
-For detailed workflow documentation, see [docs/WORKFLOWS.md](docs/WORKFLOWS.md).
+For detailed workflow documentation, see the capability AGENTS.md files in [04-lambda/src/](04-lambda/src/).
 
 ## ⚡️ Quick start and usage
 
-The main component of the self-hosted AI starter kit uses a **modular Docker Compose architecture** where each major component has its own `docker-compose.yml` file in the `compose/` directory. This approach eliminates conflicts, makes updates easier, and provides better organization. See [docs/modular-compose-architecture.md](docs/modular-compose-architecture.md) for detailed documentation.
+The main component of the self-hosted AI starter kit uses a **modular Docker Compose architecture** where each major component has its own `docker-compose.yml` file in numbered stack directories (`00-infrastructure/`, `01-data/`, etc.). This approach eliminates conflicts, makes updates easier, and provides better organization. See [AGENTS.md](AGENTS.md) for architecture details.
 
 After completing the installation steps above, follow the steps below to get started.
 
@@ -773,7 +773,7 @@ Here are solutions to common issues you might encounter:
 
 - **If using Docker Desktop**: Go into the Docker settings and make sure "Expose daemon on tcp://localhost:2375 without TLS" is turned on
 
-- **Service Conflicts** - If you see "conflicts with imported resource" errors, ensure you're using the modular compose files. The old `docker-compose.yml` with `include:` directive has been archived. See [docs/modular-compose-architecture.md](docs/modular-compose-architecture.md) for details.
+- **Service Conflicts** - If you see "conflicts with imported resource" errors, ensure you're using the stack-based compose files in numbered directories (`00-infrastructure/`, `01-data/`, etc.). Use `python start_services.py` to manage stacks.
 
 - **Container Name Conflicts** - If you get "container name already in use" errors, the startup script should automatically clean these up. If issues persist, manually remove containers: `docker rm -f <container-name>`
 

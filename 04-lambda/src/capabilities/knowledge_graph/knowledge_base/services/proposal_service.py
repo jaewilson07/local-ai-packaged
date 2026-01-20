@@ -13,6 +13,9 @@ from capabilities.knowledge_graph.knowledge_base.models import (
     ProposalStatus,
 )
 from capabilities.knowledge_graph.knowledge_base.services.article_service import ArticleService
+from capabilities.knowledge_graph.knowledge_base.services.notification_service import (
+    NotificationService,
+)
 from pymongo import AsyncMongoClient
 
 logger = logging.getLogger(__name__)

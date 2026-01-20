@@ -1,9 +1,11 @@
 """Persona agent for character interaction and state management."""
 
+# Import directly from submodules to avoid circular imports
+from capabilities.persona.ai.dependencies import PersonaDeps
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from src.capabilities.persona.ai.dependencies import PersonaDeps
-from src.shared.llm import get_llm_model
+
+from shared.llm import get_llm_model
 
 
 class PersonaAgentState(BaseModel):
@@ -45,13 +47,13 @@ async def update_persona_mood(
         String confirming the mood update
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.persona.persona_state.tools import update_mood
+    from capabilities.persona.persona_state.tools import update_mood
 
     deps = ctx.deps
     if not deps.db:
         await deps.initialize()
 
-    result = await update_mood(ctx, persona_id, new_mood, confidence)
+    await update_mood(ctx, persona_id, new_mood, confidence)
     return f"Updated {persona_id}'s mood to '{new_mood}' with confidence {confidence:.2f}"
 
 
@@ -74,7 +76,7 @@ async def get_persona_state(
         String describing the persona's current state
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.persona.persona_state.tools import get_state
+    from capabilities.persona.persona_state.tools import get_state
 
     deps = ctx.deps
     if not deps.db:

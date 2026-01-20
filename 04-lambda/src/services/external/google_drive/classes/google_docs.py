@@ -10,9 +10,8 @@ from googleapiclient.http import MediaIoBaseDownload
 from markdownify import markdownify as md
 
 from ..models import GoogleDocumentTab
-from .google_auth import GoogleAuth
 from .exceptions import GoogleDriveException
-
+from .google_auth import GoogleAuth
 from .google_drive import GoogleDrive
 
 
@@ -33,16 +32,18 @@ class GoogleDoc(GoogleDrive):
         """
         super().__init__(authenticator)
         self._docs_service = None
-        
+
         # Override with Docs-specific implementations
         self.Search = GoogleDoc.Search(self)
         self.Export = GoogleDoc.Export(self)
-    
+
     @property
     def docs_service(self):
         """Lazy-loaded Google Docs API service client."""
         if self._docs_service is None:
-            self._docs_service = build("docs", "v1", credentials=self.authenticator.get_credentials())
+            self._docs_service = build(
+                "docs", "v1", credentials=self.authenticator.get_credentials()
+            )
         return self._docs_service
 
     def get_by_id(self, document_id: str, include_tabs: bool = False) -> dict[str, Any]:
@@ -54,7 +55,7 @@ class GoogleDoc(GoogleDrive):
 
         Returns:
             Raw Docs API response
-            
+
         Raises:
             GoogleDriveException: If API call fails
         """
@@ -67,8 +68,7 @@ class GoogleDoc(GoogleDrive):
                     .get(documentId=document_id, includeTabsContent=True)
                     .execute()
                 )
-            else:
-                return self.docs_service.documents().get(documentId=document_id).execute()
+            return self.docs_service.documents().get(documentId=document_id).execute()
         except HttpError as e:
             raise GoogleDriveException(f"Failed to get Google Doc {document_id}: {e}", e) from e
 

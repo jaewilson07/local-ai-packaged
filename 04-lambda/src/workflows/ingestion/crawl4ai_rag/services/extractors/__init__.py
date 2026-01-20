@@ -1,8 +1,9 @@
-"""Site-specific content extractors for Crawl4AI."""
+"""Crawl4AI RAG extractors."""
 
 from .base import (
     ArticleContent,
     ArticleExtractor,
+    BaseHTMLExtractor,
     TableExtractor,
     TableRow,
 )
@@ -10,6 +11,7 @@ from .base import (
 __all__ = [
     "ArticleContent",
     "ArticleExtractor",
+    "BaseHTMLExtractor",
     "TableExtractor",
     "TableRow",
 ]

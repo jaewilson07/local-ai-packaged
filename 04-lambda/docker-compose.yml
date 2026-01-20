@@ -32,11 +32,13 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-not-needed}
 
       # Embeddings (Ollama by default)
+      # Qwen3-Embedding-4B: Best MTEB score (~68), 32K context, excellent multilingual
+      # Requires ~4-6GB VRAM (Q4 quantized), outputs 2560 dimensions
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-ollama}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding:4b}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://ollama:11434/v1}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-not-needed}
-      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-2560}
 
       # Server
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -55,6 +57,11 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-${SUPABASE_MINIO_ROOT_USER:-supa-storage}}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-${SUPABASE_MINIO_ROOT_PASSWORD:-secret1234}}
 
+      # Immich (Photo/Video storage)
+      # IMMICH_SERVER_URL and IMMICH_ADMIN_API_KEY come from .env file via env_file above
+      # Default server URL if not in .env
+      IMMICH_SERVER_URL: ${IMMICH_SERVER_URL:-http://immich-server:2283}
+
       # Infisical Secrets Management (optional)
       # If configured, secrets are fetched from Infisical at startup
       # Create a Machine Identity with Universal Auth in Infisical
@@ -64,15 +71,27 @@ services:
       INFISICAL_ENVIRONMENT: ${INFISICAL_ENVIRONMENT:-dev}
       INFISICAL_HOST: ${INFISICAL_HOST:-https://infisical.datacrew.space}
 
+      # Graphiti Knowledge Graph (Neo4j-based)
+      USE_GRAPHITI: ${USE_GRAPHITI:-true}
+      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j:7687}
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-password}
+
+      # Python path - ensure src.* and direct imports work
+      # /app/src comes first to prioritize mounted code over Dockerfile's /app/server
+      PYTHONPATH: /app/src:/app
+
     volumes:
       - ./uploads:/app/uploads
-      - ./server:/app/server  # Writable mount (app needs to generate MCP server code)
+      - ./src:/app/src  # Mount entire src directory (app needs to generate MCP server code)
       - ./pyproject.toml:/app/pyproject.toml:ro  # Read-only mount for package installation
       - lambda-packages:/opt/venv  # Persistent Python packages (installed once, reused)
+      # ComfyUI workflows directory for versioning/export/import
+      - ../02-compute/comfyui/data/workspace/ComfyUI/user/default/workflows:/comfyui-workflows:rw
     networks:
       - default
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

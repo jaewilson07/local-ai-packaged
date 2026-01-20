@@ -187,7 +187,7 @@ This document outlines the phased implementation strategy for building the Deep 
 
 #### Project Structure
 
-Created `04-lambda/server/projects/deep_research/` following existing project patterns.
+Created `04-lambda/src/workflows/research/deep_research/` following existing project patterns.
 
 #### Files Created
 
@@ -562,7 +562,7 @@ Planner → Executor → Auditor → Writer → END
 
 ### Documentation
 
-- `04-lambda/server/projects/deep_research/AGENTS.md` - Project-specific documentation
+- `04-lambda/src/workflows/research/deep_research/AGENTS.md` - Project-specific documentation
 - All tools documented with parameters, return types, and usage examples
 - MCP tool registrations include proper docstrings and type hints
 

@@ -14,7 +14,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### MongoDB RAG
 
-**Location**: `04-lambda/server/projects/mongo_rag/`
+**Location**: `04-lambda/src/capabilities/retrieval/mongo_rag/`
 
 **Description**: Enhanced Retrieval-Augmented Generation with vector search, memory tools, and advanced query processing.
 
@@ -24,7 +24,7 @@ This document enumerates each major service in the local-ai-packaged project, in
   - Vector search index required for semantic search
 - **Ollama** (02-compute stack): LLM and embedding generation
   - LLM model: `llama3.2` (default)
-  - Embedding model: `nomic-embed-text` (default)
+  - Embedding model: `qwen3-embedding:4b` (default)
 - **OpenAI-compatible API**: For embeddings (can use Ollama)
 
 **Configuration**:
@@ -61,7 +61,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Graphiti RAG
 
-**Location**: `04-lambda/server/projects/graphiti_rag/`
+**Location**: `04-lambda/src/capabilities/retrieval/graphiti_rag/`
 
 **Description**: Knowledge graph search, repository parsing, and AI script validation using Neo4j and Graphiti.
 
@@ -100,7 +100,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Crawl4AI RAG
 
-**Location**: `04-lambda/server/projects/crawl4ai_rag/`
+**Location**: `04-lambda/src/workflows/ingestion/crawl4ai_rag/`
 
 **Description**: Automated web crawling with immediate ingestion into MongoDB RAG. Graphiti integration enabled by default for automatic entity extraction.
 
@@ -116,7 +116,7 @@ This document enumerates each major service in the local-ai-packaged project, in
   - Browser automation for JavaScript-heavy sites
   - Can run in Docker container
 - **Ollama** (02-compute stack): Embedding generation for ingested content
-  - Embedding model: `nomic-embed-text` (default)
+  - Embedding model: `qwen3-embedding:4b` (default)
 
 **Configuration**:
 - `MONGODB_URI`: MongoDB connection string
@@ -167,7 +167,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 **Documentation**:
 - ✅ `sample/crawl4ai_rag/README.md` - Complete usage guide
-- ✅ `04-lambda/server/projects/crawl4ai_rag/AGENTS.md` - Project documentation
+- ✅ `04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md` - Project documentation
 - ✅ `04-lambda/README.md` - Setup and troubleshooting guide
 
 **Validation Status**:
@@ -188,7 +188,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Calendar
 
-**Location**: `04-lambda/server/projects/calendar/`
+**Location**: `04-lambda/src/capabilities/calendar/calendar_sync/`
 
 **Description**: Google Calendar integration with sync state tracking to prevent duplicates.
 
@@ -223,7 +223,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Conversation
 
-**Location**: `04-lambda/server/projects/conversation/`
+**Location**: `04-lambda/src/workflows/chat/conversation/`
 
 **Description**: Multi-agent orchestration for context-aware responses.
 
@@ -253,7 +253,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Persona
 
-**Location**: `04-lambda/server/projects/persona/`
+**Location**: `04-lambda/src/capabilities/persona/persona_state/`
 
 **Description**: Manages character/persona state and generates dynamic voice instructions.
 
@@ -284,7 +284,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### N8N Workflow
 
-**Location**: `04-lambda/server/projects/n8n_workflow/`
+**Location**: `04-lambda/src/workflows/automation/n8n_workflow/`
 
 **Description**: Agentic workflow management for N8n automation platform with RAG-enhanced creation.
 
@@ -317,7 +317,7 @@ This document enumerates each major service in the local-ai-packaged project, in
 
 ### Open WebUI
 
-**Location**: `04-lambda/server/projects/openwebui_export/` and `openwebui_topics/`
+**Location**: `04-lambda/src/workflows/ingestion/openwebui_export/` and `openwebui_topics/`
 
 **Description**: Export Open WebUI conversations to MongoDB RAG and classify conversation topics.
 

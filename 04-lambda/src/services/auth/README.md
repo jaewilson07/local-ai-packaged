@@ -2,10 +2,16 @@
 
 This project implements centralized header-based authentication using Cloudflare Access (Zero Trust) with Just-In-Time (JIT) user provisioning and strict data isolation across multiple data stores.
 
+## Related API Documentation
+
+- **[API Strategy](../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The auth system provides:
 - **JWT Validation**: Validates Cloudflare Access JWTs from `Cf-Access-Jwt-Assertion` header
+- **API Token Authentication**: Bearer tokens for headless automation (scripts, n8n, webhooks)
+- **Internal Network Bypass**: Docker service communication via X-User-Email header
 - **JIT Provisioning**: Automatically creates users in Supabase, Neo4j, and MinIO on first visit
 - **Data Isolation**: Enforces user-scoped data access across all data stores
 - **Admin Override**: Admins can view all data across all services
@@ -13,12 +19,170 @@ The auth system provides:
 ## Architecture
 
 ```
-User → Cloudflare Access (Google IdP) → Caddy → FastAPI (JWT Validation) → Data Services
-                                                      ↓
+                              ┌─────────────────────────────────────────────┐
+                              │           Authentication Layer              │
+                              │                                             │
+Browser ──────────────────────┼──► Cf-Access-Jwt-Assertion ──────┐         │
+                              │                                   │         │
+Python Scripts ───────────────┼──► Authorization: Bearer token ──┼──► get_current_user
+                              │                                   │         │
+n8n Workflows ────────────────┼──► Authorization: Bearer token ──┘         │
+                              │                                             │
+Docker Services ──────────────┼──► X-User-Email (internal network) ───────►│
+                              │                                             │
+                              └─────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
                                     JIT Provisioning (Supabase, Neo4j, MinIO)
-                                                      ↓
+                                                    │
+                                                    ▼
                                     Data Isolation Enforcement (RLS, User Anchoring)
 ```
+
+## Authentication Methods
+
+The system supports multiple authentication methods (in priority order):
+
+### 1. Cloudflare Access JWT (Browser Access)
+
+For browser-based access via Cloudflare Access:
+
+```bash
+curl -H "Cf-Access-Jwt-Assertion: <jwt-token>" https://api.example.com/api/me
+```
+
+### 2. API Token (Automation - Recommended for Scripts)
+
+For headless automation (scripts, n8n, cron jobs, webhooks):
+
+```bash
+# Generate token once (requires existing auth)
+curl -X POST https://api.example.com/api/me/token \
+  -H "Cf-Access-Jwt-Assertion: <jwt>"
+# Returns: {"token": "lat_abc123...", "created_at": "..."}
+
+# Use token in automation
+curl -H "Authorization: Bearer lat_abc123..." https://api.example.com/api/v1/...
+```
+
+Tokens are prefixed with `lat_` (Lambda API Token) for easy identification.
+
+### 3. Internal Network (Docker Services)
+
+For Docker container communication within the `ai-network`:
+
+```bash
+# From within Docker network
+curl -H "X-User-Email: user@example.com" http://lambda-server:8000/api/v1/...
+```
+
+Internal network detection is based on IP ranges: `172.16.0.0/12`, `10.0.0.0/8`, `192.168.0.0/16`, `127.0.0.0/8`
+
+### 4. Development Mode
+
+For local development without authentication:
+
+```bash
+# Set environment variable
+export DEV_MODE=true
+export DEV_USER_EMAIL=dev@example.com
+
+# Requests without auth headers will use DEV_USER_EMAIL
+curl http://localhost:8000/api/me
+```
+
+## API Token Management
+
+### Generate Primary Token
+
+```bash
+POST /api/me/token
+```
+
+Creates or regenerates the user's primary API token. The token is only returned once - store it securely!
+
+**Response:**
+```json
+{
+  "token": "lat_abc123def456...",
+  "created_at": "2024-01-20T12:00:00Z",
+  "message": "Token created successfully. Store it securely!"
+}
+```
+
+### Get Token Info
+
+```bash
+GET /api/me/token
+```
+
+Returns token metadata (not the token itself).
+
+**Response:**
+```json
+{
+  "has_token": true,
+  "created_at": "2024-01-20T12:00:00Z",
+  "token_prefix": "lat_"
+}
+```
+
+### Revoke Token
+
+```bash
+DELETE /api/me/token
+```
+
+Revokes the primary API token immediately.
+
+### Named Tokens (Multiple Tokens)
+
+For advanced use cases, you can create multiple named tokens with optional scopes and expiration:
+
+```bash
+# Create named token
+POST /api/me/tokens
+{
+  "name": "n8n-production",
+  "scopes": ["workflows:read", "workflows:execute"],
+  "expires_in_days": 90
+}
+
+# List all named tokens
+GET /api/me/tokens
+
+# Revoke by ID or name
+DELETE /api/me/tokens/{token_id}
+DELETE /api/me/tokens/name/{token_name}
+```
+
+## Sample Script Authentication
+
+For Python scripts, use the `sample/shared/auth_helpers.py` module:
+
+```python
+from sample.shared.auth_helpers import get_api_base_url, get_auth_headers
+
+api_base_url = get_api_base_url()
+headers = get_auth_headers()
+
+response = requests.get(f"{api_base_url}/api/v1/endpoint", headers=headers)
+```
+
+**Environment Variables:**
+- `LAMBDA_API_TOKEN` - API token for automation (preferred)
+- `CF_ACCESS_JWT` - Cloudflare Access JWT (for external access)
+- `CLOUDFLARE_EMAIL` - User email (for internal network identification)
+- `API_BASE_URL` - API base URL (defaults to `http://lambda-server:8000`)
+
+## Security Considerations
+
+1. **Token Storage**: API tokens are stored hashed (SHA-256) in the database
+2. **Token Prefix**: Tokens use `lat_` prefix for easy identification in logs
+3. **Internal Network**: X-User-Email bypass only works from Docker network IP ranges
+4. **Token Generation**: Requires existing authentication (JWT or existing token)
+5. **Immediate Revocation**: Tokens can be revoked immediately via API
+6. **Named Token Expiration**: Named tokens support optional expiration dates
 
 ## Configuration
 
@@ -279,7 +443,7 @@ is_admin = await auth_service.is_admin(user.email)
 ## Project Structure
 
 ```
-server/projects/auth/
+src/services/auth/
 ├── __init__.py
 ├── config.py              # Project configuration
 ├── dependencies.py        # FastAPI dependencies
@@ -291,9 +455,11 @@ server/projects/auth/
 │   ├── neo4j_service.py  # Neo4j provisioning & anchoring
 │   ├── minio_service.py   # MinIO provisioning
 │   ├── mongodb_service.py # MongoDB provisioning
-│   ├── immich_service.py  # Immich user provisioning
 │   └── auth_service.py    # Auth helpers (admin checks)
 └── README.md
+
+# Note: ImmichService is located in services/external/immich/client.py
+# and is used for Immich user provisioning during JIT authentication.
 ```
 
 ## Security Considerations
@@ -363,9 +529,44 @@ Required environment variables:
 ### Discord Account Linking
 
 Users can link their Discord account to their Cloudflare-authenticated account:
-1. Call `POST /api/me/discord/link` with `discord_user_id` parameter
-2. Discord user ID stored in `profiles.discord_user_id` column
-3. Discord bot can then look up user by Discord ID and use their Immich API key
+
+**Via Discord Bot (Recommended):**
+1. In Discord, use the `/link_discord` slash command
+2. Enter your Cloudflare Access email when prompted
+3. Discord bot calls Lambda API to link accounts
+
+**Via API (Direct):**
+1. Authenticate via Cloudflare Access (browser) or API token
+2. Call `POST /api/v1/auth/me/discord/link` with `discord_user_id` parameter
+3. Discord user ID stored in `profiles.discord_user_id` column
+
+**After Linking:**
+- Discord bot can look up users by Discord ID via `GET /api/v1/auth/user/by-discord/{discord_user_id}`
+- Bot retrieves user's Immich API key for personal uploads
+- Uploads go to user's personal Immich library instead of shared account
+
+### Discord Bot Authentication
+
+The Discord bot can authenticate with Lambda API in two ways:
+
+1. **Bearer Token (Recommended for production)**:
+   ```bash
+   # Generate token via Cloudflare Access authenticated session
+   POST /api/v1/auth/me/token
+
+   # Discord bot uses token in requests
+   Authorization: Bearer lat_abc123...
+   ```
+
+2. **Internal Network (Docker only)**:
+   ```bash
+   # From within ai-network Docker network
+   X-User-Email: bot-owner@example.com
+   ```
+
+Configure in Discord bot's environment:
+- `LAMBDA_API_TOKEN`: API token for external access (preferred)
+- `CLOUDFLARE_EMAIL`: Fallback for internal network auth
 
 ## Future Enhancements
 

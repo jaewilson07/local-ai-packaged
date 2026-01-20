@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-
 from server.main import app
 from server.projects.auth.models import User
 
@@ -53,7 +52,7 @@ def mock_s3_objects():
 @pytest.mark.asyncio
 async def test_my_data_user_isolation(mock_user_a, mock_supabase_items):
     """Test user A only sees their own items."""
-    from server.api.auth import get_current_user
+    from services.auth.dependencies import get_current_user
 
     # Override the dependency
     async def override_get_current_user():

@@ -20,14 +20,15 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps  # noqa: E402
-from server.projects.graphiti_rag.tools import query_knowledge_graph  # noqa: E402
-from server.projects.shared.context_helpers import create_run_context  # noqa: E402
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps  # noqa: E402
+from capabilities.retrieval.graphiti_rag.tools import query_knowledge_graph  # noqa: E402
+
+from shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

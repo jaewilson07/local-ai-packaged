@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from crawl4ai import AsyncWebCrawler
 from services.compute.crawl4ai import crawl_deep, crawl_single_page
 
-from .utils.filename import (
+from ..utils.filename import (
     sanitize_filename,
 )
 

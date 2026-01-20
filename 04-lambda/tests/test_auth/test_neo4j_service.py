@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.neo4j_service import Neo4jService
 

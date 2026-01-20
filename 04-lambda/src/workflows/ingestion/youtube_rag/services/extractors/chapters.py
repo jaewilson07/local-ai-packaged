@@ -3,7 +3,7 @@
 import logging
 import re
 
-from server.projects.youtube_rag.models import (
+from workflows.ingestion.youtube_rag.models import (
     TranscriptSegment,
     VideoChapter,
     VideoTranscript,

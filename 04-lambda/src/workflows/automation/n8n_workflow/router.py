@@ -6,9 +6,8 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from src.shared.dependency_factory import create_dependency_factory
-from src.workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
-from src.workflows.automation.n8n_workflow.ai.models import (
+from workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
+from workflows.automation.n8n_workflow.ai.models import (
     ActivateWorkflowRequest,
     CreateWorkflowRequest,
     DeleteWorkflowRequest,
@@ -18,7 +17,7 @@ from src.workflows.automation.n8n_workflow.ai.models import (
     UpdateWorkflowRequest,
     WorkflowResponse,
 )
-from src.workflows.automation.n8n_workflow.ai.tools import (
+from workflows.automation.n8n_workflow.ai.tools import (
     activate_workflow,
     create_workflow,
     delete_workflow,
@@ -27,7 +26,9 @@ from src.workflows.automation.n8n_workflow.ai.tools import (
     update_workflow,
 )
 
-router = APIRouter()
+from shared.dependency_factory import create_dependency_factory
+
+router = APIRouter(prefix="/api/v1/n8n", tags=["workflows", "n8n"])
 logger = logging.getLogger(__name__)
 
 # Use dependency factory to create deps getter (eliminates boilerplate)

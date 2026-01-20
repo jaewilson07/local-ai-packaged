@@ -23,14 +23,15 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
-from server.projects.conversation.agent import orchestrate_conversation_tool  # noqa: E402
-from server.projects.conversation.dependencies import ConversationDeps  # noqa: E402
-from server.projects.shared.context_helpers import create_run_context  # noqa: E402
+from workflows.chat.conversation.ai.agent import orchestrate_conversation_tool  # noqa: E402
+from workflows.chat.conversation.ai.dependencies import ConversationDeps  # noqa: E402
+
+from shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

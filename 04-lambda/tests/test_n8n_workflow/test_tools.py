@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
 from server.projects.n8n_workflow.tools import (
     create_workflow,

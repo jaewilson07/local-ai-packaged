@@ -43,12 +43,12 @@ The conversation orchestration system from wandering-athena provides sophisticat
 
 ### Existing Agent Systems
 
-- **MongoDB RAG Agent** (`04-lambda/server/projects/mongo_rag/agent.py`)
+- **MongoDB RAG Agent** (`04-lambda/src/capabilities/retrieval/mongo_rag/agent.py`)
   - Pydantic AI agent
   - Basic tool support
   - Simple conversation flow
 
-- **Graphiti RAG Agent** (`04-lambda/server/projects/graphiti_rag/agent.py`)
+- **Graphiti RAG Agent** (`04-lambda/src/capabilities/retrieval/graphiti_rag/agent.py`)
   - Pydantic AI agent
   - Knowledge graph tools
   - Simple conversation flow
@@ -134,12 +134,12 @@ graph.add_node("safety", roleplay_nodes.safety_node)
 
 ### With Existing Services
 
-1. **MongoDB RAG Agent** (`04-lambda/server/projects/mongo_rag/`)
+1. **MongoDB RAG Agent** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
    - Can enhance with orchestration
    - Can add tool orchestrator
    - Can add multi-stage planning
 
-2. **Graphiti RAG Agent** (`04-lambda/server/projects/graphiti_rag/`)
+2. **Graphiti RAG Agent** (`04-lambda/src/capabilities/retrieval/graphiti_rag/`)
    - Can enhance with orchestration
    - Can add mode selection
    - Can add analysis nodes

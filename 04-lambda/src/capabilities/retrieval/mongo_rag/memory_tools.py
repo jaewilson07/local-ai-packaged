@@ -3,9 +3,9 @@
 import logging
 from typing import Any
 
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.memory_models import MemoryFact, MemoryMessage
-from server.projects.mongo_rag.stores.memory_store import MongoMemoryStore
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
+from capabilities.retrieval.mongo_rag.memory_models import MemoryFact, MemoryMessage
+from capabilities.retrieval.mongo_rag.stores.memory_store import MongoMemoryStore
 
 logger = logging.getLogger(__name__)
 

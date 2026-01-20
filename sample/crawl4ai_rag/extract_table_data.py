@@ -45,7 +45,7 @@ from urllib.parse import urljoin
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 try:
@@ -55,22 +55,22 @@ except ImportError:
     sys.exit(1)
 
 # Import library components
-from server.projects.crawl4ai_rag.dependencies import (
+from workflows.ingestion.crawl4ai_rag.ai.dependencies import (  # noqa: E402
     create_browser_config_with_profile,
     get_profile_path,
 )
-from server.projects.crawl4ai_rag.services.downloader import (
+from workflows.ingestion.crawl4ai_rag.services.downloader import (  # noqa: E402
     create_timestamped_path,
     save_data_to_csv,
     save_data_to_json,
 )
-from server.projects.crawl4ai_rag.services.extractors.circle import (
+from workflows.ingestion.crawl4ai_rag.services.extractors.circle import (  # noqa: E402
     CIRCLE_NEXT_BUTTON_SELECTOR,
     CircleArticleExtractor,
     CirclePost,
     CircleTableExtractor,
 )
-from server.projects.crawl4ai_rag.services.pagination import PaginationHelper
+from workflows.ingestion.crawl4ai_rag.services.pagination import PaginationHelper  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

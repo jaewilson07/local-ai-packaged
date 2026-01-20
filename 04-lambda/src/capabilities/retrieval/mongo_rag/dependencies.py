@@ -5,12 +5,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import openai
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
+from capabilities.retrieval.mongo_rag.config import config
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-from src.capabilities.retrieval.graphiti_rag.config import config as graphiti_config
-from src.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
-from src.capabilities.retrieval.mongo_rag.config import config
-from src.shared.dependencies import BaseDependencies
+
+from shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ class AgentDependencies(BaseDependencies):
 
     async def get_embedding(self, text: str) -> list[float]:
         """
-        Generate embedding for text using OpenAI.
+        Generate embedding for text using OpenAI-compatible API.
 
         Args:
             text: Text to embed
@@ -208,10 +209,20 @@ class AgentDependencies(BaseDependencies):
         Raises:
             Exception: If embedding generation fails
         """
-        if not self.embedding_service:
+        if not self.openai_client:
             await self.initialize()
 
-        return await self.embedding_service.generate_embedding(text)
+        try:
+            response = await self.openai_client.embeddings.create(
+                model=self.settings.embedding_model,
+                input=text,
+            )
+            embedding = response.data[0].embedding
+            logger.debug(f"Generated embedding with {len(embedding)} dimensions")
+            return embedding
+        except Exception as e:
+            logger.exception(f"Embedding generation failed: {e}")
+            raise
 
     def set_user_preference(self, key: str, value: Any) -> None:
         """

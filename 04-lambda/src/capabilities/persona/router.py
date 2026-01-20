@@ -3,24 +3,25 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.persona.ai import PersonaDeps
-from src.capabilities.persona.persona_workflow import (
+from capabilities.persona.ai import PersonaDeps
+from capabilities.persona.persona_workflow import (
     character_chat_workflow,
     update_persona_mood_workflow,
 )
-from src.capabilities.persona.schemas import ChatRequest, ChatResponse
-from src.shared.dependency_factory import create_dependency_factory
+from capabilities.persona.schemas import ChatRequest, ChatResponse
+from fastapi import APIRouter, Depends, HTTPException
+
+from shared.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/persona", tags=["Persona"])
+router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities", "persona"])
 
 # Use dependency factory to create deps getter (eliminates boilerplate)
 get_persona_deps = create_dependency_factory(PersonaDeps)
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/persona/chat", response_model=ChatResponse)
 async def character_chat_endpoint(
     request: ChatRequest,
     deps: Annotated[PersonaDeps, Depends(get_persona_deps)],
@@ -60,7 +61,7 @@ async def character_chat_endpoint(
         raise HTTPException(status_code=500, detail=f"Response generation failed: {e!s}") from e
 
 
-@router.post("/mood")
+@router.post("/persona/mood")
 async def update_mood_endpoint(
     persona_id: str,
     new_mood: str,

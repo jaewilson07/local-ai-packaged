@@ -1,737 +1,1001 @@
-"""Core tool implementations for Deep Research Agent."""
+"""Deep research tools for Pydantic AI agents.
+
+This module provides tools for web research, content parsing,
+and knowledge base operations. Includes a composite `research_and_store`
+tool for Cursor agent integration that searches, filters, and ingests
+content in a single operation.
+"""
 
 import logging
-import os
-import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
-from pymongo.errors import OperationFailure
-
-from server.projects.crawl4ai_rag.services.crawler import crawl_single_page
-from server.projects.deep_research.dependencies import DeepResearchDeps
-from server.projects.deep_research.models import (
-    DocumentChunk,
-    FetchPageRequest,
-    FetchPageResponse,
-    IngestKnowledgeRequest,
-    IngestKnowledgeResponse,
-    ParseDocumentRequest,
-    ParseDocumentResponse,
-    QueryKnowledgeRequest,
-    QueryKnowledgeResponse,
-    SearchResult,
-    SearchWebRequest,
-    SearchWebResponse,
-)
-from server.projects.graphiti_rag.ingestion.graph_builder import ingest_to_graphiti
-from server.projects.mongo_rag.config import config as rag_config
-from server.projects.mongo_rag.ingestion.chunker import (
-    ChunkingConfig,
-    DoclingHybridChunker,
-)
-from server.projects.mongo_rag.ingestion.chunker import (
-    DocumentChunk as MongoDocumentChunk,
+from workflows.research.deep_research.models import (
+    IngestedItem,
+    ResearchAndStoreRequest,
+    ResearchAndStoreResponse,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def search_web(deps: DeepResearchDeps, request: SearchWebRequest) -> SearchWebResponse:
-    """
-    Search the web using SearXNG metasearch engine.
+def _get_deps(ctx: Any):
+    """Extract dependencies from context."""
+    deps = getattr(ctx, "deps", ctx)
+    if hasattr(deps, "_deps"):
+        deps = deps._deps
+    return deps
 
-    Uses the SearXNG REST API to search multiple search engines and return
-    aggregated, ranked results.
+
+async def search_web(ctx: Any, query: str, max_results: int = 10) -> str:
+    """
+    Search the web using SearXNG.
 
     Args:
-        deps: DeepResearchDeps with http_client initialized
-        request: SearchWebRequest with query and options
+        ctx: Context with dependencies
+        query: Search query
+        max_results: Maximum number of results
 
     Returns:
-        SearchWebResponse with search results
-
-    Raises:
-        Exception: If SearXNG is unavailable or request fails
+        String with search results
     """
-    from server.api.searxng import SearXNGSearchRequest
-    from server.api.searxng import search as searxng_search
+    deps = _get_deps(ctx)
+    http_client = getattr(deps, "http_client", None)
+    settings = getattr(deps, "settings", None)
+
+    if not http_client or not settings:
+        return "[Not Configured] Deep research dependencies not initialized"
 
     try:
-        # Ensure HTTP client is initialized
-        if not deps.http_client:
-            await deps.initialize()
+        searxng_url = getattr(settings, "searxng_url", None)
+        if not searxng_url:
+            return "[Not Configured] SearXNG URL not configured"
 
-        # Convert our request to SearXNG request format
-        searxng_request = SearXNGSearchRequest(
-            query=request.query,
-            result_count=request.result_count or rag_config.default_result_count,
-            categories=None,  # Not in our model yet
-            engines=request.engines,
-        )
+        params = {
+            "q": query,
+            "format": "json",
+            "categories": "general",
+            "engines": "google,duckduckgo,bing",
+        }
 
-        # Call SearXNG API
-        searxng_response = await searxng_search(searxng_request)
+        response = await http_client.get(f"{searxng_url}/search", params=params)
+        response.raise_for_status()
+        data = response.json()
 
-        # Convert SearXNG response to our response format
-        results = [
-            SearchResult(
-                title=result.title,
-                url=result.url,
-                snippet=result.content,
-                engine=result.engine,
-                score=result.score,
-            )
-            for result in searxng_response.results
-        ]
+        results = data.get("results", [])[:max_results]
+        if not results:
+            return f"No results found for: {query}"
 
-        return SearchWebResponse(
-            query=searxng_response.query,
-            results=results,
-            count=searxng_response.count,
-            success=searxng_response.success,
-        )
+        lines = [f"Found {len(results)} result(s) for '{query}':"]
+        for i, r in enumerate(results, 1):
+            title = r.get("title", "No title")
+            url = r.get("url", "")
+            snippet = r.get("content", "")[:200]
+            lines.append(f"\n[{i}] {title}")
+            lines.append(f"    URL: {url}")
+            lines.append(f"    {snippet}...")
 
-    except Exception:
-        logger.exception("Error searching web")
-        return SearchWebResponse(query=request.query, results=[], count=0, success=False)
+        return "\n".join(lines)
 
-
-async def fetch_page(deps: DeepResearchDeps, request: FetchPageRequest) -> FetchPageResponse:
-    """
-    Fetch a single web page using Crawl4AI.
-
-    Args:
-        deps: DeepResearchDeps with crawler initialized
-        request: FetchPageRequest with URL
-
-    Returns:
-        FetchPageResponse with content and metadata
-
-    Raises:
-        Exception: If crawling fails
-    """
-    if not deps.crawler:
-        await deps.initialize()
-
-    try:
-        # Use existing crawl_single_page function from crawl4ai_rag
-        result = await crawl_single_page(deps.crawler, str(request.url))
-
-        if result is None:
-            return FetchPageResponse(url=str(request.url), content="", metadata={}, success=False)
-
-        return FetchPageResponse(
-            url=result["url"],
-            content=result.get("markdown", ""),
-            metadata=result.get("metadata", {}),
-            success=True,
-        )
     except Exception as e:
-        logger.exception("Error fetching page {request.url}")
-        return FetchPageResponse(
-            url=str(request.url), content="", metadata={"error": str(e)}, success=False
-        )
+        logger.exception("Error searching web")
+        return f"[Error] Web search failed: {e}"
 
 
-async def parse_document(
-    deps: DeepResearchDeps, request: ParseDocumentRequest
-) -> ParseDocumentResponse:
+async def fetch_page(ctx: Any, url: str, extract_markdown: bool = True) -> str:
     """
-    Parse a document using Docling and chunk it with HybridChunker.
+    Fetch and extract content from a web page.
 
     Args:
-        deps: DeepResearchDeps with document_converter initialized
-        request: ParseDocumentRequest with content and content_type
+        ctx: Context with dependencies
+        url: URL to fetch
+        extract_markdown: Whether to extract as markdown
 
     Returns:
-        ParseDocumentResponse with structured chunks and metadata
-
-    Raises:
-        Exception: If parsing fails
+        String with page content
     """
-    if not deps.document_converter:
-        await deps.initialize()
+    deps = _get_deps(ctx)
+    crawler = getattr(deps, "crawler", None)
 
-    try:
-        # Create a temporary file with the content
-        # Docling's DocumentConverter works with file paths
-        file_ext = {"html": ".html", "markdown": ".md", "text": ".txt"}.get(
-            request.content_type, ".html"
-        )
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=file_ext, delete=False) as tmp_file:
-            tmp_file.write(request.content)
-            tmp_path = tmp_file.name
+    if not crawler:
+        # Fall back to HTTP client
+        http_client = getattr(deps, "http_client", None)
+        if not http_client:
+            return "[Not Configured] No crawler or HTTP client available"
 
         try:
-            # Convert document using Docling
-            result = deps.document_converter.convert(tmp_path)
-            docling_doc = result.document
-            markdown_content = docling_doc.export_to_markdown()
+            response = await http_client.get(url, follow_redirects=True)
+            response.raise_for_status()
+            content = response.text[:10000]  # Limit content
+            return f"Page content from {url}:\n\n{content}"
+        except Exception as e:
+            return f"[Error] Failed to fetch page: {e}"
 
-            # Extract document metadata
-            doc_metadata = {"content_type": request.content_type, "source": "parsed_content"}
+    try:
+        result = await crawler.arun(url=url)
 
-            # Add Docling document metadata if available
-            if hasattr(docling_doc, "metadata") and docling_doc.metadata:
-                if isinstance(docling_doc.metadata, dict):
-                    doc_metadata.update(docling_doc.metadata)
+        if not result.success:
+            return f"[Error] Failed to crawl {url}: {result.error}"
 
-            # Chunk the document using HybridChunker
-            chunking_config = ChunkingConfig(chunk_size=1000, chunk_overlap=200, max_tokens=512)
-            chunker = DoclingHybridChunker(chunking_config)
+        if extract_markdown and result.markdown:
+            content = result.markdown[:10000]  # Limit content
+        else:
+            content = result.html[:10000] if result.html else "No content"
 
-            chunks = await chunker.chunk_document(
-                content=markdown_content,
-                title=doc_metadata.get("title", "Untitled"),
-                source="parsed_content",
-                metadata=doc_metadata,
-                docling_doc=docling_doc,
-            )
+        return f"Content from {url}:\n\n{content}"
 
-            # Convert DocumentChunk objects to Pydantic models
-            document_chunks = [
-                DocumentChunk(
-                    content=chunk.content,
-                    index=chunk.index,
-                    start_char=chunk.start_char,
-                    end_char=chunk.end_char,
-                    metadata=chunk.metadata,
-                    token_count=chunk.token_count,
-                )
-                for chunk in chunks
-            ]
+    except Exception as e:
+        logger.exception("Error fetching page")
+        return f"[Error] Failed to fetch page: {e}"
 
-            return ParseDocumentResponse(
-                chunks=document_chunks, metadata=doc_metadata, success=True
-            )
 
-        finally:
-            # Clean up temporary file
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+async def parse_document(ctx: Any, content: str, content_type: str = "text") -> str:
+    """
+    Parse and structure document content.
+
+    Args:
+        ctx: Context with dependencies
+        content: Document content to parse
+        content_type: Type of content (text, html, pdf)
+
+    Returns:
+        String with parsed content
+    """
+    deps = _get_deps(ctx)
+    document_converter = getattr(deps, "document_converter", None)
+
+    if not document_converter:
+        # Simple text extraction
+        return f"Parsed content ({len(content)} characters):\n\n{content[:5000]}"
+
+    try:
+        # Use Docling for structured parsing
+        result = document_converter.convert_from_string(content)
+        if result.document:
+            text = result.document.export_to_markdown()
+            return f"Parsed document:\n\n{text[:5000]}"
+        return f"Parsed content:\n\n{content[:5000]}"
 
     except Exception as e:
         logger.exception("Error parsing document")
-        return ParseDocumentResponse(chunks=[], metadata={"error": str(e)}, success=False)
+        return f"[Error] Document parsing failed: {e}"
 
 
 async def ingest_knowledge(
-    deps: DeepResearchDeps, request: IngestKnowledgeRequest
-) -> IngestKnowledgeResponse:
+    ctx: Any,
+    content: str,
+    source: str,
+    metadata: dict[str, Any] | None = None,
+) -> str:
     """
-    Ingest document chunks into MongoDB (for vector search) and Graphiti (for knowledge graph).
+    Ingest content into the knowledge base.
 
     Args:
-        deps: DeepResearchDeps with MongoDB and Graphiti initialized
-        request: IngestKnowledgeRequest with chunks, session_id, source_url, title
+        ctx: Context with dependencies
+        content: Content to ingest
+        source: Source URL or identifier
+        metadata: Additional metadata
 
     Returns:
-        IngestKnowledgeResponse with document_id, chunks_created, facts_added
+        String confirming ingestion
     """
-    if not deps.db:
-        await deps.initialize()
+    deps = _get_deps(ctx)
+    db = getattr(deps, "db", None)
+    graphiti_deps = getattr(deps, "graphiti_deps", None)
+
+    if not db and not graphiti_deps:
+        return "[Not Configured] No knowledge base connection available"
 
     try:
-        # Convert Pydantic DocumentChunk to mongo_rag DocumentChunk
-        mongo_chunks: list[MongoDocumentChunk] = []
-        full_content_parts = []
+        # Try Graphiti first if available
+        if graphiti_deps and hasattr(graphiti_deps, "graphiti") and graphiti_deps.graphiti:
+            from graphiti_core import EpisodeType
 
-        for chunk in request.chunks:
-            # Add session_id to metadata
-            chunk_metadata = {
-                **chunk.metadata,
-                "session_id": request.session_id,
-                "source_url": request.source_url,
-            }
-
-            mongo_chunk = MongoDocumentChunk(
-                content=chunk.content,
-                index=chunk.index,
-                start_char=chunk.start_char,
-                end_char=chunk.end_char,
-                metadata=chunk_metadata,
-                token_count=chunk.token_count,
+            await graphiti_deps.graphiti.add_episode(
+                name=source,
+                episode_body=content,
+                source=EpisodeType.text,
+                reference_time=None,
             )
-            mongo_chunks.append(mongo_chunk)
-            full_content_parts.append(chunk.content)
+            return f"Ingested into knowledge graph: {source}"
 
-        # Combine all chunks into full document content
-        full_content = "\n\n".join(full_content_parts)
-
-        # Generate embeddings for all chunks
-        logger.info(f"Generating embeddings for {len(mongo_chunks)} chunks")
-        for chunk in mongo_chunks:
-            if not chunk.embedding:
-                chunk.embedding = await deps.get_embedding(chunk.content)
-
-        # Prepare document metadata
-        document_metadata = {
-            "session_id": request.session_id,
-            "source_url": request.source_url,
-            "title": request.title or "Untitled",
-            "chunk_count": len(mongo_chunks),
-            "created_at": datetime.now(),
-        }
-
-        # Save to MongoDB
-        documents_collection = deps.db[rag_config.mongodb_collection_documents]
-        chunks_collection = deps.db[rag_config.mongodb_collection_chunks]
-
-        # Insert document
-        document_dict = {
-            "title": request.title or "Untitled",
-            "source": request.source_url,
-            "content": full_content,
-            "metadata": document_metadata,
-            "created_at": datetime.now(),
-        }
-
-        document_result = await documents_collection.insert_one(document_dict)
-        document_id = str(document_result.inserted_id)
-        logger.info(f"Inserted document with ID: {document_id}")
-
-        # Insert chunks with embeddings
-        chunk_dicts = []
-        for chunk in mongo_chunks:
-            chunk_dict = {
-                "document_id": document_result.inserted_id,
-                "content": chunk.content,
-                "embedding": chunk.embedding,  # Python list
-                "chunk_index": chunk.index,
-                "metadata": chunk.metadata,
-                "token_count": chunk.token_count,
-                "created_at": datetime.now(),
+        # Fall back to MongoDB
+        if db:
+            collection = db["research_knowledge"]
+            doc = {
+                "source": source,
+                "content": content[:50000],  # Limit size
+                "metadata": metadata or {},
             }
-            chunk_dicts.append(chunk_dict)
+            await collection.insert_one(doc)
+            return f"Ingested into MongoDB: {source}"
 
-        if chunk_dicts:
-            await chunks_collection.insert_many(chunk_dicts, ordered=False)
-            logger.info(f"Inserted {len(chunk_dicts)} chunks")
-
-        # Ingest into Graphiti if available
-        facts_added = 0
-        graphiti_errors = []
-        if deps.graphiti_deps and deps.graphiti_deps.graphiti:
-            try:
-                graphiti_result = await ingest_to_graphiti(
-                    graphiti=deps.graphiti_deps.graphiti,
-                    document_id=document_id,
-                    chunks=mongo_chunks,
-                    metadata=document_metadata,
-                    title=request.title or "Untitled",
-                    source=request.source_url,
-                )
-                # Handle both dict and int return values (for test mocks)
-                if isinstance(graphiti_result, dict):
-                    facts_added = graphiti_result.get("facts_added", 0)
-                    if graphiti_result.get("errors"):
-                        graphiti_errors.extend(graphiti_result["errors"])
-                    logger.info(
-                        f"Graphiti ingestion: {facts_added} facts from "
-                        f"{graphiti_result.get('chunks_processed', 0)} chunks"
-                    )
-                else:
-                    # Handle int return (from mocks or simplified responses)
-                    facts_added = int(graphiti_result) if graphiti_result else 0
-                    logger.info(f"Graphiti ingestion: {facts_added} facts")
-            except Exception as e:
-                error_msg = f"Graphiti ingestion failed: {e!s}"
-                logger.exception(error_msg)
-                graphiti_errors.append(error_msg)
-
-        return IngestKnowledgeResponse(
-            document_id=document_id,
-            chunks_created=len(mongo_chunks),
-            facts_added=facts_added,
-            success=True,
-            errors=graphiti_errors,
-        )
+        return "[Error] No storage backend available"
 
     except Exception as e:
         logger.exception("Error ingesting knowledge")
-        return IngestKnowledgeResponse(
-            document_id="", chunks_created=0, facts_added=0, success=False, errors=[str(e)]
-        )
+        return f"[Error] Knowledge ingestion failed: {e}"
 
 
 async def query_knowledge(
-    deps: DeepResearchDeps, request: QueryKnowledgeRequest
-) -> QueryKnowledgeResponse:
+    ctx: Any,
+    query: str,
+    max_results: int = 5,
+) -> str:
     """
-    Query the knowledge base using hybrid search (vector + text) filtered by session_id.
-
-    Phase 6 Enhancement: If use_graphiti=True, also performs graph traversal for
-    multi-hop reasoning using Graphiti knowledge graph.
+    Query the knowledge base.
 
     Args:
-        deps: DeepResearchDeps with MongoDB and optionally Graphiti initialized
-        request: QueryKnowledgeRequest with question, session_id, match_count, search_type, use_graphiti
+        ctx: Context with dependencies
+        query: Search query
+        max_results: Maximum results to return
 
     Returns:
-        QueryKnowledgeResponse with cited chunks
+        String with query results
     """
-    if not deps.db:
-        await deps.initialize()
+    deps = _get_deps(ctx)
+    db = getattr(deps, "db", None)
+    graphiti_deps = getattr(deps, "graphiti_deps", None)
+
+    if not db and not graphiti_deps:
+        return "[Not Configured] No knowledge base connection available"
 
     try:
-        # Phase 6: Graph-enhanced reasoning with Graphiti
-        graph_results = []
-        if request.use_graphiti and deps.graphiti_deps and deps.graphiti_deps.graphiti:
-            try:
-                from server.projects.graphiti_rag.search.graph_search import graphiti_search
-
-                logger.info(f"Performing Graphiti graph search for: {request.question}")
-                graph_search_results = await graphiti_search(
-                    deps.graphiti_deps.graphiti, request.question, match_count=request.match_count
-                )
-
-                # Convert Graphiti results to CitedChunk format
-                # Graphiti results may reference chunk_ids that we need to fetch from MongoDB
-                for graph_result in graph_search_results:
-                    # Extract chunk_id from metadata if available
-                    chunk_id = (
-                        graph_result.metadata.get("chunk_id")
-                        if hasattr(graph_result, "metadata")
-                        else None
-                    )
-                    document_id = (
-                        graph_result.metadata.get("document_id")
-                        if hasattr(graph_result, "metadata")
-                        else None
-                    )
-
-                    # If we have chunk_id, fetch full chunk from MongoDB
-                    if chunk_id:
-                        from bson import ObjectId
-
-                        try:
-                            chunk_doc = await deps.db[
-                                rag_config.mongodb_collection_chunks
-                            ].find_one(
-                                {
-                                    "_id": ObjectId(chunk_id),
-                                    "metadata.session_id": request.session_id,
-                                }
-                            )
-                            if chunk_doc:
-                                # Get document info
-                                doc_info = await deps.db[
-                                    rag_config.mongodb_collection_documents
-                                ].find_one({"_id": chunk_doc.get("document_id")})
-
-                                from server.projects.deep_research.models import CitedChunk
-
-                                graph_results.append(
-                                    CitedChunk(
-                                        chunk_id=str(chunk_id),
-                                        content=chunk_doc.get(
-                                            "content",
-                                            (
-                                                graph_result.content
-                                                if hasattr(graph_result, "content")
-                                                else ""
-                                            ),
-                                        ),
-                                        document_id=(
-                                            str(document_id)
-                                            if document_id
-                                            else str(chunk_doc.get("document_id", ""))
-                                        ),
-                                        document_source=(
-                                            doc_info.get("source", "") if doc_info else ""
-                                        ),
-                                        similarity=(
-                                            graph_result.similarity
-                                            if hasattr(graph_result, "similarity")
-                                            else 0.8
-                                        ),
-                                        metadata=(
-                                            graph_result.metadata
-                                            if hasattr(graph_result, "metadata")
-                                            else {}
-                                        ),
-                                    )
-                                )
-                        except Exception as e:
-                            logger.warning(f"Could not fetch chunk {chunk_id} from MongoDB: {e}")
-                            # Fall back to using Graphiti result directly
-                            from server.projects.deep_research.models import CitedChunk
-
-                            graph_results.append(
-                                CitedChunk(
-                                    chunk_id=str(chunk_id) if chunk_id else "graphiti",
-                                    content=(
-                                        graph_result.content
-                                        if hasattr(graph_result, "content")
-                                        else str(graph_result)
-                                    ),
-                                    document_id=str(document_id) if document_id else "unknown",
-                                    document_source=(
-                                        graph_result.metadata.get("source", "")
-                                        if hasattr(graph_result, "metadata")
-                                        else ""
-                                    ),
-                                    similarity=(
-                                        graph_result.similarity
-                                        if hasattr(graph_result, "similarity")
-                                        else 0.8
-                                    ),
-                                    metadata=(
-                                        graph_result.metadata
-                                        if hasattr(graph_result, "metadata")
-                                        else {}
-                                    ),
-                                )
-                            )
-                    else:
-                        # No chunk_id, use Graphiti result directly
-                        from server.projects.deep_research.models import CitedChunk
-
-                        graph_results.append(
-                            CitedChunk(
-                                chunk_id="graphiti",
-                                content=(
-                                    graph_result.content
-                                    if hasattr(graph_result, "content")
-                                    else str(graph_result)
-                                ),
-                                document_id="unknown",
-                                document_source="",
-                                similarity=(
-                                    graph_result.similarity
-                                    if hasattr(graph_result, "similarity")
-                                    else 0.8
-                                ),
-                                metadata=(
-                                    graph_result.metadata
-                                    if hasattr(graph_result, "metadata")
-                                    else {}
-                                ),
-                            )
-                        )
-
-                logger.info(f"Graphiti search returned {len(graph_results)} results")
-
-            except Exception as e:
-                logger.warning(f"Graphiti search failed, falling back to standard search: {e}")
-
-        # If using graph-only search, return graph results
-        if request.search_type == "graph" and graph_results:
-            return QueryKnowledgeResponse(
-                results=graph_results[: request.match_count], count=len(graph_results), success=True
-            )
-
-        # Continue with standard search
-        # Build filter for session_id
-        filter_dict = {"metadata.session_id": request.session_id}
-
-        # Get collections
-        deps.db[rag_config.mongodb_collection_documents]
-        chunks_collection = deps.db[rag_config.mongodb_collection_chunks]
-
         results = []
 
-        if request.search_type in ["semantic", "hybrid"]:
-            # Vector search
-            query_embedding = await deps.get_embedding(request.question)
+        # Try Graphiti first if available
+        if graphiti_deps and hasattr(graphiti_deps, "graphiti") and graphiti_deps.graphiti:
+            search_results = await graphiti_deps.graphiti.search(query, num_results=max_results)
+            for r in search_results:
+                results.append(f"- {r.fact}" if hasattr(r, "fact") else f"- {r}")
 
-            vector_search_stage = {
-                "$vectorSearch": {
-                    "index": rag_config.mongodb_vector_index,
-                    "queryVector": query_embedding,
-                    "path": "embedding",
-                    "numCandidates": 100,
-                    "limit": (
-                        request.match_count * 2
-                        if request.search_type == "hybrid"
-                        else request.match_count
-                    ),
-                    "filter": filter_dict,
-                }
-            }
-
-            vector_pipeline = [
-                vector_search_stage,
-                {
-                    "$lookup": {
-                        "from": rag_config.mongodb_collection_documents,
-                        "localField": "document_id",
-                        "foreignField": "_id",
-                        "as": "document_info",
-                    }
-                },
-                {"$unwind": "$document_info"},
-                {
-                    "$project": {
-                        "chunk_id": "$_id",
-                        "document_id": 1,
-                        "content": 1,
-                        "similarity": {"$meta": "vectorSearchScore"},
-                        "metadata": 1,
-                        "document_title": "$document_info.title",
-                        "document_source": "$document_info.source",
-                    }
-                },
-            ]
-
-            vector_cursor = await chunks_collection.aggregate(vector_pipeline)
-            vector_results = [doc async for doc in vector_cursor]
-            results.extend(vector_results)
-
-        if request.search_type in ["text", "hybrid"]:
-            # Text search
-            text_search_stage = {
-                "$search": {
-                    "index": rag_config.mongodb_text_index,
-                    "text": {
-                        "query": request.question,
-                        "path": "content",
-                        "fuzzy": {"maxEdits": 2, "prefixLength": 3},
-                    },
-                    "filter": filter_dict,
-                }
-            }
-
-            text_pipeline = [
-                text_search_stage,
-                {
-                    "$limit": (
-                        request.match_count * 2
-                        if request.search_type == "hybrid"
-                        else request.match_count
-                    )
-                },
-                {
-                    "$lookup": {
-                        "from": rag_config.mongodb_collection_documents,
-                        "localField": "document_id",
-                        "foreignField": "_id",
-                        "as": "document_info",
-                    }
-                },
-                {"$unwind": "$document_info"},
-                {
-                    "$project": {
-                        "chunk_id": "$_id",
-                        "document_id": 1,
-                        "content": 1,
-                        "similarity": {"$meta": "searchScore"},
-                        "metadata": 1,
-                        "document_title": "$document_info.title",
-                        "document_source": "$document_info.source",
-                    }
-                },
-            ]
-
-            try:
-                text_cursor = await chunks_collection.aggregate(text_pipeline)
-                text_results = [doc async for doc in text_cursor]
-                results.extend(text_results)
-            except OperationFailure as e:
-                # Text search might not be available (e.g., no Atlas Search index)
-                logger.warning(f"Text search failed (may not be configured): {e}")
-                if request.search_type == "text":
-                    # If text-only search fails, fall back to semantic
-                    logger.info("Falling back to semantic search")
-                    query_embedding = await deps.get_embedding(request.question)
-                    vector_search_stage = {
-                        "$vectorSearch": {
-                            "index": rag_config.mongodb_vector_index,
-                            "queryVector": query_embedding,
-                            "path": "embedding",
-                            "numCandidates": 100,
-                            "limit": request.match_count,
-                            "filter": filter_dict,
-                        }
-                    }
-                    vector_pipeline = [
-                        vector_search_stage,
-                        {
-                            "$lookup": {
-                                "from": rag_config.mongodb_collection_documents,
-                                "localField": "document_id",
-                                "foreignField": "_id",
-                                "as": "document_info",
-                            }
-                        },
-                        {"$unwind": "$document_info"},
-                        {
-                            "$project": {
-                                "chunk_id": "$_id",
-                                "document_id": 1,
-                                "content": 1,
-                                "similarity": {"$meta": "vectorSearchScore"},
-                                "metadata": 1,
-                                "document_title": "$document_info.title",
-                                "document_source": "$document_info.source",
-                            }
-                        },
-                    ]
-                    vector_cursor = await chunks_collection.aggregate(vector_pipeline)
-                    results = [doc async for doc in vector_cursor]
-
-        # For hybrid search, combine and deduplicate results using RRF
-        if request.search_type == "hybrid" and len(results) > 0:
-            # Simple RRF: combine by chunk_id, average scores
-            chunk_scores: dict[str, dict[str, Any]] = {}
-            for doc in results:
-                chunk_id = str(doc["chunk_id"])
-                if chunk_id not in chunk_scores:
-                    chunk_scores[chunk_id] = {"doc": doc, "scores": []}
-                chunk_scores[chunk_id]["scores"].append(doc.get("similarity", 0.0))
-
-            # Average scores and sort
-            combined_results = []
-            for chunk_id, data in chunk_scores.items():
-                avg_score = sum(data["scores"]) / len(data["scores"])
-                doc = data["doc"]
-                doc["similarity"] = avg_score
-                combined_results.append(doc)
-
-            # Sort by similarity and limit
-            combined_results.sort(key=lambda x: x.get("similarity", 0.0), reverse=True)
-            results = combined_results[: request.match_count]
-        else:
-            # For single search type, just sort and limit
-            results.sort(key=lambda x: x.get("similarity", 0.0), reverse=True)
-            results = results[: request.match_count]
-
-        # Convert to CitedChunk objects
-        cited_chunks = [
-            CitedChunk(
-                chunk_id=str(doc["chunk_id"]),
-                content=doc["content"],
-                document_id=str(doc["document_id"]),
-                document_source=doc.get("document_source", ""),
-                similarity=doc.get("similarity", 0.0),
-                metadata=doc.get("metadata", {}),
+        # Also search MongoDB
+        if db:
+            collection = db["research_knowledge"]
+            cursor = (
+                collection.find(
+                    {"$text": {"$search": query}},
+                    {"score": {"$meta": "textScore"}},
+                )
+                .sort([("score", {"$meta": "textScore"})])
+                .limit(max_results)
             )
-            for doc in results
-        ]
 
-        # Phase 6: Combine graph results with standard search results if both enabled
-        if request.use_graphiti and graph_results:
-            # Merge graph results with standard results, deduplicate by chunk_id
-            existing_ids = {chunk.chunk_id for chunk in cited_chunks}
-            for graph_chunk in graph_results:
-                if graph_chunk.chunk_id not in existing_ids:
-                    cited_chunks.append(graph_chunk)
-                    existing_ids.add(graph_chunk.chunk_id)
+            async for doc in cursor:
+                source = doc.get("source", "Unknown")
+                content = doc.get("content", "")[:200]
+                results.append(f"- [{source}]: {content}...")
 
-            # Re-sort by similarity
-            cited_chunks.sort(key=lambda x: x.similarity, reverse=True)
-            cited_chunks = cited_chunks[: request.match_count]
+        if not results:
+            return f"No results found for: {query}"
+
+        return f"Knowledge base results for '{query}':\n" + "\n".join(results)
+
+    except Exception as e:
+        logger.exception("Error querying knowledge")
+        return f"[Error] Knowledge query failed: {e}"
+
+
+async def research_and_store(request: ResearchAndStoreRequest) -> ResearchAndStoreResponse:
+    """
+    Research a topic and automatically store findings in the knowledge base.
+
+    This composite tool performs a complete research workflow:
+    1. Searches multiple sources (YouTube, web, Reddit, Hacker News, Dev.to)
+    2. Filters results by recency and relevance
+    3. Ingests matching content into the MongoDB RAG knowledge base
+    4. Returns a summary of what was stored
+
+    Supported sources:
+    - youtube: YouTube videos (via transcript extraction)
+    - web: General web articles (via SearXNG)
+    - reddit: Reddit discussions (via site: search)
+    - hackernews: Hacker News posts (via Algolia API)
+    - devto: Dev.to articles (via public API)
+
+    Args:
+        request: ResearchAndStoreRequest with query, sources, recency filters, etc.
+
+    Returns:
+        ResearchAndStoreResponse with details of ingested content
+    """
+    import httpx
+    from services.external.devto.client import search_devto
+    from services.external.hackernews.client import search_hackernews
+
+    start_time = datetime.now()
+    errors: list[str] = []
+    ingested_items: list[IngestedItem] = []
+    skipped_items: list[IngestedItem] = []
+
+    # Get the sources to search
+    sources = request.get_sources()
+
+    logger.info(
+        f"research_and_store_started: query='{request.query}', "
+        f"focus={request.focus}, sources={sources}"
+    )
+
+    # Counters
+    videos_ingested = 0
+    articles_ingested = 0
+    reddit_ingested = 0
+    hackernews_ingested = 0
+    devto_ingested = 0
+    total_chunks = 0
+    items_found = 0
+
+    try:
+        # Calculate date cutoff for video recency filter
+        cutoff_date = datetime.now() - timedelta(days=request.video_recency_days)
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # ================================================================
+            # Phase 1: Search each source
+            # ================================================================
+
+            # YouTube search (via SearXNG site: search)
+            if "youtube" in sources:
+                youtube_query = f"{request.query} site:youtube.com"
+                try:
+                    response = await client.post(
+                        "http://localhost:8000/api/v1/searxng/search",
+                        json={
+                            "query": youtube_query,
+                            "result_count": request.max_videos * 2,
+                        },
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    youtube_results = []
+                    for result in data.get("results", []):
+                        url = result.get("url", "")
+                        if "youtube.com/watch" in url or "youtu.be/" in url:
+                            youtube_results.append(
+                                {
+                                    "type": "video",
+                                    "source": "youtube",
+                                    "url": url,
+                                    "title": result.get("title", ""),
+                                    "content": result.get("content", ""),
+                                }
+                            )
+                    items_found += len(youtube_results)
+                    logger.info(f"YouTube search found {len(youtube_results)} results")
+
+                    # Ingest YouTube videos
+                    for item in youtube_results[: request.max_videos]:
+                        if videos_ingested >= request.max_videos:
+                            break
+                        result = await _ingest_youtube_video(
+                            client, item, request, cutoff_date, ingested_items, skipped_items
+                        )
+                        if result["success"]:
+                            videos_ingested += 1
+                            total_chunks += result.get("chunks", 0)
+
+                except Exception as e:
+                    logger.warning(f"YouTube search failed: {e}")
+                    errors.append(f"YouTube search error: {e}")
+
+            # Web articles (via SearXNG, excluding YouTube)
+            if "web" in sources:
+                article_query = f"{request.query} -site:youtube.com -site:reddit.com"
+                try:
+                    response = await client.post(
+                        "http://localhost:8000/api/v1/searxng/search",
+                        json={
+                            "query": article_query,
+                            "result_count": request.max_articles * 2,
+                        },
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    web_results = []
+                    for result in data.get("results", []):
+                        url = result.get("url", "")
+                        if "youtube.com" not in url and "reddit.com" not in url:
+                            web_results.append(
+                                {
+                                    "type": "article",
+                                    "source": "web",
+                                    "url": url,
+                                    "title": result.get("title", ""),
+                                    "content": result.get("content", ""),
+                                }
+                            )
+                    items_found += len(web_results)
+                    logger.info(f"Web search found {len(web_results)} results")
+
+                    # Ingest web articles
+                    for item in web_results[: request.max_articles]:
+                        if articles_ingested >= request.max_articles:
+                            break
+                        result = await _ingest_web_article(client, item, ingested_items)
+                        if result["success"]:
+                            articles_ingested += 1
+                            total_chunks += result.get("chunks", 0)
+
+                except Exception as e:
+                    logger.warning(f"Web search failed: {e}")
+                    errors.append(f"Web search error: {e}")
+
+            # Reddit (via SearXNG site: search)
+            if "reddit" in sources:
+                # Build Reddit query - optionally filter by subreddits
+                if request.subreddits:
+                    # Search specific subreddits
+                    for subreddit in request.subreddits[:3]:  # Limit to 3 subreddits
+                        reddit_query = f"{request.query} site:reddit.com/r/{subreddit}"
+                        await _search_and_ingest_reddit(
+                            client,
+                            reddit_query,
+                            request,
+                            items_found,
+                            reddit_ingested,
+                            total_chunks,
+                            ingested_items,
+                            errors,
+                        )
+                else:
+                    reddit_query = f"{request.query} site:reddit.com"
+                    result = await _search_and_ingest_reddit(
+                        client,
+                        reddit_query,
+                        request,
+                        items_found,
+                        reddit_ingested,
+                        total_chunks,
+                        ingested_items,
+                        errors,
+                    )
+                    items_found += result.get("found", 0)
+                    reddit_ingested += result.get("ingested", 0)
+                    total_chunks += result.get("chunks", 0)
+
+            # Hacker News (via Algolia API - free, no auth)
+            if "hackernews" in sources:
+                try:
+                    hn_results = await search_hackernews(
+                        query=request.query,
+                        num_results=request.max_community_posts,
+                        sort_by="relevance",
+                    )
+                    items_found += len(hn_results)
+                    logger.info(f"Hacker News search found {len(hn_results)} results")
+
+                    # Ingest HN stories
+                    for item in hn_results[: request.max_community_posts]:
+                        if hackernews_ingested >= request.max_community_posts:
+                            break
+                        result = await _ingest_hackernews_story(client, item, ingested_items)
+                        if result["success"]:
+                            hackernews_ingested += 1
+                            total_chunks += result.get("chunks", 0)
+
+                except Exception as e:
+                    logger.warning(f"Hacker News search failed: {e}")
+                    errors.append(f"Hacker News search error: {e}")
+
+            # Dev.to (via public API - free, no auth)
+            if "devto" in sources:
+                try:
+                    # Search Dev.to with relevant AI/coding tags
+                    devto_results = await search_devto(
+                        query=request.query,
+                        num_results=request.max_community_posts,
+                    )
+                    items_found += len(devto_results)
+                    logger.info(f"Dev.to search found {len(devto_results)} results")
+
+                    # Ingest Dev.to articles
+                    for item in devto_results[: request.max_community_posts]:
+                        if devto_ingested >= request.max_community_posts:
+                            break
+                        result = await _ingest_devto_article(client, item, ingested_items)
+                        if result["success"]:
+                            devto_ingested += 1
+                            total_chunks += result.get("chunks", 0)
+
+                except Exception as e:
+                    logger.warning(f"Dev.to search failed: {e}")
+                    errors.append(f"Dev.to search error: {e}")
+
+        # ================================================================
+        # Phase 2: Build response
+        # ================================================================
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        successful_items = [i for i in ingested_items if i.success]
+        community_posts_ingested = reddit_ingested + hackernews_ingested + devto_ingested
 
         logger.info(
-            f"query_knowledge completed: question={request.question}, "
-            f"session_id={request.session_id}, results={len(cited_chunks)}, "
-            f"graph_results={len(graph_results) if request.use_graphiti else 0}"
+            f"research_and_store_completed: query='{request.query}', "
+            f"videos={videos_ingested}, articles={articles_ingested}, "
+            f"reddit={reddit_ingested}, hn={hackernews_ingested}, devto={devto_ingested}, "
+            f"chunks={total_chunks}, time={processing_time:.2f}ms"
         )
 
-        return QueryKnowledgeResponse(results=cited_chunks, count=len(cited_chunks), success=True)
+        return ResearchAndStoreResponse(
+            success=len(errors) == 0 and len(successful_items) > 0,
+            query=request.query,
+            focus=request.focus,
+            sources_searched=sources,
+            items_found=items_found,
+            items_ingested=len(successful_items),
+            videos_ingested=videos_ingested,
+            articles_ingested=articles_ingested,
+            community_posts_ingested=community_posts_ingested,
+            reddit_ingested=reddit_ingested,
+            hackernews_ingested=hackernews_ingested,
+            devto_ingested=devto_ingested,
+            total_chunks_created=total_chunks,
+            ingested_items=ingested_items,
+            skipped_items=skipped_items,
+            errors=errors,
+            processing_time_ms=processing_time,
+            project_scope=request.project_scope,
+            tags=request.tags,
+        )
 
-    except Exception:
-        logger.exception("Error querying knowledge")
-        return QueryKnowledgeResponse(results=[], count=0, success=False)
+    except Exception as e:
+        logger.exception(f"research_and_store_failed: {e}")
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        return ResearchAndStoreResponse(
+            success=False,
+            query=request.query,
+            focus=request.focus,
+            sources_searched=sources,
+            errors=[str(e)],
+            processing_time_ms=processing_time,
+            project_scope=request.project_scope,
+            tags=request.tags,
+        )
+
+
+async def _ingest_youtube_video(
+    client: Any,
+    item: dict,
+    request: ResearchAndStoreRequest,
+    cutoff_date: datetime,
+    ingested_items: list[IngestedItem],
+    skipped_items: list[IngestedItem],
+) -> dict:
+    """Ingest a YouTube video and return result."""
+    try:
+        logger.info(f"Ingesting YouTube video: {item['url']}")
+
+        response = await client.post(
+            "http://localhost:8000/api/v1/youtube/ingest",
+            json={
+                "url": item["url"],
+                "extract_chapters": True,
+                "extract_entities": request.extract_entities,
+                "extract_topics": request.extract_topics,
+                "chunk_by_chapters": True,
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("success"):
+            # Check recency filter
+            should_skip = False
+            published_date = None
+
+            if result.get("upload_date"):
+                try:
+                    upload_dt = datetime.strptime(result["upload_date"], "%Y%m%d")
+                    published_date = upload_dt.strftime("%Y-%m-%d")
+                    if upload_dt < cutoff_date:
+                        should_skip = True
+                except ValueError:
+                    pass
+
+            if result.get("skipped"):
+                skipped_items.append(
+                    IngestedItem(
+                        type="video",
+                        url=item["url"],
+                        title=result.get("title", item["title"]),
+                        success=True,
+                        error=result.get("skipped_reason", "Already exists"),
+                        published_date=published_date,
+                        source="youtube",
+                    )
+                )
+                return {"success": False}
+            elif should_skip:
+                skipped_items.append(
+                    IngestedItem(
+                        type="video",
+                        url=item["url"],
+                        title=result.get("title", item["title"]),
+                        success=True,
+                        error=f"Video too old (published {published_date})",
+                        published_date=published_date,
+                        source="youtube",
+                    )
+                )
+                return {"success": False}
+            else:
+                ingested_items.append(
+                    IngestedItem(
+                        type="video",
+                        url=item["url"],
+                        title=result.get("title", item["title"]),
+                        document_id=result.get("document_id"),
+                        chunks_created=result.get("chunks_created", 0),
+                        success=True,
+                        published_date=published_date,
+                        source="youtube",
+                    )
+                )
+                return {"success": True, "chunks": result.get("chunks_created", 0)}
+        else:
+            ingested_items.append(
+                IngestedItem(
+                    type="video",
+                    url=item["url"],
+                    title=item["title"],
+                    success=False,
+                    error="; ".join(result.get("errors", ["Unknown error"])),
+                    source="youtube",
+                )
+            )
+            return {"success": False}
+
+    except Exception as e:
+        logger.warning(f"Failed to ingest YouTube video {item['url']}: {e}")
+        ingested_items.append(
+            IngestedItem(
+                type="video",
+                url=item["url"],
+                title=item.get("title", ""),
+                success=False,
+                error=str(e),
+                source="youtube",
+            )
+        )
+        return {"success": False}
+
+
+async def _ingest_web_article(
+    client: Any,
+    item: dict,
+    ingested_items: list[IngestedItem],
+) -> dict:
+    """Ingest a web article via crawl and return result."""
+    try:
+        logger.info(f"Crawling and ingesting article: {item['url']}")
+
+        response = await client.post(
+            "http://localhost:8000/api/v1/crawl/single",
+            json={
+                "url": item["url"],
+                "chunk_size": 1000,
+                "chunk_overlap": 200,
+            },
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("success"):
+            ingested_items.append(
+                IngestedItem(
+                    type="article",
+                    url=item["url"],
+                    title=result.get("title", item.get("title", "")),
+                    document_id=(
+                        result.get("document_ids", [None])[0]
+                        if result.get("document_ids")
+                        else None
+                    ),
+                    chunks_created=result.get("chunks_created", 0),
+                    success=True,
+                    source="web",
+                )
+            )
+            return {"success": True, "chunks": result.get("chunks_created", 0)}
+        else:
+            ingested_items.append(
+                IngestedItem(
+                    type="article",
+                    url=item["url"],
+                    title=item.get("title", ""),
+                    success=False,
+                    error=result.get("error", "Unknown error"),
+                    source="web",
+                )
+            )
+            return {"success": False}
+
+    except Exception as e:
+        logger.warning(f"Failed to ingest article {item['url']}: {e}")
+        ingested_items.append(
+            IngestedItem(
+                type="article",
+                url=item["url"],
+                title=item.get("title", ""),
+                success=False,
+                error=str(e),
+                source="web",
+            )
+        )
+        return {"success": False}
+
+
+async def _search_and_ingest_reddit(
+    client: Any,
+    query: str,
+    request: ResearchAndStoreRequest,
+    items_found: int,
+    reddit_ingested: int,
+    total_chunks: int,
+    ingested_items: list[IngestedItem],
+    errors: list[str],
+) -> dict:
+    """Search Reddit via SearXNG and ingest results."""
+    found = 0
+    ingested = 0
+    chunks = 0
+
+    try:
+        response = await client.post(
+            "http://localhost:8000/api/v1/searxng/search",
+            json={
+                "query": query,
+                "result_count": request.max_community_posts * 2,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        reddit_results = []
+        for result in data.get("results", []):
+            url = result.get("url", "")
+            if "reddit.com" in url:
+                reddit_results.append(
+                    {
+                        "type": "reddit",
+                        "source": "reddit",
+                        "url": url,
+                        "title": result.get("title", ""),
+                        "content": result.get("content", ""),
+                    }
+                )
+        found = len(reddit_results)
+        logger.info(f"Reddit search found {found} results")
+
+        # Ingest Reddit posts (crawl them)
+        for item in reddit_results[: request.max_community_posts]:
+            result = await _ingest_reddit_post(client, item, ingested_items)
+            if result["success"]:
+                ingested += 1
+                chunks += result.get("chunks", 0)
+
+    except Exception as e:
+        logger.warning(f"Reddit search failed: {e}")
+        errors.append(f"Reddit search error: {e}")
+
+    return {"found": found, "ingested": ingested, "chunks": chunks}
+
+
+async def _ingest_reddit_post(
+    client: Any,
+    item: dict,
+    ingested_items: list[IngestedItem],
+) -> dict:
+    """Ingest a Reddit post via crawl and return result."""
+    try:
+        logger.info(f"Crawling Reddit post: {item['url']}")
+
+        response = await client.post(
+            "http://localhost:8000/api/v1/crawl/single",
+            json={
+                "url": item["url"],
+                "chunk_size": 1000,
+                "chunk_overlap": 200,
+            },
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("success"):
+            ingested_items.append(
+                IngestedItem(
+                    type="reddit",
+                    url=item["url"],
+                    title=result.get("title", item.get("title", "")),
+                    document_id=(
+                        result.get("document_ids", [None])[0]
+                        if result.get("document_ids")
+                        else None
+                    ),
+                    chunks_created=result.get("chunks_created", 0),
+                    success=True,
+                    source="reddit",
+                )
+            )
+            return {"success": True, "chunks": result.get("chunks_created", 0)}
+        else:
+            ingested_items.append(
+                IngestedItem(
+                    type="reddit",
+                    url=item["url"],
+                    title=item.get("title", ""),
+                    success=False,
+                    error=result.get("error", "Unknown error"),
+                    source="reddit",
+                )
+            )
+            return {"success": False}
+
+    except Exception as e:
+        logger.warning(f"Failed to ingest Reddit post {item['url']}: {e}")
+        ingested_items.append(
+            IngestedItem(
+                type="reddit",
+                url=item["url"],
+                title=item.get("title", ""),
+                success=False,
+                error=str(e),
+                source="reddit",
+            )
+        )
+        return {"success": False}
+
+
+async def _ingest_hackernews_story(
+    client: Any,
+    item: dict,
+    ingested_items: list[IngestedItem],
+) -> dict:
+    """Ingest a Hacker News story and return result."""
+    try:
+        # HN stories can be either external links or self-posts
+        url = item.get("url") or item.get(
+            "hn_url", f"https://news.ycombinator.com/item?id={item.get('id')}"
+        )
+        logger.info(f"Crawling Hacker News story: {url}")
+
+        response = await client.post(
+            "http://localhost:8000/api/v1/crawl/single",
+            json={
+                "url": url,
+                "chunk_size": 1000,
+                "chunk_overlap": 200,
+            },
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("success"):
+            ingested_items.append(
+                IngestedItem(
+                    type="hackernews",
+                    url=url,
+                    title=result.get("title", item.get("title", "")),
+                    document_id=(
+                        result.get("document_ids", [None])[0]
+                        if result.get("document_ids")
+                        else None
+                    ),
+                    chunks_created=result.get("chunks_created", 0),
+                    success=True,
+                    source="hackernews",
+                    author=item.get("author"),
+                    score=item.get("score"),
+                )
+            )
+            return {"success": True, "chunks": result.get("chunks_created", 0)}
+        else:
+            ingested_items.append(
+                IngestedItem(
+                    type="hackernews",
+                    url=url,
+                    title=item.get("title", ""),
+                    success=False,
+                    error=result.get("error", "Unknown error"),
+                    source="hackernews",
+                )
+            )
+            return {"success": False}
+
+    except Exception as e:
+        url = item.get("url") or f"https://news.ycombinator.com/item?id={item.get('id')}"
+        logger.warning(f"Failed to ingest HN story {url}: {e}")
+        ingested_items.append(
+            IngestedItem(
+                type="hackernews",
+                url=url,
+                title=item.get("title", ""),
+                success=False,
+                error=str(e),
+                source="hackernews",
+            )
+        )
+        return {"success": False}
+
+
+async def _ingest_devto_article(
+    client: Any,
+    item: dict,
+    ingested_items: list[IngestedItem],
+) -> dict:
+    """Ingest a Dev.to article and return result."""
+    try:
+        url = item.get("url", "")
+        logger.info(f"Crawling Dev.to article: {url}")
+
+        response = await client.post(
+            "http://localhost:8000/api/v1/crawl/single",
+            json={
+                "url": url,
+                "chunk_size": 1000,
+                "chunk_overlap": 200,
+            },
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("success"):
+            ingested_items.append(
+                IngestedItem(
+                    type="devto",
+                    url=url,
+                    title=result.get("title", item.get("title", "")),
+                    document_id=(
+                        result.get("document_ids", [None])[0]
+                        if result.get("document_ids")
+                        else None
+                    ),
+                    chunks_created=result.get("chunks_created", 0),
+                    success=True,
+                    source="devto",
+                    author=item.get("author_username"),
+                    score=item.get("reactions_count"),
+                )
+            )
+            return {"success": True, "chunks": result.get("chunks_created", 0)}
+        else:
+            ingested_items.append(
+                IngestedItem(
+                    type="devto",
+                    url=url,
+                    title=item.get("title", ""),
+                    success=False,
+                    error=result.get("error", "Unknown error"),
+                    source="devto",
+                )
+            )
+            return {"success": False}
+
+    except Exception as e:
+        url = item.get("url", "")
+        logger.warning(f"Failed to ingest Dev.to article {url}: {e}")
+        ingested_items.append(
+            IngestedItem(
+                type="devto",
+                url=url,
+                title=item.get("title", ""),
+                success=False,
+                error=str(e),
+                source="devto",
+            )
+        )
+        return {"success": False}
+
+
+__all__ = [
+    "fetch_page",
+    "ingest_knowledge",
+    "parse_document",
+    "query_knowledge",
+    "research_and_store",
+    "search_web",
+]

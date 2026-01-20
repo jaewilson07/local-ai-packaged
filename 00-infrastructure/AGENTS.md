@@ -86,7 +86,7 @@
 - `get-lambda-api-aud-tag.py` - Retrieves AUD tag from Cloudflare API
 - `setup-lambda-api-access.py` - Creates Access application and links to tunnel route
 
-**Documentation**: See [Cloudflare Access Setup Guide](../docs/CLOUDFLARE_ACCESS_CLI_SETUP.md)
+**Documentation**: See [cloudflare-access-setup skill](../.cursor/skills/cloudflare-access-setup/SKILL.md)
 
 ### Infisical (Secrets Management) - **EXTERNAL PROJECT**
 - **Status**: Moved to external standalone project

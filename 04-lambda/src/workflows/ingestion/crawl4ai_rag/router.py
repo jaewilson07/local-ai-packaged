@@ -4,22 +4,23 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic_ai import RunContext
-from src.services.auth.dependencies import get_current_user
-from src.services.auth.models import User
-from src.shared.dependency_factory import create_dependency_factory
-from src.workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies
-from src.workflows.ingestion.crawl4ai_rag.schemas import (
+from services.auth.dependencies import get_current_user
+from services.auth.models import User
+from workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies
+from workflows.ingestion.crawl4ai_rag.schemas import (
     CrawlDeepRequest,
     CrawlResponse,
     CrawlSinglePageRequest,
 )
-from src.workflows.ingestion.crawl4ai_rag.tools import (
+from workflows.ingestion.crawl4ai_rag.tools import (
     crawl_and_ingest_deep,
     crawl_and_ingest_single_page,
 )
 
-router = APIRouter()
+from shared.dependency_factory import create_dependency_factory
+from shared.wrappers import DepsWrapper
+
+router = APIRouter(prefix="/api/v1/crawl", tags=["workflows", "crawl"])
 logger = logging.getLogger(__name__)
 
 # Use dependency factory with custom kwargs
@@ -105,8 +106,8 @@ async def crawl_single(
     - Total processing time scales with page content length
     """
     try:
-        # Use tools.py function with RunContext
-        ctx = RunContext(deps=deps)
+        # Use tools.py function with DepsWrapper (mimics RunContext.deps interface)
+        ctx = DepsWrapper(deps)
         result = await crawl_and_ingest_single_page(
             ctx,
             url=str(request.url),
@@ -249,8 +250,8 @@ async def crawl_deep_endpoint(
     - Check `pages_crawled` vs expected count to verify filtering works
     """
     try:
-        # Use tools.py function with RunContext
-        ctx = RunContext(deps=deps)
+        # Use tools.py function with DepsWrapper (mimics RunContext.deps interface)
+        ctx = DepsWrapper(deps)
         result = await crawl_and_ingest_deep(
             ctx,
             start_url=str(request.url),

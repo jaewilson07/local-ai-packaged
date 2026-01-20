@@ -66,12 +66,12 @@ if "MONGODB_URI" not in os.environ:
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
-from server.projects.mongo_rag.ingestion.pipeline import (  # noqa: E402
+from capabilities.retrieval.mongo_rag.ingestion.pipeline import (  # noqa: E402
     DocumentIngestionPipeline,
     IngestionConfig,
 )

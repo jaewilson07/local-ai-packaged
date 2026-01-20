@@ -2,6 +2,10 @@
 
 > **Parent**: See [04-lambda/AGENTS.md](../../AGENTS.md) for Lambda stack conventions.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The YouTube RAG project provides tools to ingest YouTube videos into the MongoDB RAG knowledge base. It extracts transcripts, metadata, chapters, and optionally uses LLM to extract entities, topics, and key moments.
@@ -13,7 +17,7 @@ youtube_rag/
 ├── __init__.py
 ├── AGENTS.md              # This file
 ├── config.py              # Configuration settings
-├── dependencies.py        # YouTubeRAGDeps class
+├── dependencies.py        # YouTubeRAGDeps class (inherits BaseDependencies)
 ├── models.py              # Pydantic models
 ├── tools.py               # Core tool functions
 ├── services/
@@ -25,8 +29,7 @@ youtube_rag/
 │       ├── entities.py    # Entity extraction (LLM)
 │       └── topics.py      # Topic classification (LLM)
 └── ingestion/
-    ├── __init__.py
-    └── adapter.py         # YouTubeContentIngester
+    └── __init__.py        # Module docs (uses ContentIngestionService)
 ```
 
 ## Key Components
@@ -46,18 +49,26 @@ LLM-powered knowledge extraction:
 - **EntityExtractor**: Extracts named entities (people, products, concepts) using LLM
 - **TopicExtractor**: Classifies videos into topic categories
 
-### YouTubeContentIngester (`ingestion/adapter.py`)
+### ContentIngestionService (from `mongo_rag`)
 
-Bridges YouTube content to MongoDB RAG:
-- Reuses chunking and embedding from `mongo_rag` project
+YouTube content is ingested via the centralized ContentIngestionService:
+- Located in `capabilities.retrieval.mongo_rag.ingestion.content_service`
 - Supports chapter-based or standard text chunking
 - Integrates with Graphiti for knowledge graph (optional)
+- Handles duplicate detection by video ID
 
 ## Data Flow
 
 ```
 YouTube URL
     │
+    ▼
+┌─────────────────────┐
+│   Duplicate Check   │
+│  - Check by video_id│
+│  - Skip if exists   │
+└─────────────────────┘
+    │ (if new)
     ▼
 ┌─────────────────────┐
 │   YouTubeClient     │
@@ -77,13 +88,13 @@ YouTube URL
 └─────────────────────┘
     │
     ▼
-┌─────────────────────┐
-│ YouTubeContentIngester│
-│  - Chunk transcript │
-│  - Generate embeddings│
-│  - Store in MongoDB │
-│  - Store in Graphiti│
-└─────────────────────┘
+┌─────────────────────────┐
+│ ContentIngestionService │
+│  - Chunk transcript     │
+│  - Generate embeddings  │
+│  - Store in MongoDB     │
+│  - Create Graphiti eps  │
+└─────────────────────────┘
 ```
 
 ## Storage Schema
@@ -138,6 +149,23 @@ Ingest a YouTube video into the knowledge base.
 - `chunk_size`: Chunk size for splitting (default: 1000)
 - `chunk_overlap`: Chunk overlap (default: 200)
 - `preferred_language`: Preferred transcript language
+- `skip_duplicates`: Skip if video already exists (default: true)
+- `force_reindex`: Delete existing and re-ingest (default: false)
+
+**Duplicate Detection:**
+The tool detects duplicates by video ID (not full URL), so all these variations are recognized as the same video:
+- `https://www.youtube.com/watch?v=VIDEO_ID`
+- `https://youtu.be/VIDEO_ID`
+- `https://www.youtube.com/watch?v=VIDEO_ID&t=120` (timestamp)
+- `https://www.youtube.com/watch?v=VIDEO_ID&list=PLxxx` (playlist)
+- `https://www.youtube.com/watch?v=VIDEO_ID&si=abc123` (share tracking)
+- `https://m.youtube.com/watch?v=VIDEO_ID` (mobile)
+- `https://www.youtube.com/embed/VIDEO_ID` (embed)
+
+When a duplicate is detected:
+- `skip_duplicates=true` (default): Returns existing document ID with `skipped=true`
+- `skip_duplicates=false`: Creates a new document (allows duplicates)
+- `force_reindex=true`: Deletes existing document and re-ingests
 
 ### `get_youtube_metadata`
 Get video metadata without ingesting.
@@ -221,11 +249,11 @@ All errors are captured and returned in the response's `errors` array.
 
 ```bash
 # Find YouTube RAG files
-rg -l "youtube" 04-lambda/server/projects/youtube_rag/
+rg -l "youtube" 04-lambda/src/workflows/ingestion/youtube_rag/
 
 # Find MCP tool registration
-rg -n "ingest_youtube_video" 04-lambda/server/mcp/
+rg -n "ingest_youtube_video" 04-lambda/src/mcp_server/
 
 # Find entity extraction
-rg -n "extract_entities" 04-lambda/server/projects/youtube_rag/
+rg -n "extract_entities" 04-lambda/src/workflows/ingestion/youtube_rag/
 ```

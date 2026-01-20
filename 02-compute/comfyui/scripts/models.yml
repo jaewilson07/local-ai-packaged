@@ -1,14 +1,19 @@
 # ComfyUI Model Configuration
 # This file defines which models to download automatically on first startup
 # Models are organized by category matching ComfyUI's directory structure
+# Auto-updated by scan-workflows.py
 
 checkpoints:
   - name: v1-5-pruned-emaonly.ckpt
     url: https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt
     description: Stable Diffusion 1.5
-  - name: v2-1_768-ema-pruned.ckpt
-    url: https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.ckpt
-    description: Stable Diffusion 2.1
+  - name: v1-5-pruned-emaonly.safetensors
+    url: https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors
+    description: Stable Diffusion 1.5 (safetensors format)
+  # Note: SD 2.1 requires HuggingFace token (gated model) - download manually or set HF_TOKEN
+  # - name: v2-1_768-ema-pruned.ckpt
+  #   url: https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.ckpt
+  #   description: Stable Diffusion 2.1 (requires HF token)
   - name: sd_xl_base_1.0.safetensors
     url: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
     description: Stable Diffusion XL base
@@ -20,14 +25,56 @@ vae:
   - name: vae-ft-mse-840000-ema-pruned.safetensors
     url: https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors
     description: VAE for better image quality
+  - name: ae.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors
+    description: Z-Image-Turbo VAE (AE) - ~320 MB
 
-# Uncomment and add models as needed
-# loras:
-#   - name: example-lora.safetensors
-#     url: https://example.com/path/to/model.safetensors
-#     description: Example LoRA model
+unet:
+  - name: z_image_turbo-Q8_0.gguf
+    url: https://huggingface.co/city96/z-image-turbo-gguf/resolve/main/z_image_turbo-Q8_0.gguf
+    description: Z-Image-Turbo GGUF UNET model - ~6.8 GB
+  - name: flux1-dev.safetensors
+    url: https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors
+    description: FLUX.1 Dev (requires HF token)
+  - name: z_image_turbo_bf16.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/z_image_turbo_bf16.safetensors
+    description: Z-Image-Turbo BF16 diffusion model
 
-# upscale_models:
-#   - name: example-upscaler.pth
-#     url: https://example.com/path/to/upscaler.pth
-#     description: Example upscaler model
+clip:
+  # Using official Qwen repo (public) instead of bartowski (requires HF auth)
+  - name: Qwen3-4B-Q6_K.gguf
+    url: https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q6_K.gguf
+    description: Qwen3 4B GGUF CLIP encoder for Z-Image-Turbo - ~3.1 GB (public)
+  - name: t5xxl_fp16.safetensors
+    url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+    description: T5-XXL FP16 text encoder for FLUX
+  - name: clip_l.safetensors
+    url: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
+    description: CLIP-L text encoder for FLUX
+  - name: qwen_3_4b.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors
+    description: Qwen3 4B text encoder for Z-Image-Turbo
+
+loras:
+  # Z-Image-Turbo Compatible LoRAs (from HuggingFace - no auth required)
+  # NOTE: SDXL LoRAs are NOT compatible with Z-Image-Turbo - different architecture
+
+  - name: z_image_turbo_realism.safetensors
+    url: https://huggingface.co/suayptalha/Z-Image-Turbo-Realism-LoRA/resolve/main/pytorch_lora_weights.safetensors
+    description: Z-Image-Turbo Realism LoRA - ultra-realistic photos (trigger "Realism", strength 0.6-0.9)
+    base_model: Z-Image-Turbo
+
+  - name: z_image_turbo_dejpeg_v3.safetensors
+    url: https://huggingface.co/wcde/Z-Image-Turbo-DeJPEG-Lora/resolve/main/dejpeg_v3.safetensors
+    description: Z-Image-Turbo DeJPEG v3 - removes JPEG artifacts, enhances detail (strength 0.5-1.0)
+    base_model: Z-Image-Turbo
+
+  - name: z_image_turbo_classic_painting.safetensors
+    url: https://huggingface.co/renderartist/Classic-Painting-Z-Image-Turbo-LoRA/resolve/main/Classic_Painting_Z_Image_Turbo_v1_renderartist_1750.safetensors
+    description: Z-Image-Turbo Classic Painting style - artistic oil painting look
+    base_model: Z-Image-Turbo
+
+model_patches:
+  - name: Z-Image-Turbo-Fun-Controlnet-Union.safetensors
+    url: https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/z_image_turbo_fun_controlnet_union.safetensors
+    description: Z-Image-Turbo Fun ControlNet Union model

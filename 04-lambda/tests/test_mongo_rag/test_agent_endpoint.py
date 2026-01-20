@@ -3,9 +3,8 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from capabilities.retrieval.mongo_rag.router import get_agent_deps
 from fastapi.testclient import TestClient
-
-from server.api.mongo_rag import get_agent_deps
 from server.main import app
 from server.projects.mongo_rag.agent import rag_agent
 
@@ -56,7 +55,7 @@ def sample_search_results():
 
 def test_agent_endpoint_simple_query(client, mock_agent_run, mock_agent_dependencies):
     """Test agent endpoint with a simple query."""
-    from server.api.mongo_rag import get_agent_deps
+    from capabilities.retrieval.mongo_rag.router import get_agent_deps
 
     # Override the dependency using FastAPI's dependency_overrides
     async def override_get_agent_deps():

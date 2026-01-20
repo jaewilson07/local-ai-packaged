@@ -2,6 +2,10 @@
 
 > AI-augmented, crowdsourced knowledge refinement system.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Project Overview
 
 The Knowledge Base project provides an interactive system for collaborative knowledge management:
@@ -33,10 +37,10 @@ MongoDB (knowledge_base database)
 ## Key Files
 
 ### Lambda API
-- `server/api/knowledge_base.py` - REST API endpoints
-- `server/projects/knowledge_base/models.py` - Pydantic models
-- `server/projects/knowledge_base/config.py` - Configuration
-- `server/projects/knowledge_base/services/` - Service layer
+- `src/server/api/knowledge_base.py` - REST API endpoints
+- `src/capabilities/knowledge_graph/knowledge_base/models.py` - Pydantic models
+- `src/capabilities/knowledge_graph/knowledge_base/config.py` - Configuration
+- `src/capabilities/knowledge_graph/knowledge_base/services/` - Service layer
 
 ### Gradio UI
 - `03-apps/gradio-kb/app.py` - Main Gradio application

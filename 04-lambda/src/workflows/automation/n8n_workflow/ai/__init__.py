@@ -1,6 +1,9 @@
-"""AI components for N8n workflow automation."""
+"""AI components for N8n workflow automation.
 
-from workflows.automation.n8n_workflow.ai.agent import N8nState, n8n_agent
-from workflows.automation.n8n_workflow.ai.dependencies import N8nDeps
+IMPORTANT: To avoid circular imports, import directly from submodules:
+    - from workflows.automation.n8n_workflow.ai.agent import n8n_agent, N8nState
+    - from workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
+"""
 
-__all__ = ["N8nDeps", "N8nState", "n8n_agent"]
+# Don't re-export - let consumers import directly from submodules
+__all__: list[str] = []

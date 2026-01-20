@@ -3,15 +3,16 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic_ai import RunContext
-from src.capabilities.processing.openwebui_topics.dependencies import OpenWebUITopicsDeps
-from src.capabilities.processing.openwebui_topics.models import (
+from capabilities.processing.openwebui_topics.dependencies import OpenWebUITopicsDeps
+from capabilities.processing.openwebui_topics.models import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )
-from src.capabilities.processing.openwebui_topics.tools import classify_topics
-from src.shared.dependency_factory import create_dependency_factory
+from capabilities.processing.openwebui_topics.tools import classify_topics
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic_ai import RunContext
+
+from shared.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

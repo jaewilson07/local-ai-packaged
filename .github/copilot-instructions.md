@@ -206,5 +206,6 @@ cloudflare_email = get_cloudflare_email()  # From .env file
 
 - **Root**: `AGENTS.md` (Universal Constitution - source of truth)
 - **Stack-level**: Each stack has `AGENTS.md` with stack-specific rules
-- **Lambda projects**: `04-lambda/server/projects/*/AGENTS.md` for project-specific patterns
-- **Auth system**: `04-lambda/server/projects/auth/README.md`
+- **Lambda capabilities**: `04-lambda/src/capabilities/*/AGENTS.md` for capability-specific patterns
+- **Lambda workflows**: `04-lambda/src/workflows/*/AGENTS.md` for workflow-specific patterns
+- **Auth system**: `04-lambda/src/services/auth/README.md`

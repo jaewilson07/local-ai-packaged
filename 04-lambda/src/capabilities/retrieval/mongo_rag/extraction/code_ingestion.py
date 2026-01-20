@@ -6,13 +6,14 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
+from capabilities.retrieval.mongo_rag.config import config
+from capabilities.retrieval.mongo_rag.extraction.code_extractor import extract_code_blocks
+from capabilities.retrieval.mongo_rag.extraction.code_summarizer import (
+    generate_code_example_summary,
+)
+from capabilities.retrieval.mongo_rag.ingestion.chunker import DocumentChunk
+from capabilities.retrieval.mongo_rag.ingestion.embedder import create_embedder
 from pymongo import AsyncMongoClient
-
-from server.projects.mongo_rag.config import config
-from server.projects.mongo_rag.extraction.code_extractor import extract_code_blocks
-from server.projects.mongo_rag.extraction.code_summarizer import generate_code_example_summary
-from server.projects.mongo_rag.ingestion.chunker import DocumentChunk
-from server.projects.mongo_rag.ingestion.embedder import create_embedder
 
 logger = logging.getLogger(__name__)
 

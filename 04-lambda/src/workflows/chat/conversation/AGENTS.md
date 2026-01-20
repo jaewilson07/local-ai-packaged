@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Conversation Orchestration project provides a unified interface for coordinating multiple AI agents and tools to deliver context-aware, personalized responses. It acts as the central orchestrator that plans responses, coordinates memory retrieval, knowledge search, persona voice instructions, and calendar operations to create natural, coherent conversations.
@@ -23,7 +27,7 @@ The Conversation Orchestration project provides a unified interface for coordina
 ## Component Identity
 
 - **Project**: `conversation`
-- **Location**: `04-lambda/server/projects/conversation/`
+- **Location**: `04-lambda/src/conversation/`
 - **Purpose**: Multi-agent conversation orchestration coordinating persona, memory, knowledge, and calendar systems
 - **Dependencies**: Persona project, MongoDB RAG project, Calendar project, Ollama (02-compute)
 - **Agent**: `conversation_agent` (Pydantic AI agent with StateDeps)
@@ -248,13 +252,13 @@ async def orchestrate_conversation_tool(
 **Search Hints:**
 ```bash
 # Find conversation agent tools
-rg -n "@conversation_agent\.tool" 04-lambda/server/projects/conversation/
+rg -n "@conversation_agent\.tool" 04-lambda/src/conversation/
 
 # Find orchestration methods
-rg -n "def (plan_response|generate_response)" 04-lambda/server/projects/conversation/
+rg -n "def (plan_response|generate_response)" 04-lambda/src/conversation/
 
 # Find tool coordination
-rg -n "available_tools|tool_results" 04-lambda/server/projects/conversation/
+rg -n "available_tools|tool_results" 04-lambda/src/conversation/
 ```
 
 ## Testing & Validation
@@ -287,7 +291,7 @@ curl -X POST http://lambda-server:8000/api/v1/conversation/orchestrate \
 - **Calendar Project**: Uses calendar event tools when needed
 - **Ollama**: LLM for planning and response generation (`ollama:11434`)
 - **REST API**: Endpoints in `server/api/conversation.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 
 ## Configuration
 

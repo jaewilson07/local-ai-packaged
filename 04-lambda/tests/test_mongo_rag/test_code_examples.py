@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from server.projects.mongo_rag.tools_code import search_code_examples
+
 from tests.conftest import MockRunContext
 
 

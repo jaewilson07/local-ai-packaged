@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from bson import ObjectId
-
 from server.projects.deep_research.models import QueryKnowledgeRequest
 from server.projects.deep_research.tools import query_knowledge
 

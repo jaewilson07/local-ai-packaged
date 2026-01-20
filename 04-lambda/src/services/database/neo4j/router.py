@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from .client import Neo4jClient
 
-router = APIRouter(prefix="/neo4j", tags=["Infrastructure"])
+router = APIRouter(prefix="/api/v1/data/neo4j", tags=["data", "neo4j"])
 logger = logging.getLogger(__name__)
 
 

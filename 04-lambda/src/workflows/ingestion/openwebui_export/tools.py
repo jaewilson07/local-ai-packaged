@@ -1,247 +1,182 @@
-"""Core capability functions for Open WebUI export operations."""
+"""OpenWebUI export tools for Pydantic AI agents.
+
+This module provides tools for exporting Open WebUI conversations
+to MongoDB RAG.
+"""
 
 import logging
-from datetime import datetime
 from typing import Any
-
-from pydantic_ai import RunContext
-
-from server.projects.mongo_rag.ingestion.chunker import ChunkingConfig, create_chunker
-from server.projects.mongo_rag.ingestion.embedder import create_embedder
-from server.projects.openwebui_export.config import config
-from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
-from server.projects.openwebui_export.models import ConversationExportRequest, ConversationMessage
 
 logger = logging.getLogger(__name__)
 
 
-def _format_conversation_text(messages: list[ConversationMessage]) -> str:
-    """
-    Format conversation messages into a single text document.
-
-    Args:
-        messages: List of conversation messages
-
-    Returns:
-        Formatted text string
-    """
-    formatted_parts = []
-    for msg in messages:
-        role = msg.role.capitalize()
-        content = msg.content.strip()
-        formatted_parts.append(f"{role}: {content}\n")
-    return "\n".join(formatted_parts)
-
-
-async def export_conversation(
-    ctx: RunContext[OpenWebUIExportDeps], request: ConversationExportRequest
-) -> dict[str, Any]:
-    """
-    Export a conversation to MongoDB RAG system.
-
-    Args:
-        ctx: Agent runtime context with dependencies
-        request: Conversation export request
-
-    Returns:
-        Dictionary with export results
-    """
-    deps = ctx.deps
-    if not deps.mongo_client:
-        await deps.initialize()
-
-    try:
-        # Initialize chunker and embedder
-        chunker_config = ChunkingConfig(
-            chunk_size=config.chunk_size,
-            chunk_overlap=config.chunk_overlap,
-            max_chunk_size=config.chunk_size * 2,
-            max_tokens=512,
-        )
-        chunker = create_chunker(chunker_config)
-        embedder = create_embedder()
-
-        # Format conversation as text
-        conversation_text = _format_conversation_text(request.messages)
-
-        # Create document metadata
-        document_metadata = {
-            "source": "openwebui_conversation",
-            "conversation_id": request.conversation_id,
-            "user_id": request.user_id,
-            "title": request.title or f"Conversation {request.conversation_id}",
-            "topics": request.topics or [],
-            "message_count": len(request.messages),
-            "exported_at": datetime.utcnow().isoformat(),
-            **request.metadata,
-        }
-
-        # Chunk the conversation
-        chunks = await chunker.chunk_document(
-            content=conversation_text,
-            title=document_metadata["title"],
-            source="openwebui_conversation",
-            metadata=document_metadata,
-        )
-        logger.info(f"Created {len(chunks)} chunks from conversation {request.conversation_id}")
-
-        # Generate embeddings for chunks
-        chunk_texts = [chunk.content for chunk in chunks]
-        embeddings = await embedder.embed_batch(chunk_texts)
-
-        # Create document record
-        document = {
-            "title": document_metadata["title"],
-            "source": "openwebui_conversation",
-            "content": conversation_text,
-            "metadata": document_metadata,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-        }
-
-        # Insert document
-        db = deps.db
-        documents_collection = db[config.mongodb_collection_documents]
-        document_result = await documents_collection.insert_one(document)
-        document_id = str(document_result.inserted_id)
-
-        # Insert chunks with embeddings
-        chunks_collection = db[config.mongodb_collection_chunks]
-        chunk_documents = []
-
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
-            chunk_doc = {
-                "document_id": document_result.inserted_id,
-                "chunk_number": i,
-                "content": chunk.content,
-                "embedding": embedding,
-                "metadata": {
-                    **document_metadata,
-                    **chunk.metadata,
-                    "chunk_index": i,
-                    "chunk_start": chunk.start_char,
-                    "chunk_end": chunk.end_char,
-                },
-                "created_at": datetime.utcnow(),
-            }
-            chunk_documents.append(chunk_doc)
-
-        if chunk_documents:
-            await chunks_collection.insert_many(chunk_documents)
-
-        logger.info(
-            f"Exported conversation {request.conversation_id} to RAG: "
-            f"document_id={document_id}, chunks={len(chunks)}"
-        )
-
-        return {
-            "success": True,
-            "conversation_id": request.conversation_id,
-            "document_id": document_id,
-            "chunks_created": len(chunks),
-            "message": "Conversation exported successfully",
-            "errors": [],
-        }
-
-    except Exception as e:
-        logger.exception("Failed to export conversation {request.conversation_id}")
-        return {
-            "success": False,
-            "conversation_id": request.conversation_id,
-            "document_id": None,
-            "chunks_created": 0,
-            "message": f"Export failed: {e!s}",
-            "errors": [str(e)],
-        }
+def _get_deps(ctx: Any):
+    """Extract dependencies from context."""
+    deps = getattr(ctx, "deps", ctx)
+    if hasattr(deps, "_deps"):
+        deps = deps._deps
+    return deps
 
 
 async def get_conversations(
-    ctx: RunContext[OpenWebUIExportDeps],
-    user_id: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
-) -> dict[str, Any]:
+    ctx: Any,
+    limit: int = 20,
+    skip: int = 0,
+) -> str:
     """
-    Get list of conversations from Open WebUI.
+    Get a list of conversations from Open WebUI.
 
     Args:
-        ctx: Agent runtime context with dependencies
-        user_id: Filter by user ID (optional)
+        ctx: Context with dependencies
         limit: Maximum number of conversations to return
-        offset: Offset for pagination
+        skip: Number of conversations to skip
 
     Returns:
-        Dictionary with conversations list and metadata
+        String listing conversations
     """
-    deps = ctx.deps
-    if not deps.http_client:
-        await deps.initialize()
+    deps = _get_deps(ctx)
+    http_client = getattr(deps, "http_client", None)
+
+    if not http_client:
+        return "[Not Configured] Open WebUI client not initialized"
 
     try:
-        params = {"limit": limit, "offset": offset}
-        if user_id:
-            params["user_id"] = user_id
-
-        base_url = f"{deps.openwebui_api_url.rstrip('/')}/api/v1"
-        response = await deps.http_client.get(f"{base_url}/conversations", params=params)
+        response = await http_client.get(
+            "/api/v1/chats",
+            params={"limit": limit, "skip": skip},
+        )
         response.raise_for_status()
         data = response.json()
 
-        conversations = data.get("items", [])
+        conversations = data if isinstance(data, list) else data.get("chats", [])
+        if not conversations:
+            return "No conversations found"
 
-        return {
-            "conversations": conversations,
-            "total": len(conversations),
-            "limit": limit,
-            "offset": offset,
-        }
+        lines = [f"Found {len(conversations)} conversation(s):"]
+        for conv in conversations:
+            conv_id = conv.get("id", "unknown")
+            title = conv.get("title", "Untitled")
+            created = conv.get("created_at", "unknown")
+            lines.append(f"  - [{conv_id}] {title} (created: {created})")
+
+        return "\n".join(lines)
+
     except Exception as e:
-        logger.exception("Failed to get conversations")
-        return {"conversations": [], "total": 0, "limit": limit, "offset": offset, "error": str(e)}
+        logger.exception("Error getting conversations")
+        return f"[Error] Failed to get conversations: {e}"
 
 
-async def get_conversation(
-    ctx: RunContext[OpenWebUIExportDeps], conversation_id: str
-) -> dict[str, Any]:
+async def get_conversation(ctx: Any, conversation_id: str) -> str:
     """
-    Get a specific conversation by ID from Open WebUI.
+    Get a single conversation with its messages.
 
     Args:
-        ctx: Agent runtime context with dependencies
-        conversation_id: Conversation ID
+        ctx: Context with dependencies
+        conversation_id: ID of the conversation to retrieve
 
     Returns:
-        Dictionary with conversation data
+        String with conversation details
     """
-    deps = ctx.deps
-    if not deps.http_client:
-        await deps.initialize()
+    deps = _get_deps(ctx)
+    http_client = getattr(deps, "http_client", None)
+
+    if not http_client:
+        return "[Not Configured] Open WebUI client not initialized"
 
     try:
-        base_url = f"{deps.openwebui_api_url.rstrip('/')}/api/v1"
-        response = await deps.http_client.get(f"{base_url}/conversations/{conversation_id}")
+        response = await http_client.get(f"/api/v1/chats/{conversation_id}")
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        title = data.get("title", "Untitled")
+        messages = data.get("chat", {}).get("messages", [])
+
+        lines = [f"Conversation: {title} (ID: {conversation_id})", f"Messages: {len(messages)}"]
+
+        for msg in messages[:10]:  # Limit output
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")[:200]
+            lines.append(f"\n[{role}]: {content}...")
+
+        if len(messages) > 10:
+            lines.append(f"\n... and {len(messages) - 10} more messages")
+
+        return "\n".join(lines)
+
     except Exception as e:
-        logger.exception("Failed to get conversation {conversation_id}")
-        return {"error": str(e)}
+        logger.exception("Error getting conversation")
+        return f"[Error] Failed to get conversation: {e}"
 
 
-async def export_conversations_batch(
-    ctx: RunContext[OpenWebUIExportDeps], requests: list[ConversationExportRequest]
-) -> list[dict[str, Any]]:
+async def export_conversation(
+    ctx: Any,
+    conversation_id: str,
+    include_metadata: bool = True,
+) -> str:
     """
-    Export multiple conversations in batch.
+    Export a conversation to MongoDB RAG.
 
     Args:
-        ctx: Agent runtime context with dependencies
-        requests: List of conversation export requests
+        ctx: Context with dependencies
+        conversation_id: ID of the conversation to export
+        include_metadata: Whether to include conversation metadata
 
     Returns:
-        List of export result dictionaries
+        String confirming export
     """
-    results = []
-    for request in requests:
-        result = await export_conversation(ctx, request)
-        results.append(result)
-    return results
+    deps = _get_deps(ctx)
+    http_client = getattr(deps, "http_client", None)
+    db = getattr(deps, "db", None)
+
+    if not http_client:
+        return "[Not Configured] Open WebUI client not initialized"
+
+    if not db:
+        return "[Not Configured] MongoDB not initialized"
+
+    try:
+        # Get the conversation
+        response = await http_client.get(f"/api/v1/chats/{conversation_id}")
+        response.raise_for_status()
+        data = response.json()
+
+        title = data.get("title", "Untitled")
+        chat = data.get("chat", {})
+        messages = chat.get("messages", [])
+
+        # Build export document
+        export_doc = {
+            "conversation_id": conversation_id,
+            "title": title,
+            "messages": messages,
+            "message_count": len(messages),
+        }
+
+        if include_metadata:
+            export_doc["metadata"] = {
+                "created_at": data.get("created_at"),
+                "updated_at": data.get("updated_at"),
+                "models": chat.get("models", []),
+                "tags": data.get("tags", []),
+            }
+
+        # Store in MongoDB
+        collection = db["openwebui_exports"]
+        await collection.update_one(
+            {"conversation_id": conversation_id},
+            {"$set": export_doc},
+            upsert=True,
+        )
+
+        return f"Exported conversation '{title}' ({len(messages)} messages) to MongoDB"
+
+    except Exception as e:
+        logger.exception("Error exporting conversation")
+        return f"[Error] Failed to export conversation: {e}"
+
+
+__all__ = [
+    "export_conversation",
+    "get_conversation",
+    "get_conversations",
+]

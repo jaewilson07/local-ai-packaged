@@ -4,9 +4,10 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from capabilities.calendar.calendar_sync.config import config
 from pymongo import AsyncMongoClient
-from src.capabilities.calendar.calendar_sync.config import config
-from src.shared.dependencies import BaseDependencies, MongoDBMixin
+
+from shared.dependencies import BaseDependencies, MongoDBMixin
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class CalendarDeps(BaseDependencies, MongoDBMixin):
 
         # Initialize sync service if not already done
         if not self.sync_service and self.db:
-            from src.capabilities.calendar.calendar_sync.services.sync_service import (
+            from capabilities.calendar.calendar_sync.services.sync_service import (
                 CalendarSyncService,
             )
 

@@ -3,29 +3,30 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from src.capabilities.retrieval.ai import RetrievalDeps
-from src.capabilities.retrieval.retrieval_workflow import (
+from capabilities.retrieval.ai import RetrievalDeps
+from capabilities.retrieval.retrieval_workflow import (
     graph_search_workflow,
     vector_search_workflow,
 )
-from src.capabilities.retrieval.schemas import (
+from capabilities.retrieval.schemas import (
     GraphSearchRequest,
     GraphSearchResponse,
     VectorSearchRequest,
     VectorSearchResponse,
 )
-from src.shared.dependency_factory import create_dependency_factory
+from fastapi import APIRouter, Depends, HTTPException
+
+from shared.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/retrieval", tags=["Retrieval"])
+router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities", "retrieval"])
 
 # Use dependency factory to create deps getter (eliminates boilerplate)
 get_retrieval_deps = create_dependency_factory(RetrievalDeps)
 
 
-@router.post("/search/vector", response_model=VectorSearchResponse)
+@router.post("/retrieval/search/vector", response_model=VectorSearchResponse)
 async def vector_search_endpoint(
     request: VectorSearchRequest,
     deps: Annotated[RetrievalDeps, Depends(get_retrieval_deps)],
@@ -66,7 +67,7 @@ async def vector_search_endpoint(
         raise HTTPException(status_code=500, detail=f"Search failed: {e!s}") from e
 
 
-@router.post("/search/graph", response_model=GraphSearchResponse)
+@router.post("/retrieval/search/graph", response_model=GraphSearchResponse)
 async def graph_search_endpoint(
     request: GraphSearchRequest,
     deps: Annotated[RetrievalDeps, Depends(get_retrieval_deps)],

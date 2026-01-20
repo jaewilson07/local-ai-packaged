@@ -4,8 +4,8 @@ import logging
 import re
 from urllib.parse import parse_qs, urlparse
 
-from server.projects.youtube_rag.config import config
-from server.projects.youtube_rag.models import (
+from workflows.ingestion.youtube_rag.config import config
+from workflows.ingestion.youtube_rag.models import (
     TranscriptSegment,
     VideoChapter,
     VideoMetadata,

@@ -75,7 +75,7 @@ python start_services.py --stack compute --profile gpu-nvidia
 
 ```bash
 # Ensure you have Cloudflare credentials in .env
-python 00-infrastructure/docs/cloudflare/setup_tunnel_routes.py
+python 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py
 ```
 
 ## Step 4: Configure Cloudflare Access (Optional but Recommended)
@@ -287,7 +287,6 @@ bash 02-compute/comfyui/scripts/get_auth_token.sh
 
 ## Related Documentation
 
-- [Cloudflare Access Setup](../00-infrastructure/docs/cloudflare/access-setup.md)
-- [ComfyUI Access Implementation](../00-infrastructure/docs/cloudflare/comfyui-access-implementation.md)
-- [Caddy Integration](../00-infrastructure/docs/cloudflare/caddy-integration.md)
-- [Environment Variables](../00-infrastructure/docs/cloudflare/ENV_VARIABLES.md)
+- [cloudflare-access-setup skill](../../../.cursor/skills/cloudflare-access-setup/SKILL.md)
+- [00-infrastructure/AGENTS.md](../../../00-infrastructure/AGENTS.md)
+- [Caddy Configuration](../../../00-infrastructure/caddy/QUICK_REFERENCE.md)

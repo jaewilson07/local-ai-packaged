@@ -3,9 +3,9 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.graphiti_rag.config import config as graphiti_config
 from server.projects.graphiti_rag.tools import validate_ai_script
+
 from tests.conftest import MockRunContext
 
 

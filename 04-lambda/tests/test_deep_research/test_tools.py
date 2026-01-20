@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 from bson import ObjectId
-
 from server.projects.deep_research.models import (
     FetchPageRequest,
     IngestKnowledgeRequest,
@@ -20,6 +19,7 @@ from server.projects.deep_research.tools import (
     query_knowledge,
     search_web,
 )
+
 from tests.conftest import async_iter
 
 # ============================================================================
@@ -34,7 +34,7 @@ async def test_search_web_success(mock_deep_research_deps, sample_search_results
 
     # Mock SearXNG search
     with patch("server.api.searxng.search") as mock_searxng_search:
-        from server.api.searxng import SearXNGSearchResponse, SearXNGSearchResult
+        from services.external.searxng.router import SearXNGSearchResponse, SearXNGSearchResult
 
         mock_searxng_response = SearXNGSearchResponse(
             query="deep research",
@@ -67,7 +67,7 @@ async def test_search_web_empty_query(mock_deep_research_deps):
     request = SearchWebRequest(query="", result_count=5)
 
     with patch("server.api.searxng.search") as mock_searxng_search:
-        from server.api.searxng import SearXNGSearchResponse
+        from services.external.searxng.router import SearXNGSearchResponse
 
         mock_searxng_response = SearXNGSearchResponse(query="", results=[], count=0, success=False)
         mock_searxng_search.return_value = mock_searxng_response
@@ -112,7 +112,7 @@ async def test_search_web_with_limit(mock_deep_research_deps, sample_search_resu
     request = SearchWebRequest(query="deep research", result_count=2)
 
     with patch("server.api.searxng.search") as mock_searxng_search:
-        from server.api.searxng import SearXNGSearchResponse, SearXNGSearchResult
+        from services.external.searxng.router import SearXNGSearchResponse, SearXNGSearchResult
 
         mock_searxng_response = SearXNGSearchResponse(
             query="deep research",
@@ -143,7 +143,7 @@ async def test_search_web_with_engines(mock_deep_research_deps, sample_search_re
     request = SearchWebRequest(query="deep research", result_count=5, engines=["google", "bing"])
 
     with patch("server.api.searxng.search") as mock_searxng_search:
-        from server.api.searxng import SearXNGSearchResponse, SearXNGSearchResult
+        from services.external.searxng.router import SearXNGSearchResponse, SearXNGSearchResult
 
         mock_searxng_response = SearXNGSearchResponse(
             query="deep research",

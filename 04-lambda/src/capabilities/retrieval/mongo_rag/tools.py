@@ -4,15 +4,14 @@ import asyncio
 import logging
 from typing import Any
 
+from capabilities.retrieval.mongo_rag.config import config
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
+from capabilities.retrieval.mongo_rag.reranking.reranker import get_reranker, initialize_reranker
+from capabilities.retrieval.mongo_rag.rls import build_access_filter
 from pydantic import BaseModel, Field
 from pydantic_ai import RunContext
 from pymongo.errors import OperationFailure
-
 from server.core.exceptions import MongoDBException
-from server.projects.mongo_rag.config import config
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.reranking.reranker import get_reranker, initialize_reranker
-from server.projects.mongo_rag.rls import build_access_filter
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +403,7 @@ async def hybrid_search(
         # Import here to avoid circular import
         graphiti_results = []
         if deps.graphiti_deps and deps.graphiti_deps.graphiti:
-            from server.projects.graphiti_rag.search.graph_search import graphiti_search
+            from capabilities.retrieval.graphiti_rag.search.graph_search import graphiti_search
 
             search_tasks.append(graphiti_search(deps.graphiti_deps.graphiti, query, fetch_count))
 

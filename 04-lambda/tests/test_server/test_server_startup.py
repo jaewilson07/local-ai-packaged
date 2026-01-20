@@ -1,7 +1,6 @@
 """Tests for FastAPI server startup and health check."""
 
 from fastapi.testclient import TestClient
-
 from server.main import app
 
 

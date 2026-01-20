@@ -19,20 +19,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-
-from server.projects.graphiti_rag.config import config as graphiti_config
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
-from server.projects.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
-from server.projects.mongo_rag.extraction.code_ingestion import ingest_code_examples
-from server.projects.mongo_rag.ingestion.chunker import (
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
+from capabilities.retrieval.mongo_rag.extraction.code_ingestion import ingest_code_examples
+from capabilities.retrieval.mongo_rag.ingestion.chunker import (
     ChunkingConfig,
     DocumentChunk,
     create_chunker,
 )
-from server.projects.mongo_rag.ingestion.embedder import create_embedder
+from capabilities.retrieval.mongo_rag.ingestion.embedder import create_embedder
+from dotenv import load_dotenv
+from pymongo import AsyncMongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
@@ -93,7 +92,7 @@ class DocumentIngestionPipeline:
         self.user_email = user_email
 
         # Load settings - use RAG config for MongoDB/LLM settings
-        from server.projects.mongo_rag.config import config as rag_config
+        from capabilities.retrieval.mongo_rag.config import config as rag_config
 
         self.settings = rag_config
 

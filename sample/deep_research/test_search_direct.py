@@ -18,12 +18,12 @@ os.environ.setdefault("EMBEDDING_API_KEY", "test-key")
 os.environ.setdefault("SEARXNG_URL", "http://searxng:8080")
 
 # Add the lambda directory to the path
-lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../04-lambda"))
+lambda_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../04-lambda/src"))
 sys.path.insert(0, lambda_dir)
 
-from server.projects.deep_research.dependencies import DeepResearchDeps  # noqa: E402
-from server.projects.deep_research.models import SearchWebRequest  # noqa: E402
-from server.projects.deep_research.tools import search_web  # noqa: E402
+from workflows.research.deep_research.ai.dependencies import DeepResearchDeps  # noqa: E402
+from workflows.research.deep_research.models import SearchWebRequest  # noqa: E402
+from workflows.research.deep_research.tools import search_web  # noqa: E402
 
 
 async def test_search():

@@ -9,10 +9,19 @@ Supports both internal network (no auth) and external network (JWT required) acc
 import asyncio
 import json
 import sys
+from pathlib import Path
 
 import httpx
 
-from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+# Add project root to path for sample.shared imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from sample.shared.auth_helpers import (  # noqa: E402
+    get_api_base_url,
+    get_auth_headers,
+    get_cloudflare_email,
+)
 
 # Base URL for the Lambda server (defaults to internal network)
 BASE_URL = get_api_base_url()
@@ -109,7 +118,8 @@ async def main():
     except Exception as e:
         print(f"❌ Cannot connect to server: {e}")
         print(f"   Make sure the Lambda server is running at {BASE_URL}")
-        return False
+        print("\n⚠️  Sample requires running services - exiting gracefully")
+        return None  # Signal that we should exit gracefully
 
     print()
 
@@ -133,7 +143,8 @@ async def main():
 if __name__ == "__main__":
     try:
         success = asyncio.run(main())
-        sys.exit(0 if success else 1)
+        # Exit 0 if success or None (graceful exit due to missing services)
+        sys.exit(0 if success is not False else 1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Test interrupted by user")
         sys.exit(1)

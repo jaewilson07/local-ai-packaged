@@ -30,7 +30,7 @@ The event extraction tool from wandering-athena extracts event information from 
 
 ### Existing Systems
 
-- **Crawl4AI RAG** (`04-lambda/server/projects/crawl4ai_rag/`)
+- **Crawl4AI RAG** (`04-lambda/src/workflows/ingestion/crawl4ai_rag/`)
   - Web crawling capabilities via MCP
   - No event extraction
 
@@ -140,12 +140,12 @@ def _extract_event_info(self, content, url):
 
 ### With Existing Services
 
-1. **Crawl4AI RAG** (`04-lambda/server/projects/crawl4ai_rag/`)
+1. **Crawl4AI RAG** (`04-lambda/src/workflows/ingestion/crawl4ai_rag/`)
    - Can add event extraction after crawling
    - Can use crawled content for extraction
    - Can integrate with knowledge base
 
-2. **Knowledge RAG Systems** (`04-lambda/server/projects/mongo_rag/`, `graphiti_rag/`)
+2. **Knowledge RAG Systems** (`04-lambda/src/capabilities/retrieval/mongo_rag/`, `graphiti_rag/`)
    - Can add event extraction tool
    - Can store events in knowledge base
    - Can search for events

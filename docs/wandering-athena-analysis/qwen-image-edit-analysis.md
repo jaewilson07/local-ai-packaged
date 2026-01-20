@@ -72,7 +72,7 @@ The Qwen Image Edit service from wandering-athena provides a RunPod serverless h
 
 ### Option 2: Add as Lambda Project
 
-**Approach**: Create new project in `04-lambda/server/projects/qwen_image_edit/`
+**Approach**: Create new project in `04-lambda/src/capabilities/image/qwen_image_edit/`
 
 **Pros**:
 - Matches wandering-athena pattern
@@ -86,10 +86,10 @@ The Qwen Image Edit service from wandering-athena provides a RunPod serverless h
 - Additional dependencies
 
 **Implementation Steps**:
-1. Create `04-lambda/server/projects/qwen_image_edit/` directory
+1. Create `04-lambda/src/capabilities/image/qwen_image_edit/` directory
 2. Implement service using Diffusers (similar to wandering-athena)
 3. Add REST API endpoints in `04-lambda/server/api/`
-4. Add MCP tools in `04-lambda/server/mcp/`
+4. Add MCP tools in `04-lambda/src/mcp_server/`
 5. Add Docker Compose service (if needed) or use existing GPU resources
 
 ### Option 3: Hybrid Approach
@@ -182,7 +182,7 @@ output = pipeline(
 ## Recommended Approach
 
 **Phase 1**: Add as Lambda project with local GPU support
-- Create `04-lambda/server/projects/qwen_image_edit/`
+- Create `04-lambda/src/capabilities/image/qwen_image_edit/`
 - Implement service class
 - Add REST API endpoints
 - Add MCP tools

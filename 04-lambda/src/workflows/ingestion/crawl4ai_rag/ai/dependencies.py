@@ -8,9 +8,11 @@ from typing import Any
 import openai
 from crawl4ai import AsyncWebCrawler, BrowserConfig
 from pymongo import AsyncMongoClient
-from src.shared.constants import CrawlingDefaults
-from src.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
-from src.workflows.ingestion.crawl4ai_rag.config import config
+from workflows.ingestion.crawl4ai_rag.config import config
+
+# Import directly from submodules to avoid circular imports
+from shared.constants import CrawlingDefaults
+from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

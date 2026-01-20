@@ -124,7 +124,18 @@ class BaseCapability(ABC):
 | `echo` | 50 | Responds to @mentions with echo |
 | `character_commands` | 65 | Character management slash commands (/add_character, /remove_character, etc.) |
 | `character_mention` | 60 | AI character responses when mentioned by name (requires: character_commands) |
-| `upload` | 100 | Uploads media to Immich, includes `/claim_face` command |
+| `upload` | 100 | Uploads media to Immich, includes `/claim_face` and `/link_discord` commands |
+
+**Slash Commands** (registered by capabilities):
+| Command | Capability | Description |
+|---------|-----------|-------------|
+| `/claim_face` | upload | Link Discord user to Immich person for face recognition |
+| `/link_discord` | upload | Link Discord account to datacrew.space for personal Immich uploads |
+| `/add_character` | character_commands | Add an AI character to a channel |
+| `/remove_character` | character_commands | Remove an AI character from a channel |
+| `/list_characters` | character_commands | List AI characters in current channel |
+| `/clear_history` | character_commands | Clear character conversation history |
+| `/query_knowledge` | character_commands | Query the knowledge base |
 
 **Deprecated Capabilities**:
 | Name | Status | Replacement |
@@ -139,6 +150,27 @@ class BaseCapability(ABC):
 **Configuration**: Via `ENABLED_CAPABILITIES` env var or Lambda API `/admin/discord/config`
 
 **Note**: When `character` is specified in `ENABLED_CAPABILITIES`, it automatically loads `character_commands`, `character_mention`, and registers `CharacterEngagementAgent`.
+
+### Lambda API Integration
+
+The Discord bot authenticates with the Lambda API for user-specific features (e.g., personal Immich uploads).
+
+**Authentication Methods** (in priority order):
+1. **Bearer Token** (`LAMBDA_API_TOKEN`): Preferred for production. Generate via `POST /api/v1/auth/me/token` after Cloudflare Access authentication.
+2. **Internal Network** (`X-User-Email` header): Works automatically when bot runs within Docker `ai-network`.
+
+**Environment Variables**:
+| Variable | Description |
+|----------|-------------|
+| `LAMBDA_API_URL` | Lambda server URL (default: `http://lambda-server:8000`) |
+| `LAMBDA_API_TOKEN` | API token for authenticated requests (recommended for production) |
+| `CLOUDFLARE_EMAIL` | Fallback email for internal network auth |
+
+**Key API Endpoints Used**:
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/v1/auth/me/discord/link` | Link Discord account to Cloudflare user |
+| `GET /api/v1/auth/user/by-discord/{id}` | Lookup user by Discord ID for Immich API key |
 
 ### Agents (`bot/agents/`)
 
@@ -297,7 +329,7 @@ All nodes require selecting the Ollama credential you created. The credential st
 
 **Available Models** (from Ollama service):
 - Chat: `qwen2.5:7b-instruct-q4_K_M`, `llama3.1:latest`, etc.
-- Embeddings: `nomic-embed-text:latest`
+- Embeddings: `qwen3-embedding:4b`
 
 **Troubleshooting**:
 - If connection fails, verify both `n8n` and `ollama` containers are running: `docker ps | grep -E "n8n|ollama"`

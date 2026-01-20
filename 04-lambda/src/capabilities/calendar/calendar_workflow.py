@@ -1,8 +1,7 @@
 """Calendar workflow - orchestration for event scheduling and sync."""
 
-from pydantic_ai import RunContext
-from src.capabilities.calendar.ai import CalendarDeps
-from src.capabilities.calendar.schemas import (
+from capabilities.calendar.ai.dependencies import CalendarDeps
+from capabilities.calendar.schemas import (
     CalendarEventResponse,
     CalendarEventsListResponse,
     CreateCalendarEventRequest,
@@ -10,6 +9,7 @@ from src.capabilities.calendar.schemas import (
     ListCalendarEventsRequest,
     UpdateCalendarEventRequest,
 )
+from pydantic_ai import RunContext
 
 
 async def create_event_workflow(
@@ -31,7 +31,7 @@ async def create_event_workflow(
 
     await deps.initialize()
     try:
-        from src.capabilities.calendar.calendar_sync.tools import create_event
+        from capabilities.calendar.calendar_sync.tools import create_event
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await create_event(ctx, request)
@@ -59,7 +59,7 @@ async def update_event_workflow(
 
     await deps.initialize()
     try:
-        from src.capabilities.calendar.calendar_sync.tools import update_event
+        from capabilities.calendar.calendar_sync.tools import update_event
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await update_event(ctx, request)
@@ -87,7 +87,7 @@ async def delete_event_workflow(
 
     await deps.initialize()
     try:
-        from src.capabilities.calendar.calendar_sync.tools import delete_event
+        from capabilities.calendar.calendar_sync.tools import delete_event
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await delete_event(ctx, request)
@@ -115,7 +115,7 @@ async def list_events_workflow(
 
     await deps.initialize()
     try:
-        from src.capabilities.calendar.calendar_sync.tools import list_events
+        from capabilities.calendar.calendar_sync.tools import list_events
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await list_events(ctx, request)

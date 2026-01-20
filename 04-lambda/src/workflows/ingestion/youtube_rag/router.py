@@ -3,20 +3,20 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from src.server.core.error_handling import handle_project_errors
-from src.services.auth.dependencies import get_current_user
-from src.services.auth.models import User
-from src.workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
-from src.workflows.ingestion.youtube_rag.models import (
+from server.core.error_handling import handle_project_errors
+from services.auth.dependencies import get_current_user
+from services.auth.models import User
+from workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
+from workflows.ingestion.youtube_rag.models import (
     GetYouTubeMetadataRequest,
     GetYouTubeMetadataResponse,
     IngestYouTubeRequest,
     IngestYouTubeResponse,
 )
-from src.workflows.ingestion.youtube_rag.tools import (
+from workflows.ingestion.youtube_rag.tools import (
     get_youtube_metadata as get_metadata_tool,
 )
-from src.workflows.ingestion.youtube_rag.tools import (
+from workflows.ingestion.youtube_rag.tools import (
     ingest_youtube_video as ingest_tool,
 )
 

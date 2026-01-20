@@ -167,6 +167,19 @@ def load_capabilities(
         else:
             logger.warning("Character capability enabled but LAMBDA_API_URL not configured")
 
+    if "selfie_generation" in enabled:
+        from bot.capabilities.selfie_generation import SelfieGenerationCapability
+
+        # Use shared API client for selfie generation
+        api_client = get_shared_api_client()
+        if api_client:
+            selfie_settings = capability_settings.get("selfie_generation", {})
+            capability_registry.register(
+                SelfieGenerationCapability(client, api_client, settings=selfie_settings)
+            )
+        else:
+            logger.warning("Selfie generation capability enabled but LAMBDA_API_URL not configured")
+
     logger.info(f"Loaded {len(capability_registry.capabilities)} capabilities")
 
     # Validate dependencies

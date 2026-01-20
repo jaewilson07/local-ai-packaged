@@ -5,6 +5,7 @@ description = "FastAPI multi-project server with MCP support"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
+    "markdownify",
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.17",
     "pydantic>=2.10.0",

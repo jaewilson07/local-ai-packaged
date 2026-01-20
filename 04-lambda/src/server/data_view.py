@@ -9,10 +9,12 @@ from pydantic import BaseModel
 from pymongo import AsyncMongoClient
 from services.auth.config import config
 from services.auth.dependencies import User, get_current_user
-from src.services.auth.services.auth_service import AuthService
-from src.services.database.neo4j import Neo4jClient
-from src.services.database.supabase import SupabaseClient, SupabaseConfig
-from src.services.storage.minio import MinIOClient, MinIOConfig
+from services.auth.services.auth_service import AuthService
+from services.auth.services.minio_service import MinIOService
+from services.auth.services.supabase_service import SupabaseService
+from services.database.neo4j import Neo4jClient
+from services.database.supabase import SupabaseClient, SupabaseConfig
+from services.storage.minio import MinIOClient, MinIOConfig
 
 from server.config import settings
 

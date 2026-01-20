@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 
-from src.services.storage.minio import MinIOClient, MinIOConfig
+from services.storage.minio import MinIOClient, MinIOConfig
 
 from shared.dependencies import BaseDependencies
 

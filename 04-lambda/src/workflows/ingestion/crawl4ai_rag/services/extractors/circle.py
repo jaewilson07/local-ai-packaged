@@ -8,7 +8,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from server.projects.crawl4ai_rag.services.extractors.base import (
+from workflows.ingestion.crawl4ai_rag.services.extractors.base import (
     ArticleContent,
     ArticleExtractor,
     TableExtractor,

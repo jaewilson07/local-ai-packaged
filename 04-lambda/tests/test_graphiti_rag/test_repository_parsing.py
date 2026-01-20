@@ -3,9 +3,9 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from server.projects.graphiti_rag.config import config as graphiti_config
 from server.projects.graphiti_rag.tools import parse_github_repository
+
 from tests.conftest import MockRunContext
 
 

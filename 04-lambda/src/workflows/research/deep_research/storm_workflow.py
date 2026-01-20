@@ -3,9 +3,9 @@
 import logging
 import uuid
 
-from server.projects.deep_research.dependencies import DeepResearchDeps
-from server.projects.deep_research.orchestrator import get_research_graph
-from server.projects.deep_research.state import ResearchState
+from workflows.research.deep_research.dependencies import DeepResearchDeps
+from workflows.research.deep_research.orchestrator import get_research_graph
+from workflows.research.deep_research.state import ResearchState
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ async def run_storm_research(
 
         # Store deps in module-level variable for nodes to access
         # LangGraph nodes don't support dependency injection directly
-        import server.projects.deep_research.orchestrator as orchestrator_module
+        import workflows.research.deep_research.orchestrator as orchestrator_module
 
         orchestrator_module._current_deps = deps
 

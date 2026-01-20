@@ -36,7 +36,7 @@ x-ollama: &service-ollama
   networks:
     - default
   healthcheck:
-    test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/11434' || exit 1"]
+    test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/127.0.0.1/11434' || exit 1"]
     <<: *healthcheck-http
 
 x-init-ollama: &init-ollama
@@ -47,7 +47,7 @@ x-init-ollama: &init-ollama
   entrypoint: /bin/sh
   command:
     - "-c"
-    - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull qwen2.5:7b-instruct-q4_K_M; OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text"
+    - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull qwen2.5:7b-instruct-q4_K_M; OLLAMA_HOST=ollama:11434 ollama pull qwen3-embedding:4b"
   networks:
     - default
 
@@ -56,8 +56,11 @@ x-comfyui: &service-comfyui
   container_name: comfyui
   restart: unless-stopped
   pull_policy: always
+  user: "${COMFYUI_UID:-1024}:${COMFYUI_GID:-1024}"
   expose:
     - 8188/tcp
+  env_file:
+    - ../.env
   environment:
     - BASE_DIRECTORY=/basedir
     - SECURITY_LEVEL=normal
@@ -71,26 +74,38 @@ x-comfyui: &service-comfyui
   networks:
     - default
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:8188/"]
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:8188/"]
     <<: *healthcheck-slow
 
 x-init-comfyui-fix-perms: &init-comfyui-fix-perms
   image: mmartial/comfyui-nvidia-docker:latest
   container_name: comfyui-fix-perms
   user: root
+  env_file:
+    - ../.env
   volumes:
     - ../02-compute/comfyui/data:/comfy/mnt
     - ../02-compute/comfyui/data/basedir:/basedir
   entrypoint: /bin/sh
   command:
     - "-c"
-    - "chown -R 1024:1024 /comfy/mnt /basedir 2>/dev/null || true; exit 0"
+    - |
+      # Ensure output and temp directories exist and are writable
+      mkdir -p /basedir/output /basedir/temp /basedir/input /basedir/user
+      # Set ownership to ComfyUI container user (1024 is the container's required UID)
+      chown -R ${COMFYUI_UID:-1024}:${COMFYUI_GID:-1024} /comfy/mnt /basedir 2>/dev/null || true
+      # Ensure directories are group-writable as fallback
+      chmod -R 775 /basedir/output /basedir/temp 2>/dev/null || true
+      exit 0
   networks:
     - default
 
 x-init-comfyui: &init-comfyui
   image: mmartial/comfyui-nvidia-docker:latest
   container_name: comfyui-provision
+  user: "${COMFYUI_UID:-1024}:${COMFYUI_GID:-1024}"
+  env_file:
+    - ../.env
   volumes:
     - ../02-compute/comfyui/data:/comfy/mnt
     - ../02-compute/comfyui/data/basedir:/basedir

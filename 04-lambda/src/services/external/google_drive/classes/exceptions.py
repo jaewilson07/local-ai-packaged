@@ -40,10 +40,10 @@ class GoogleDriveFolderResolutionError(GoogleDriveException):
 
 
 __all__ = [
-    "GoogleDriveException",
     "GoogleDriveAuthError",
-    "GoogleDriveNotFoundError",
+    "GoogleDriveException",
     "GoogleDriveExportError",
-    "GoogleDriveSearchError",
     "GoogleDriveFolderResolutionError",
+    "GoogleDriveNotFoundError",
+    "GoogleDriveSearchError",
 ]

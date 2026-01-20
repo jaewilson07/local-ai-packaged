@@ -4,7 +4,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-
 from server.main import app
 from server.projects.auth.models import User
 
@@ -119,7 +118,6 @@ def test_get_me_missing_header():
 def test_get_me_invalid_jwt():
     """Test GET /api/me returns 401 when JWT invalid."""
     from fastapi import HTTPException
-
     from server.projects.auth.dependencies import get_current_user
 
     async def override_get_current_user():

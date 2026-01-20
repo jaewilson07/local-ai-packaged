@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The MongoDB RAG project provides a comprehensive Retrieval-Augmented Generation system with advanced query processing, memory management, and knowledge graph integration. It enables semantic search over documents stored in MongoDB, with sophisticated query decomposition, document grading, and result synthesis capabilities.
@@ -30,7 +34,7 @@ The MongoDB RAG project provides a comprehensive Retrieval-Augmented Generation 
 ## Component Identity
 
 - **Project**: `mongo_rag`
-- **Location**: `04-lambda/server/projects/mongo_rag/`
+- **Location**: `04-lambda/src/mongo_rag/`
 - **Purpose**: Enhanced RAG (Retrieval-Augmented Generation) with MongoDB vector search, memory tools, knowledge graph integration, and advanced query processing
 - **Dependencies**: MongoDB (01-data), Ollama (02-compute), Neo4j (01-data, optional for graph operations)
 - **Agent**: `rag_agent` (Pydantic AI agent with StateDeps)
@@ -320,19 +324,19 @@ if needs_decomp:
 **Search Hints:**
 ```bash
 # Find all RAG agent tools
-rg -n "@rag_agent\.tool" 04-lambda/server/projects/mongo_rag/
+rg -n "@rag_agent\.tool" 04-lambda/src/mongo_rag/
 
 # Find memory operations
-rg -n "MemoryTools|MongoMemoryStore" 04-lambda/server/projects/mongo_rag/
+rg -n "MemoryTools|MongoMemoryStore" 04-lambda/src/mongo_rag/
 
 # Find search implementations
-rg -n "def (semantic|text|hybrid)_search" 04-lambda/server/projects/mongo_rag/
+rg -n "def (semantic|text|hybrid)_search" 04-lambda/src/mongo_rag/
 
 # Find enhanced RAG nodes
-rg -n "def (decompose|grade|synthesize|rewrite)" 04-lambda/server/projects/mongo_rag/nodes/
+rg -n "def (decompose|grade|synthesize|rewrite)" 04-lambda/src/mongo_rag/nodes/
 
 # Find MongoDB vector search usage
-rg -n "\$vectorSearch" 04-lambda/server/projects/mongo_rag/
+rg -n "\$vectorSearch" 04-lambda/src/mongo_rag/
 ```
 
 ## Testing & Validation
@@ -377,7 +381,7 @@ curl -X POST http://lambda-server:8000/api/v1/rag/memory/record \
 - **Neo4j**: Optional knowledge graph for entity relationships (`neo4j:7687`)
 - **Docling**: Document processing and intelligent chunking (integrated in `ingestion/pipeline.py` and `ingestion/chunker.py`)
 - **REST API**: Endpoints in `server/api/mongo_rag.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 
 ## Docling Integration
 
@@ -457,7 +461,7 @@ deps = AgentDependencies.from_settings(
 - `MONGODB_DATABASE` - Database name
 - `LLM_MODEL` - LLM model name (default: llama3.2)
 - `LLM_BASE_URL` - LLM API base URL (default: http://ollama:11434/v1)
-- `EMBEDDING_MODEL` - Embedding model (default: nomic-embed-text)
+- `EMBEDDING_MODEL` - Embedding model (default: qwen3-embedding:4b)
 
 **Optional Feature Flags:**
 - `USE_KNOWLEDGE_GRAPH` - Enable Neo4j graph operations

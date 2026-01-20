@@ -5,6 +5,7 @@ Discord bot that bridges Discord uploads to Immich, manages user face mapping, a
 ## Features
 
 - **Drag-and-Drop Ingest**: Automatically uploads files from `#event-uploads` channel to Immich
+- **User-Specific Uploads**: `/link_discord` command to link Discord accounts to datacrew.space for personal Immich libraries
 - **User Face Mapping**: `/claim_face` command to link Discord users to Immich person profiles
 - **Spotted Notifications**: Sends DMs when users are detected in new photos/videos
 - **MCP Server Integration**: Exposes Discord management tools via MCP protocol for AI assistants and programmatic access
@@ -79,8 +80,13 @@ DISCORD_UPLOAD_CHANNEL_ID=
 IMMICH_SERVER_URL=http://immich-server:2283
 
 # Optional - For user-specific Immich API keys (requires Discord account linking)
-# LAMBDA_API_URL=http://lambda-server:8000  # Defaults to internal network
-# CLOUDFLARE_EMAIL=your-email@example.com   # Your Cloudflare Access email
+LAMBDA_API_URL=http://lambda-server:8000    # Lambda API URL (defaults to internal network)
+
+# Lambda API Authentication (choose one):
+# Option 1: Bearer token (recommended for production)
+# LAMBDA_API_TOKEN=lat_abc123...             # Generate via POST /api/v1/auth/me/token
+# Option 2: Internal network auth (Docker only)
+# CLOUDFLARE_EMAIL=your-email@example.com   # Your Cloudflare Access email for internal auth
 
 # Optional: MCP Server Configuration
 MCP_ENABLED=true
@@ -117,19 +123,27 @@ python start_services.py --profile cpu
 
 ### Link Discord Account to Cloudflare Auth
 
-To enable user-specific Immich uploads:
+To enable user-specific Immich uploads, link your Discord account using one of these methods:
+
+**Option 1: Via Discord Slash Command (Recommended)**
+
+1. In any channel where the bot is active, type `/link_discord`
+2. Enter your Cloudflare Access email when prompted (e.g., `your@email.com`)
+3. The bot will link your Discord account to your datacrew.space account
+
+**Option 2: Via API (for automation)**
 
 1. Authenticate via Cloudflare Access (visit `https://api.datacrew.space/api/me`)
 2. Link your Discord account:
    ```bash
-   curl -X POST https://api.datacrew.space/api/me/discord/link \
-     -H "Cf-Access-Jwt-Assertion: <your-jwt-token>" \
-     -H "Content-Type: application/json" \
-     -d '{"discord_user_id": "your-discord-user-id"}'
+   curl -X POST "https://api.datacrew.space/api/v1/auth/me/discord/link?discord_user_id=YOUR_DISCORD_USER_ID" \
+     -H "Cf-Access-Jwt-Assertion: <your-jwt-token>"
    ```
-3. Uploads from your Discord account will now go to your personal Immich account
 
-**Note**: If your Discord account is not linked, uploads will use the global Immich API key (if configured) or fail.
+**After Linking:**
+- Uploads from your Discord account will go to your personal Immich library
+- Make sure you've logged into datacrew.space at least once to provision your Immich account
+- If your Discord account is not linked, uploads will use the global Immich API key (if configured) or fail
 
 ### Link Your Face
 

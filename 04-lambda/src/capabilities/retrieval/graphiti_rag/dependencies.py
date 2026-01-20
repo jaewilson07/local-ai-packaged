@@ -18,8 +18,9 @@ else:
         Graphiti = None  # Make Graphiti available at module level
         GraphitiType = type(None)  # Use NoneType as fallback
 
-from src.capabilities.retrieval.graphiti_rag.config import config
-from src.shared.dependencies import BaseDependencies
+from capabilities.retrieval.graphiti_rag.config import config
+
+from shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

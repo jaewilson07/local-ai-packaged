@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 import pytest
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.supabase_service import SupabaseService
 

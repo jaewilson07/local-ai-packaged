@@ -2,11 +2,10 @@
 
 import logging
 
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
 from pydantic import BaseModel, Field
 from pydantic_ai import RunContext
 from pymongo.errors import OperationFailure
-
-from server.projects.mongo_rag.dependencies import AgentDependencies
 
 logger = logging.getLogger(__name__)
 

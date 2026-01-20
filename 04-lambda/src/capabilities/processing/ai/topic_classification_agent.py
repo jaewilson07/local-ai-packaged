@@ -1,13 +1,14 @@
 """Topic classification agent for processing conversations."""
 
-from pydantic import BaseModel
-from pydantic_ai import Agent, RunContext
-from src.capabilities.processing.ai.dependencies import ProcessingDeps
-from src.capabilities.processing.schemas import (
+from capabilities.processing.ai.dependencies import ProcessingDeps
+from capabilities.processing.schemas import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )
-from src.shared.llm import get_llm_model
+from pydantic import BaseModel
+from pydantic_ai import Agent, RunContext
+
+from shared.llm import get_llm_model
 
 
 class ProcessingState(BaseModel):
@@ -52,9 +53,7 @@ async def classify_conversation_topics(
     Returns:
         String describing the classified topics
     """
-    from src.capabilities.processing.openwebui_topics.tools import classify_topics as _classify
-
-    deps = ctx.deps
+    from capabilities.processing.openwebui_topics.tools import classify_topics as _classify
 
     request = TopicClassificationRequest(
         conversation_id=conversation_id,

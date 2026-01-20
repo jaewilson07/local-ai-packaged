@@ -1,0 +1,27 @@
+[
+  {
+    "question": "What is the main topic of this video?",
+    "answer": "The video 'Building with Subagents: Design Decisions' by LangChain discusses building with subagents and the design decisions involved in multi-agent systems.",
+    "source": "transcript_search"
+  },
+  {
+    "question": "What architecture pattern is being discussed?",
+    "answer": "The video discusses the subagent (also called supervisor) architecture, where a main agent delegates tasks to sub-agents in parallel and combines their results.",
+    "source": "transcript_search"
+  },
+  {
+    "question": "What are the key design decisions mentioned?",
+    "answer": "Key design decisions mentioned:\n\u2022 Synchronous vs asynchronous sub-agent invocation\n\u2022 Tool design: single dispatch tool vs tool-per-subagent\n\u2022 Context engineering strategies",
+    "source": "transcript_search"
+  },
+  {
+    "question": "Who is the presenter and what company are they from?",
+    "answer": "The presenter is Sydney from LangChain.",
+    "source": "transcript_search"
+  },
+  {
+    "question": "What are the benefits of the subagent pattern?",
+    "answer": "The video discusses the subagent (also called supervisor) architecture, where a main agent delegates tasks to sub-agents in parallel and combines their results.",
+    "source": "transcript_search"
+  }
+]

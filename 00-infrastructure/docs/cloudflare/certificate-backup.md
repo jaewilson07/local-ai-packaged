@@ -115,6 +115,5 @@ But for most use cases, the tunnel token is sufficient and simpler.
 
 ## Related Documentation
 
-- [Infisical Usage Guide](../../docs/infisical/usage.md)
-- [Cloudflare Setup Guide](./setup.md)
-- [Infisical Setup Guide](../../docs/infisical/setup.md)
+- [cloudflare-access-setup skill](../../../.cursor/skills/cloudflare-access-setup/SKILL.md)
+- [00-infrastructure/AGENTS.md](../../AGENTS.md)

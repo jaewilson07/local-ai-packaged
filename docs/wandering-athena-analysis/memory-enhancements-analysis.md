@@ -50,12 +50,12 @@ The advanced memory management system from wandering-athena provides sophisticat
 
 ### Existing Memory Systems
 
-- **MongoDB RAG** (`04-lambda/server/projects/mongo_rag/`)
+- **MongoDB RAG** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
   - Basic document storage
   - Hybrid search
   - No dedicated memory orchestration
 
-- **Graphiti RAG** (`04-lambda/server/projects/graphiti_rag/`)
+- **Graphiti RAG** (`04-lambda/src/capabilities/retrieval/graphiti_rag/`)
   - Knowledge graph storage
   - Temporal fact storage
   - No message storage
@@ -158,12 +158,12 @@ chunks = memory.add_web_content(
 
 ### With Existing Services
 
-1. **MongoDB RAG** (`04-lambda/server/projects/mongo_rag/`)
+1. **MongoDB RAG** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
    - Can add message storage
    - Can add web content storage
    - Can enhance fact storage
 
-2. **Graphiti RAG** (`04-lambda/server/projects/graphiti_rag/`)
+2. **Graphiti RAG** (`04-lambda/src/capabilities/retrieval/graphiti_rag/`)
    - Can integrate with knowledge graph
    - Can store facts in graph
    - Can enhance temporal storage

@@ -10,6 +10,8 @@ This directory contains SQL migration files for the Supabase database.
 - **`003_workflow_parameters.sql`** - Workflow parameters management (optional)
 - **`004_lora_character_mapping.sql`** - LoRA character mapping (optional)
 - **`005_immich_user_mapping.sql`** - Immich user mapping (optional)
+- **`006_lora_version_tracking.sql`** - LoRA version tracking (optional)
+- **`007_user_preferences.sql`** - **NEW** User preferences system with hierarchical resolution (System → Org → User)
 
 ## Automatic Migration Application
 

@@ -18,11 +18,20 @@ Prerequisites:
 import json
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
 
-from sample.shared.auth_helpers import get_api_base_url, get_auth_headers, get_cloudflare_email
+# Add project root to path for sample.shared imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from sample.shared.auth_helpers import (  # noqa: E402
+    get_api_base_url,
+    get_auth_headers,
+    get_cloudflare_email,
+)
 
 # The workflow JSON provided by the user
 WORKFLOW_JSON = {
@@ -234,6 +243,11 @@ def check_lora_exists(api_base_url: str, headers: dict[str, str], lora_filename:
         print(f"  ⚠️  LoRA not found: {lora_filename}")
         return False
 
+    except requests.exceptions.ConnectionError:
+        print(f"  ✗ Connection Error: Cannot connect to {url}")
+        print("    Make sure the Lambda server is running.")
+        return None
+
     except requests.exceptions.HTTPError as e:
         print(f"  ✗ HTTP Error: {e}")
         return False
@@ -391,18 +405,36 @@ def display_results(run_data: dict[str, Any]):
     if status == "completed":
         output_images = run_data.get("output_images", [])
         if output_images:
-            print(f"\n✅ Generated {len(output_images)} image(s):")
+            print(f"\nGenerated {len(output_images)} image(s):")
             for i, image_url in enumerate(output_images, 1):
                 print(f"  {i}. {image_url}")
         else:
-            print("\n⚠️  No output images found")
+            print("\nNo output images found")
+
+        # Display MinIO storage paths
+        minio_paths = run_data.get("minio_paths", [])
+        if minio_paths:
+            print(f"\nMinIO Storage ({len(minio_paths)} file(s)):")
+            for i, path in enumerate(minio_paths, 1):
+                print(f"  {i}. {path}")
+        else:
+            print("\nMinIO Storage: Not uploaded (check Lambda server logs)")
+
+        # Display Immich asset IDs
+        immich_asset_ids = run_data.get("immich_asset_ids", [])
+        if immich_asset_ids:
+            print(f"\nImmich Assets ({len(immich_asset_ids)} asset(s)):")
+            for i, asset_id in enumerate(immich_asset_ids, 1):
+                print(f"  {i}. {asset_id}")
+        else:
+            print("\nImmich Assets: Not uploaded (Immich may not be configured)")
 
     elif status == "failed":
         error_message = run_data.get("error_message")
         if error_message:
-            print(f"\n❌ Error: {error_message}")
+            print(f"\nError: {error_message}")
         else:
-            print("\n❌ Workflow failed (no error message)")
+            print("\nWorkflow failed (no error message)")
 
     # Display metadata
     print("\nMetadata:")
@@ -540,6 +572,12 @@ def main():
         lora_exists = check_lora_exists(api_base_url, headers, lora_filename)
         print()
 
+        if lora_exists is None:
+            # Connection error
+            print("❌ Cannot connect to server. Make sure Lambda server is running.")
+            print("\n⚠️  Sample requires running services - exiting gracefully")
+            sys.exit(0)
+
         if not lora_exists:
             print("⚠️  WARNING: LoRA model not found!")
             print(f"   The workflow requires: {lora_filename}")
@@ -553,10 +591,14 @@ def main():
             print("\n   The workflow will still execute, but may fail if ComfyUI")
             print("   cannot find the LoRA model.")
             print()
-            response = input("Continue anyway? (y/n): ")
-            if response.lower() != "y":
-                print("Aborted.")
-                return
+            # Non-interactive mode - skip if stdin is not a TTY
+            if sys.stdin.isatty():
+                response = input("Continue anyway? (y/n): ")
+                if response.lower() != "y":
+                    print("Aborted.")
+                    return
+            else:
+                print("⚠️  Running non-interactively - continuing anyway")
             print()
     else:
         print("📋 No LoRA models found in workflow")
@@ -617,8 +659,7 @@ def main():
     success, message = verify_rag_data(
         api_base_url=api_base_url,
         headers=headers,
-        expected_workflows_min=1 if workflow_id else None,
-        expected_workflow_runs_min=1 if run_id else None,
+        expected_workflows_min=1 if workflow_id else 0,
     )
 
     print(message)

@@ -69,7 +69,7 @@ The Lambda server is a unified FastAPI application that serves multiple AI/ML pr
 
 ### Problem 1: Pydantic Type Validation Error ⚠️ **BLOCKING**
 
-**Location**: `04-lambda/server/projects/mongo_rag/dependencies.py:19-23`
+**Location**: `04-lambda/src/capabilities/retrieval/mongo_rag/dependencies.py:19-23`
 
 **Issue**: `AgentDependencies` is a Pydantic `BaseModel` that includes `AsyncMongoClient` as an optional field. Pydantic cannot generate a schema for `AsyncMongoClient` because it's not a Pydantic-compatible type.
 
@@ -263,7 +263,7 @@ class Settings(BaseSettings):
 - `LLM_BASE_URL` - LLM API URL (default: `http://ollama:11434/v1`)
 - `LLM_MODEL` - LLM model name (default: `llama3.2`)
 - `EMBEDDING_BASE_URL` - Embedding API URL (default: `http://ollama:11434/v1`)
-- `EMBEDDING_MODEL` - Embedding model name (default: `nomic-embed-text`)
+- `EMBEDDING_MODEL` - Embedding model name (default: `qwen3-embedding:4b`)
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://neo4j:7687`)
 - `NEO4J_USER` - Neo4j username (default: `neo4j`)
 - `NEO4J_PASSWORD` - Neo4j password (default: `password`)
@@ -354,7 +354,7 @@ Exposed via FastMCP at `/mcp/`:
 
 **Action**: Update `AgentDependencies` to allow arbitrary types
 
-**File**: `04-lambda/server/projects/mongo_rag/dependencies.py`
+**File**: `04-lambda/src/capabilities/retrieval/mongo_rag/dependencies.py`
 
 **Change**:
 ```python
@@ -401,7 +401,7 @@ MONGODB_URI="mongodb://localhost:27017/test" \
 LLM_BASE_URL="http://localhost:11434" \
 EMBEDDING_BASE_URL="http://localhost:11434" \
 LLM_MODEL="llama3.2" \
-EMBEDDING_MODEL="nomic-embed-text" \
+EMBEDDING_MODEL="qwen3-embedding:4b" \
 python -c "from server.main import app; print('✅ Server imports successfully')"
 ```
 
@@ -414,9 +414,9 @@ python -c "from server.main import app; print('✅ Server imports successfully')
 ## Related Documentation
 
 - **Service Capabilities**: `.cursor/PRDS/capabilities/service_capabilities.md`
-- **MongoDB RAG**: `04-lambda/server/projects/mongo_rag/AGENTS.md`
-- **Graphiti RAG**: `04-lambda/server/projects/graphiti_rag/AGENTS.md`
-- **Crawl4AI RAG**: `04-lambda/server/projects/crawl4ai_rag/AGENTS.md`
+- **MongoDB RAG**: `04-lambda/src/capabilities/retrieval/mongo_rag/AGENTS.md`
+- **Graphiti RAG**: `04-lambda/src/capabilities/retrieval/graphiti_rag/AGENTS.md`
+- **Crawl4AI RAG**: `04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md`
 
 ---
 

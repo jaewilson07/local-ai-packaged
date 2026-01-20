@@ -2,12 +2,25 @@
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from server.config import settings
 from server.core.logging import setup_logging
+from shared.api_models import APIError, ErrorCode
+from shared.exceptions import (
+    BaseProjectError,
+    ConfigurationException,
+    DatabaseException,
+    FileException,
+    JSONException,
+    LLMException,
+    MongoDBException,
+    NotFoundException,
+    ParseException,
+    ValidationException,
+)
 
 # Setup structured logging
 setup_logging(settings.log_level)
@@ -40,7 +53,7 @@ async def lifespan(app: FastAPI):
 
     # Validate database schema and apply migrations if needed
     try:
-        from src.services.database.supabase import DatabaseValidator, SupabaseConfig
+        from services.database.supabase import DatabaseValidator, SupabaseConfig
 
         supabase_config = SupabaseConfig()
         validation_service = DatabaseValidator(supabase_config)
@@ -417,63 +430,203 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Import and include routers
-from capabilities.persona.discord_characters.api import router as discord_characters_router
+
+# Global exception handler for BaseProjectError and subclasses
+def _map_exception_to_error_code(exc: BaseProjectError) -> ErrorCode:
+    """Map project exception types to standardized error codes."""
+    exception_mapping = {
+        ValidationException: ErrorCode.VALIDATION_ERROR,
+        NotFoundException: ErrorCode.NOT_FOUND,
+        MongoDBException: ErrorCode.DATABASE_ERROR,
+        DatabaseException: ErrorCode.DATABASE_ERROR,
+        LLMException: ErrorCode.LLM_ERROR,
+        ConfigurationException: ErrorCode.CONFIGURATION_ERROR,
+        JSONException: ErrorCode.PARSE_ERROR,
+        FileException: ErrorCode.FILE_ERROR,
+        ParseException: ErrorCode.PARSE_ERROR,
+    }
+
+    for exc_type, error_code in exception_mapping.items():
+        if isinstance(exc, exc_type):
+            return error_code
+
+    return ErrorCode.INTERNAL_ERROR
+
+
+@app.exception_handler(BaseProjectError)
+async def project_error_handler(request: Request, exc: BaseProjectError) -> JSONResponse:
+    """Global exception handler for all BaseProjectError subclasses.
+
+    This handler catches all project-specific exceptions and returns
+    standardized API error responses.
+    """
+    error_code = _map_exception_to_error_code(exc)
+
+    # Build details dict, including exception-specific attributes
+    details = exc.details.copy() if exc.details else {}
+
+    # Add exception-specific attributes to details
+    if hasattr(exc, "operation") and exc.operation:
+        details["operation"] = exc.operation
+    if hasattr(exc, "collection") and exc.collection:
+        details["collection"] = exc.collection
+    if hasattr(exc, "model") and exc.model:
+        details["model"] = exc.model
+    if hasattr(exc, "field") and exc.field:
+        details["field"] = exc.field
+    if hasattr(exc, "resource_type") and exc.resource_type:
+        details["resource_type"] = exc.resource_type
+    if hasattr(exc, "resource_id") and exc.resource_id:
+        details["resource_id"] = exc.resource_id
+
+    logger.warning(
+        "project_error_handled",
+        extra={
+            "error_code": error_code.value,
+            "message": exc.message,
+            "status_code": exc.status_code,
+            "path": request.url.path,
+            "details": details,
+        },
+    )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=APIError(
+            error_code=error_code,
+            message=exc.message,
+            details=details if details else None,
+        ).model_dump(),
+    )
+
+
+# =============================================================================
+# Router Registration
+# =============================================================================
+# Routers are imported directly here to avoid circular import issues.
+# See API_STRATEGY.md for routing conventions and prefix standards.
+
+# Server-level routers (essential)
+from capabilities.calendar.router import router as calendar_router
+
+# Capability routers (new standardized imports)
+from capabilities.persona.router import router as persona_router
+from capabilities.processing.router import router as processing_router
+
+# Capability routers
+from capabilities.retrieval.mongo_rag.router import router as mongo_rag_router
+from capabilities.retrieval.router import router as retrieval_router
+
+# MCP REST API
+from mcp_server.router import router as mcp_rest_router
+
+# Auth (required)
+from services.auth.router import router as auth_router
+
+# Infrastructure routers
+from services.database.mongodb.router import router as mongodb_router
+from services.database.neo4j.router import router as neo4j_router
+
+# Discord bot config router
 from services.external.discord_bot_config.router import router as discord_bot_config_router
-from src.services.database.mongodb.router import router as mongodb_router
-from src.services.database.neo4j.router import router as neo4j_router
 
-from server.api import (
-    admin,
-    auth,
-    calendar,
-    calendar_sync,
-    conversation,
-    crawl4ai_rag,
-    data_view,
-    graphiti_rag,
-    health,
-    knowledge,
-    knowledge_base,
-    mcp_rest,
-    mongo_rag,
-    n8n_workflow,
-    openwebui_export,
-    openwebui_topics,
-    persona,
-    searxng,
-    youtube_rag,
-)
-from server.projects.blob_storage.router import router as blob_storage_router
-from server.projects.comfyui_workflow.router import router as comfyui_workflow_router
+# Preferences router
+from services.preferences.router import router as preferences_router
+from workflows.automation.n8n_workflow.router import router as n8n_workflow_router
+from workflows.chat.conversation.router import router as conversation_router
+from workflows.ingestion.crawl4ai_rag.router import router as crawl4ai_rag_router
 
-app.include_router(health.router, tags=["health"])
-app.include_router(admin.router, tags=["admin"])
-app.include_router(mongodb_router, prefix="/api/v1/infrastructure", tags=["infrastructure"])
-app.include_router(neo4j_router, prefix="/api/v1/infrastructure", tags=["infrastructure"])
-app.include_router(blob_storage_router, prefix="/api/v1/storage", tags=["storage"])
-app.include_router(comfyui_workflow_router, prefix="/api/v1/comfyui", tags=["comfyui"])
-app.include_router(auth.router, tags=["auth"])
-app.include_router(mongo_rag.router, prefix="/api/v1/rag", tags=["rag"])
-app.include_router(crawl4ai_rag.router, prefix="/api/v1/crawl", tags=["crawl"])
-app.include_router(youtube_rag.router, tags=["youtube-rag"])
-app.include_router(graphiti_rag.router, tags=["graphiti"])
-app.include_router(n8n_workflow.router, prefix="/api/v1/n8n", tags=["n8n"])
-app.include_router(openwebui_export.router, prefix="/api/v1/openwebui", tags=["openwebui"])
-app.include_router(openwebui_topics.router, prefix="/api/v1/openwebui", tags=["openwebui"])
-app.include_router(searxng.router, tags=["searxng"])
-app.include_router(calendar_sync.router, prefix="/api/v1/calendar", tags=["calendar"])
-app.include_router(calendar.router, prefix="/api/v1/calendar/events", tags=["calendar"])
-app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
-app.include_router(persona.router, prefix="/api/v1/persona", tags=["persona"])
-app.include_router(conversation.router, prefix="/api/v1/conversation", tags=["conversation"])
+# Workflow routers
+from workflows.ingestion.youtube_rag.router import router as youtube_rag_router
+
+from server.admin import router as admin_router
+from server.health import router as health_router
+from server.stack_health import router as stack_health_router
+
+# =============================================================================
+# Core Routes
+# =============================================================================
+app.include_router(health_router, tags=["health"])
 app.include_router(
-    discord_characters_router, prefix="/api/v1/discord/characters", tags=["discord-characters"]
-)
-app.include_router(discord_bot_config_router, tags=["discord-bot-config"])
-app.include_router(data_view.router, prefix="/api/v1/data", tags=["data-view"])
-app.include_router(knowledge_base.router)  # Knowledge Base with article proposals
-app.include_router(mcp_rest.router)  # REST API wrapper for MCP tools
+    stack_health_router, tags=["stack_health"]
+)  # Authenticated stack health (has own prefix/tags)
+app.include_router(admin_router, tags=["admin"])
+
+# Auth routes (prefix: /api/v1/auth)
+app.include_router(auth_router)
+
+# Preferences (prefix: /api/v1/preferences) - must be after auth for user context
+app.include_router(preferences_router)
+
+# =============================================================================
+# Data Routes (/api/v1/data/*)
+# Note: Routers have their own prefixes, no additional prefix needed here
+# =============================================================================
+app.include_router(mongodb_router)  # prefix: /api/v1/data/mongodb
+app.include_router(neo4j_router)  # prefix: /api/v1/data/neo4j
+
+# =============================================================================
+# Admin Routes (/api/v1/admin/*)
+# Note: Router has its own prefix, no additional prefix needed here
+# =============================================================================
+app.include_router(discord_bot_config_router)  # prefix: /api/v1/admin
+
+# =============================================================================
+# Capability Routes (/api/v1/capabilities/*)
+# Note: Routers have their own prefixes, no additional prefix needed here
+# =============================================================================
+app.include_router(persona_router)  # prefix: /api/v1/capabilities
+app.include_router(calendar_router)  # prefix: /api/v1/capabilities
+app.include_router(retrieval_router)  # prefix: /api/v1/capabilities
+app.include_router(processing_router)  # prefix: /api/v1/capabilities
+
+# =============================================================================
+# RAG Routes (/api/v1/rag/*)
+# Note: Router has its own prefix, no additional prefix needed here
+# =============================================================================
+app.include_router(mongo_rag_router)  # prefix: /api/v1/rag
+
+# =============================================================================
+# Workflow Routes (/api/v1/workflows/*)
+# Note: Routers have their own prefixes, no additional prefix needed here
+# =============================================================================
+app.include_router(crawl4ai_rag_router)  # prefix: /api/v1/crawl
+app.include_router(youtube_rag_router)  # prefix: /api/v1/youtube
+app.include_router(n8n_workflow_router)  # prefix: /api/v1/n8n
+app.include_router(conversation_router)  # prefix: /api/v1/conversation
+
+# =============================================================================
+# MCP Routes
+# =============================================================================
+app.include_router(mcp_rest_router)  # REST API wrapper for MCP tools
+
+# ComfyUI Workflow API (if available)
+try:
+    from server.projects.comfyui_workflow.router import router as comfyui_workflow_router
+
+    app.include_router(comfyui_workflow_router, prefix="/api/v1/comfyui", tags=["comfyui"])
+except ImportError as e:
+    import logging
+
+    logging.getLogger(__name__).warning(f"ComfyUI workflow router not available: {e}")
+
+# ControlNet skeleton management (if available)
+try:
+    from server.projects.controlnet_skeleton.router import router as controlnet_skeleton_router
+
+    app.include_router(controlnet_skeleton_router, prefix="/api/v1", tags=["controlnet"])
+except ImportError as e:
+    import logging
+
+    logging.getLogger(__name__).warning(f"ControlNet skeleton router not available: {e}")
+
+# User images API (if available)
+try:
+    from server.images import router as images_router
+
+    app.include_router(images_router, tags=["images"])
+except ImportError:
+    pass  # Images router not available
 
 
 # Add a simple GET endpoint for MCP server info (for testing/debugging)
@@ -546,18 +699,18 @@ async def mcp_openapi():
                         if param_name == "self":
                             continue
                         param_type = "string"  # Default
-                        if param.annotation != inspect.Parameter.empty:
-                            if param.annotation == str:
+                        if param.annotation is not inspect.Parameter.empty:
+                            if param.annotation is str:
                                 param_type = "string"
-                            elif param.annotation == int:
+                            elif param.annotation is int:
                                 param_type = "integer"
-                            elif param.annotation == bool:
+                            elif param.annotation is bool:
                                 param_type = "boolean"
-                            elif param.annotation == float:
+                            elif param.annotation is float:
                                 param_type = "number"
-                            elif param.annotation in (list, list):
+                            elif param.annotation is list:
                                 param_type = "array"
-                            elif param.annotation in (dict, dict):
+                            elif param.annotation is dict:
                                 param_type = "object"
 
                         properties[param_name] = {"type": param_type, "description": ""}

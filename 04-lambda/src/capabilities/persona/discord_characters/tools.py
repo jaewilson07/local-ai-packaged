@@ -1,19 +1,28 @@
-"""MCP tools for Discord character management."""
+"""Discord character management tools.
+
+These are standalone tool functions that can be called directly
+without an agent context. They manage Discord channel characters.
+"""
 
 import logging
+from typing import Any
 
-from capabilities.persona.discord_characters.dependencies import DiscordCharactersDeps
+from capabilities.persona.discord_characters.config import config
+from capabilities.persona.discord_characters.services_legacy import DiscordCharacterManager
+from capabilities.persona.discord_characters.services_legacy.store import DiscordCharacterStore
 
 logger = logging.getLogger(__name__)
 
 
-# MCP tool definitions (these would be registered with the MCP server)
-# For now, we'll create the tool functions that can be called
+async def _get_manager() -> DiscordCharacterManager:
+    """Get a character manager instance."""
+    store = DiscordCharacterStore(config.MONGODB_URI, config.MONGODB_DB_NAME)
+    return DiscordCharacterManager(store)
 
 
 async def add_discord_character_tool(
     channel_id: str, character_id: str, persona_id: str | None = None
-) -> dict:
+) -> dict[str, Any]:
     """
     Add a character to a Discord channel.
 
@@ -23,21 +32,21 @@ async def add_discord_character_tool(
         persona_id: Optional persona ID (defaults to character_id)
 
     Returns:
-        Result dictionary with success status and message
+        Dictionary with success status and message.
     """
-    deps = DiscordCharactersDeps.from_settings()
-    await deps.initialize()
-
     try:
-        success, message = await deps.character_manager.add_character(
-            channel_id, character_id, persona_id or character_id
-        )
-        return {"success": success, "message": message}
-    finally:
-        await deps.cleanup()
+        manager = await _get_manager()
+        await manager.add_character(channel_id, character_id, persona_id or character_id)
+        return {
+            "success": True,
+            "message": f"Added character {character_id} to channel {channel_id}",
+        }
+    except Exception as e:
+        logger.exception(f"Failed to add character: {e}")
+        return {"success": False, "error": str(e)}
 
 
-async def remove_discord_character_tool(channel_id: str, character_id: str) -> dict:
+async def remove_discord_character_tool(channel_id: str, character_id: str) -> dict[str, Any]:
     """
     Remove a character from a Discord channel.
 
@@ -46,19 +55,21 @@ async def remove_discord_character_tool(channel_id: str, character_id: str) -> d
         character_id: Character identifier
 
     Returns:
-        Result dictionary with success status and message
+        Dictionary with success status and message.
     """
-    deps = DiscordCharactersDeps.from_settings()
-    await deps.initialize()
-
     try:
-        success, message = await deps.character_manager.remove_character(channel_id, character_id)
-        return {"success": success, "message": message}
-    finally:
-        await deps.cleanup()
+        manager = await _get_manager()
+        await manager.remove_character(channel_id, character_id)
+        return {
+            "success": True,
+            "message": f"Removed character {character_id} from channel {channel_id}",
+        }
+    except Exception as e:
+        logger.exception(f"Failed to remove character: {e}")
+        return {"success": False, "error": str(e)}
 
 
-async def list_discord_characters_tool(channel_id: str) -> list:
+async def list_discord_characters_tool(channel_id: str) -> list[dict[str, Any]]:
     """
     List all characters in a Discord channel.
 
@@ -66,127 +77,79 @@ async def list_discord_characters_tool(channel_id: str) -> list:
         channel_id: Discord channel ID
 
     Returns:
-        List of character dictionaries
+        List of character dictionaries.
     """
-    deps = DiscordCharactersDeps.from_settings()
-    await deps.initialize()
-
     try:
-        characters = await deps.character_manager.list_characters(channel_id)
+        manager = await _get_manager()
+        characters = await manager.list_characters(channel_id)
         return [
             {
-                "channel_id": char.channel_id,
-                "character_id": char.character_id,
-                "persona_id": char.persona_id,
-                "added_at": char.added_at.isoformat(),
-                "message_count": char.message_count,
+                "channel_id": c.channel_id,
+                "character_id": c.character_id,
+                "persona_id": c.persona_id,
             }
-            for char in characters
+            for c in characters
         ]
-    finally:
-        await deps.cleanup()
+    except Exception as e:
+        logger.exception(f"Failed to list characters: {e}")
+        return []
 
 
-async def clear_discord_history_tool(channel_id: str, character_id: str | None = None) -> dict:
+async def clear_discord_history_tool(
+    channel_id: str, character_id: str | None = None
+) -> dict[str, Any]:
     """
-    Clear conversation history for a Discord channel.
+    Clear conversation history for a channel or specific character.
 
     Args:
         channel_id: Discord channel ID
-        character_id: Optional character ID to clear specific character history
+        character_id: Optional character ID to clear only that character's history
 
     Returns:
-        Result dictionary with success status and message
+        Dictionary with success status and message.
     """
-    deps = DiscordCharactersDeps.from_settings()
-    await deps.initialize()
-
     try:
-        success, message = await deps.character_manager.clear_history(channel_id, character_id)
-        return {"success": success, "message": message}
-    finally:
-        await deps.cleanup()
+        manager = await _get_manager()
+        if character_id:
+            await manager.clear_history(channel_id, character_id)
+            msg = f"Cleared history for character {character_id} in channel {channel_id}"
+        else:
+            await manager.clear_channel_history(channel_id)
+            msg = f"Cleared all history for channel {channel_id}"
+        return {"success": True, "message": msg}
+    except Exception as e:
+        logger.exception(f"Failed to clear history: {e}")
+        return {"success": False, "error": str(e)}
 
 
 async def chat_with_discord_character_tool(
     channel_id: str, character_id: str, user_id: str, message: str
-) -> dict:
+) -> dict[str, Any]:
     """
-    Generate a character response to a message.
+    Generate a response from a character to a user message.
 
     Args:
         channel_id: Discord channel ID
         character_id: Character identifier
-        user_id: Discord user ID
-        message: User message content
+        user_id: User who sent the message
+        message: Message content
 
     Returns:
-        Result dictionary with response text
+        Dictionary with character response and metadata.
     """
-    deps = DiscordCharactersDeps.from_settings()
-    await deps.initialize()
-
     try:
-        # Get character
-        character = await deps.character_manager.get_character(channel_id, character_id)
-        if not character:
-            return {
-                "success": False,
-                "error": f"Character '{character_id}' is not active in this channel",
-            }
+        manager = await _get_manager()
+        response = await manager.generate_response(channel_id, character_id, user_id, message)
+        return {"success": True, "response": response}
+    except Exception as e:
+        logger.exception(f"Failed to generate response: {e}")
+        return {"success": False, "error": str(e)}
 
-        # Get conversation context
-        await deps.character_manager.get_conversation_context(channel_id, character_id, limit=20)
 
-        # Call conversation service
-        from capabilities.persona.persona_state.dependencies import PersonaDeps
-        from capabilities.persona.persona_state.tools import get_voice_instructions
-        from workflows.chat.conversation.services.orchestrator import ConversationOrchestrator
-
-        persona_deps = PersonaDeps.from_settings()
-        await persona_deps.initialize()
-
-        try:
-            # Get voice instructions
-            voice_instructions = await get_voice_instructions(
-                persona_deps, user_id, character.persona_id
-            )
-
-            # Create orchestrator
-            orchestrator = ConversationOrchestrator(llm_client=persona_deps.openai_client)
-
-            # Plan and generate response
-            plan = await orchestrator.plan_response(message, voice_instructions, [])
-            response = await orchestrator.generate_response(message, voice_instructions, {}, plan)
-
-            # Record messages
-            from datetime import datetime
-
-            from server.services.discord_characters.models import CharacterMessage
-
-            user_msg = CharacterMessage(
-                channel_id=channel_id,
-                character_id=character_id,
-                user_id=user_id,
-                content=message,
-                role="user",
-                timestamp=datetime.utcnow(),
-            )
-            await deps.character_manager.record_message(user_msg)
-
-            assistant_msg = CharacterMessage(
-                channel_id=channel_id,
-                character_id=character_id,
-                user_id=user_id,
-                content=response,
-                role="assistant",
-                timestamp=datetime.utcnow(),
-            )
-            await deps.character_manager.record_message(assistant_msg)
-
-            return {"success": True, "response": response, "character_id": character_id}
-        finally:
-            await persona_deps.cleanup()
-
-    finally:
-        await deps.cleanup()
+__all__ = [
+    "add_discord_character_tool",
+    "chat_with_discord_character_tool",
+    "clear_discord_history_tool",
+    "list_discord_characters_tool",
+    "remove_discord_character_tool",
+]

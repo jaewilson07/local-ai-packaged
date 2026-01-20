@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.deep_research.agent import ResearchResponse, linear_researcher_agent
 from server.projects.deep_research.workflow import run_linear_research
 
@@ -195,6 +194,7 @@ async def test_search_web_tool(mock_deep_research_deps):
     """Test Pydantic-AI tool wrapper for search_web."""
 
     from server.projects.deep_research.agent import search_web_tool
+
     from tests.conftest import MockRunContext
 
     ctx = MockRunContext(mock_deep_research_deps, use_real_context=False)
@@ -229,6 +229,7 @@ async def test_fetch_page_tool(mock_deep_research_deps):
     """Test Pydantic-AI tool wrapper for fetch_page."""
 
     from server.projects.deep_research.agent import fetch_page_tool
+
     from tests.conftest import MockRunContext
 
     ctx = MockRunContext(mock_deep_research_deps, use_real_context=False)
@@ -255,6 +256,7 @@ async def test_parse_document_tool(mock_deep_research_deps):
     """Test Pydantic-AI tool wrapper for parse_document."""
 
     from server.projects.deep_research.agent import parse_document_tool
+
     from tests.conftest import MockRunContext
 
     ctx = MockRunContext(mock_deep_research_deps, use_real_context=False)
@@ -289,6 +291,7 @@ async def test_ingest_knowledge_tool(mock_deep_research_deps):
     """Test Pydantic-AI tool wrapper for ingest_knowledge."""
 
     from server.projects.deep_research.agent import ingest_knowledge_tool
+
     from tests.conftest import MockRunContext
 
     ctx = MockRunContext(mock_deep_research_deps, use_real_context=False)
@@ -326,6 +329,7 @@ async def test_query_knowledge_tool(mock_deep_research_deps):
     """Test Pydantic-AI tool wrapper for query_knowledge."""
 
     from server.projects.deep_research.agent import query_knowledge_tool
+
     from tests.conftest import MockRunContext
 
     ctx = MockRunContext(mock_deep_research_deps, use_real_context=False)

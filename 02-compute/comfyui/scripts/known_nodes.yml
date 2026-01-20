@@ -1,0 +1,395 @@
+# Known Custom Nodes Database
+# This file maps ComfyUI node class_types to their custom node packages
+# Used by scan-workflows.py to detect missing custom nodes
+# and by provision-nodes.py to install them
+
+# Format:
+# package_name:
+#   url: GitHub repository URL
+#   description: Brief description of the package
+#   requirements: Optional pip requirements file path (relative to package root)
+#   pip_packages: Optional list of additional pip packages needed
+#   nodes: List of node class_types provided by this package
+
+# =============================================================================
+# Essential/Manager Nodes
+# =============================================================================
+
+ComfyUI-Manager:
+  url: https://github.com/ltdrdata/ComfyUI-Manager
+  description: Essential node manager for ComfyUI - install other nodes through UI
+  nodes:
+    # Manager doesn't add workflow nodes, but is essential infrastructure
+
+ComfyUI_essentials:
+  url: https://github.com/cubiq/ComfyUI_essentials
+  description: Essential utility nodes for ComfyUI workflows
+  nodes:
+    - ImageResize+
+    - ImageCrop+
+    - ImageFlip+
+    - ImageRotate+
+    - MaskBlur+
+    - MaskPreview+
+    - SimpleMath+
+    - GetImageSize+
+    - ImageDesaturate+
+    - ImagePosterize+
+    - DrawText+
+
+# =============================================================================
+# Video Enhancement Nodes
+# =============================================================================
+
+comfyui-vrgamedevgirl:
+  url: https://github.com/vrgamegirl19/comfyui-vrgamedevgirl
+  description: Video enhancement nodes - film grain, color matching, sharpening
+  pip_packages:
+    - kornia
+    - librosa
+    - imageio
+  nodes:
+    - FastFilmGrain
+    - FastLaplacianSharpen
+    - FastSobelSharpen
+    - FastUnsharpSharpen
+    - ColorMatchToReference
+    # HUMO Automation nodes
+    - HumoPromptCreator
+    - HumoSceneBuilder
+    - HumoVideoChunkMaker
+    - HumoVideoSlicer
+    - HumoAudioSplitter
+    - HumoVideoFinalizer
+
+# =============================================================================
+# Animation & Video Nodes
+# =============================================================================
+
+ComfyUI-AnimateDiff-Evolved:
+  url: https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved
+  description: AnimateDiff integration for video generation
+  nodes:
+    - ADE_AnimateDiffLoaderGen1
+    - ADE_AnimateDiffLoaderV1Advanced
+    - ADE_AnimateDiffSamplerSettings
+    - ADE_AnimateDiffSettings
+    - ADE_AnimateDiffCombine
+    - ADE_EmptyLatentImageLarge
+    - ADE_AnimateDiffUniformContextOptions
+    - ADE_AnimateDiffModelSettings
+    - ADE_AnimateDiffModelSettingsAdvanced
+    - ADE_AnimateDiffLoRALoader
+
+ComfyUI-VideoHelperSuite:
+  url: https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite
+  description: Video loading, combining, and utility nodes
+  nodes:
+    - VHS_LoadVideo
+    - VHS_LoadVideoPath
+    - VHS_LoadImages
+    - VHS_LoadImagesPath
+    - VHS_VideoCombine
+    - VHS_GetImageCount
+    - VHS_SelectEveryNthImage
+    - VHS_SplitImages
+    - VHS_MergeImages
+    - VHS_DuplicateImages
+    - VHS_PruneOutputs
+
+# =============================================================================
+# ControlNet & Preprocessing
+# =============================================================================
+
+comfyui_controlnet_aux:
+  url: https://github.com/Fannovel16/comfyui_controlnet_aux
+  description: ControlNet preprocessors (canny, depth, openpose, etc.)
+  nodes:
+    - CannyEdgePreprocessor
+    - DepthAnythingPreprocessor
+    - DWPreprocessor
+    - LineArtPreprocessor
+    - MiDaS-DepthMapPreprocessor
+    - OpenposePreprocessor
+    - PiDiNetPreprocessor
+    - ScribblePreprocessor
+    - SoftEdgePreprocessor
+    - TilePreprocessor
+    - Zoe-DepthMapPreprocessor
+    - AnyLineArtPreprocessor
+    - BAE-NormalMapPreprocessor
+    - BinaryPreprocessor
+    - ColorPreprocessor
+    - FakeScribblePreprocessor
+    - HEDPreprocessor
+    - LeReS-DepthMapPreprocessor
+    - LineArtAnimePreprocessor
+    - M-LSDPreprocessor
+    - MediaPipe-FaceMeshPreprocessor
+    - MeshGraphormerDepthMapPreprocessor
+    - Metric3D-DepthMapPreprocessor
+    - MLSD_Preprocessor
+    - NormalMapPreprocessor
+    - OneFormer-ADE20K-SemSegPreprocessor
+    - OneFormer-COCO-SemSegPreprocessor
+    - SAMPreprocessor
+    - SavePoseKpsAsJsonFile
+    - SemSegPreprocessor
+    - TEEDPreprocessor
+    - UniformerSemSegPreprocessor
+
+# =============================================================================
+# IP-Adapter & Face Nodes
+# =============================================================================
+
+ComfyUI_IPAdapter_plus:
+  url: https://github.com/cubiq/ComfyUI_IPAdapter_plus
+  description: IP-Adapter for image-to-image style transfer
+  nodes:
+    - IPAdapterModelLoader
+    - IPAdapterApply
+    - IPAdapterApplyEncoded
+    - IPAdapterEncoder
+    - IPAdapterCombineEmbeds
+    - IPAdapterStyleComposition
+    - IPAdapterAdvanced
+    - IPAdapterFaceID
+    - IPAdapterBatch
+    - PrepImageForInsightFace
+    - IPAdapterLoadEmbeds
+    - IPAdapterSaveEmbeds
+    - IPAdapterUnifiedLoader
+    - IPAdapterUnifiedLoaderFaceID
+
+ComfyUI_InstantID:
+  url: https://github.com/cubiq/ComfyUI_InstantID
+  description: InstantID for identity-preserving generation
+  nodes:
+    - InstantIDModelLoader
+    - InstantIDFaceAnalysis
+    - ApplyInstantID
+    - ApplyInstantIDAdvanced
+    - InstantIDAttentionPatch
+
+ComfyUI-Impact-Pack:
+  url: https://github.com/ltdrdata/ComfyUI-Impact-Pack
+  description: Face detection, inpainting, and utility nodes
+  nodes:
+    - SAMDetectorCombined
+    - FaceDetailer
+    - FaceDetailerPipe
+    - DetailerForEach
+    - DetailerForEachDebug
+    - FromDetailerPipe
+    - ToDetailerPipe
+    - BasicPipeToDetailerPipe
+    - EditBasicPipe
+    - EditDetailerPipe
+    - LatentPixelScale
+    - IterativeLatentUpscale
+    - IterativeImageUpscale
+    - BboxDetectorSEGS
+    - SegmDetectorSEGS
+    - ONNXDetectorProvider
+    - MaskToSEGS
+    - SEGSToMask
+    - SEGSToMaskList
+    - SEGSToImageList
+    - ImpactSimpleDetectorSEGS
+    - ImpactSimpleDetectorSEGSPipe
+    - ImpactMakeImageList
+    - ImpactMakeMaskList
+    - ImpactMakeSEGS
+    - SEGSOrderedFilter
+    - SEGSRangeFilter
+    - SEGSLabelFilter
+    - EmptySEGS
+
+# =============================================================================
+# Upscaling Nodes
+# =============================================================================
+
+ComfyUI_UltimateSDUpscale:
+  url: https://github.com/ssitu/ComfyUI_UltimateSDUpscale
+  description: Ultimate SD Upscale - tiled upscaling with SD
+  nodes:
+    - UltimateSDUpscale
+    - UltimateSDUpscaleNoUpscale
+
+# =============================================================================
+# GGUF/Quantized Model Nodes
+# =============================================================================
+
+ComfyUI-GGUF:
+  url: https://github.com/city96/ComfyUI-GGUF
+  description: Load GGUF quantized models in ComfyUI
+  nodes:
+    - UnetLoaderGGUF
+    - CLIPLoaderGGUF
+    - DualCLIPLoaderGGUF
+    - TripleCLIPLoaderGGUF
+
+# =============================================================================
+# Workflow Utility Nodes
+# =============================================================================
+
+rgthree-comfy:
+  url: https://github.com/rgthree/rgthree-comfy
+  description: Utility nodes for workflow organization
+  nodes:
+    - Seed (rgthree)
+    - Context (rgthree)
+    - Context Big (rgthree)
+    - Context Switch (rgthree)
+    - Context Switch Big (rgthree)
+    - Lora Loader Stack (rgthree)
+    - Power Lora Loader (rgthree)
+    - Reroute (rgthree)
+    - Display Any (rgthree)
+    - Display Int (rgthree)
+    - Fast Groups Muter (rgthree)
+    - Fast Groups Bypasser (rgthree)
+    - Image Comparer (rgthree)
+    - Image Inset Crop (rgthree)
+    - KSampler Config (rgthree)
+
+ComfyUI-Custom-Scripts:
+  url: https://github.com/pythongosssss/ComfyUI-Custom-Scripts
+  description: Custom scripts and UI enhancements
+  nodes:
+    - ShowText|pysssss
+    - MathExpression|pysssss
+    - StringFunction|pysssss
+    - LoadImageFromURL|pysssss
+    - PlaySound|pysssss
+    - SaveImageToS3|pysssss
+    - CheckpointLoader|pysssss
+    - LoraLoader|pysssss
+
+was-node-suite-comfyui:
+  url: https://github.com/WASasquatch/was-node-suite-comfyui
+  description: Large collection of utility nodes
+  pip_packages:
+    - opencv-python
+    - scipy
+    - scikit-image
+    - imageio-ffmpeg
+  nodes:
+    - WAS Image Load
+    - WAS Image Save
+    - WAS Image Resize
+    - WAS Image Batch
+    - WAS Image Blend
+    - WAS Image Crop
+    - WAS Image Rotate
+    - WAS Image Flip
+    - WAS Image Filter
+    - WAS Image Levels
+    - WAS Image Threshold
+    - WAS Mask Combine
+    - WAS Mask Invert
+    - WAS Number
+    - WAS String
+    - WAS Text String
+    - WAS Text Concatenate
+    - WAS Text to Conditioning
+    - WAS CLIP Text Encode
+    - WAS Latent Noise
+    - WAS Samples Passthrough
+
+# =============================================================================
+# Prompt Enhancement Nodes
+# =============================================================================
+
+ComfyUI_smZNodes:
+  url: https://github.com/shiimizu/ComfyUI_smZNodes
+  description: CLIP text encoding enhancements
+  nodes:
+    - smZ CLIPTextEncode
+    - smZ Settings
+
+# =============================================================================
+# Image Processing Nodes
+# =============================================================================
+
+ComfyUI-KJNodes:
+  url: https://github.com/kijai/ComfyUI-KJNodes
+  description: Collection of utility nodes
+  nodes:
+    - GetImageSizeAndCount
+    - ImageGrabPIL
+    - ImageConcanate
+    - ImageGridComposite2x2
+    - ImageGridComposite3x3
+    - ImageAddMultiple
+    - ImageBatchRepeatInterleaving
+    - ImagePadForOutpaintMasked
+    - ImagePadForOutpaint
+    - ImageUpscaleWithModelBatched
+    - INTConstant
+    - FloatConstant
+    - StringConstant
+    - JoinStringMulti
+    - WidgetToString
+    - CreateTextMask
+    - GrowMaskWithBlur
+    - ColorMatch
+    - ConditioningSetMaskAndCombine
+    - SplitBboxes
+    - FilterZeroMasksAndCorrespondingImages
+    - InsertImagesToBatchIndexed
+
+ComfyUI-Florence2:
+  url: https://github.com/kijai/ComfyUI-Florence2
+  description: Florence-2 vision model integration
+  nodes:
+    - Florence2ModelLoader
+    - Florence2Run
+    - Florence2toCoordinates
+    - Florence2PostProcess
+
+# =============================================================================
+# Audio Nodes
+# =============================================================================
+
+ComfyUI-AudioScheduler:
+  url: https://github.com/a]l.exe/ComfyUI-AudioScheduler
+  description: Audio analysis and beat detection for animation
+  nodes:
+    - LoadAudio
+    - AudioToAmplitudeGraph
+    - AmplitudeToNumber
+    - BatchAmplitudeSchedule
+    - AudioFeatureExtractor
+    - NormalizeAmplitude
+
+# =============================================================================
+# Flux-Specific Nodes
+# =============================================================================
+
+x-flux-comfyui:
+  url: https://github.com/XLabs-AI/x-flux-comfyui
+  description: X-Labs FLUX ControlNet and IP-Adapter nodes
+  nodes:
+    - XFluxControlNetLoader
+    - XFluxControlNetApply
+    - XFluxIPAdapterLoader
+    - XFluxIPAdapterApply
+
+# =============================================================================
+# RES4LYF Nodes (Require pywavelets)
+# =============================================================================
+
+ComfyUI-RES4LYF:
+  url: https://github.com/ClownsharkBatwing/ComfyUI-RES4LYF
+  description: Advanced image processing with wavelet support
+  pip_packages:
+    - pywavelets
+    - soundfile
+  nodes:
+    - WaveletColorFix
+    - WaveletDecompose
+    - WaveletReconstruct
+    - BatchNorm
+    - GuidedFilter
+    - SharpenFilter

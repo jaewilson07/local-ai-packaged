@@ -3,13 +3,12 @@
 import json
 import logging
 
-from pydantic_ai import RunContext
-
-from server.projects.openwebui_topics.dependencies import OpenWebUITopicsDeps
-from server.projects.openwebui_topics.models import (
+from capabilities.processing.openwebui_topics.dependencies import OpenWebUITopicsDeps
+from capabilities.processing.openwebui_topics.models import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )
+from pydantic_ai import RunContext
 
 logger = logging.getLogger(__name__)
 

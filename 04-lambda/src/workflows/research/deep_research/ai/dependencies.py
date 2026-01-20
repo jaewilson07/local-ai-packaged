@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
 from crawl4ai import AsyncWebCrawler, BrowserConfig
 from docling.document_converter import DocumentConverter
-from src.capabilities.retrieval.graphiti_rag.config import config as graphiti_config
-from src.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps as GraphitiDeps
-from src.server.config import settings as global_settings
-from src.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
-from src.workflows.research.deep_research.config import config
+from server.config import settings as global_settings
+from workflows.research.deep_research.config import config
+
+from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

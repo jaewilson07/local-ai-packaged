@@ -29,7 +29,7 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 try:
@@ -38,8 +38,8 @@ except ImportError:
     print("ERROR: crawl4ai not installed. Install with: pip install crawl4ai")
     sys.exit(1)
 
-from server.projects.crawl4ai_rag.dependencies import Crawl4AIDependencies  # noqa: E402
-from server.projects.crawl4ai_rag.services.downloader import (
+from workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies  # noqa: E402
+from workflows.ingestion.crawl4ai_rag.services.downloader import (  # noqa: E402
     download_pages_as_markdown,
 )
 

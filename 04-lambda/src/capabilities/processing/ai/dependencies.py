@@ -4,8 +4,9 @@ import logging
 from dataclasses import dataclass, field
 
 import httpx
-from src.capabilities.processing.openwebui_topics.config import config
-from src.shared.dependencies import BaseDependencies
+from capabilities.processing.openwebui_topics.config import config
+
+from shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

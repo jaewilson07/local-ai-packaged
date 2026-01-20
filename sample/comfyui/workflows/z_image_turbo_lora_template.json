@@ -1,0 +1,103 @@
+{
+  "_metadata": {
+    "name": "Z-Image-Turbo LoRA Template",
+    "description": "Z-Image-Turbo workflow template optimized for generate-with-lora API. Supports character LoRA, prompt optimization, and batch generation.",
+    "author": "local-ai-packaged",
+    "required_models": {
+      "unet": "z_image_turbo_bf16.safetensors",
+      "clip": "qwen_3_4b.safetensors",
+      "vae": "ae.safetensors"
+    },
+    "required_custom_nodes": [
+      "ComfyUI-GGUF",
+      "comfyui-easy-use"
+    ],
+    "parameter_overrides": {
+      "positive_prompt": {"node_id": "23", "field": "inputs", "subfield": "text"},
+      "negative_prompt": {"node_id": "2", "field": "inputs", "subfield": "text"},
+      "character_lora": {"node_id": "27", "field": "inputs", "subfield": "lora_name"},
+      "seed": {"node_id": "15", "field": "inputs", "subfield": "seed"},
+      "width": {"node_id": "24", "field": "inputs", "subfield": "width"},
+      "height": {"node_id": "24", "field": "inputs", "subfield": "height"},
+      "batch_size": {"node_id": "24", "field": "inputs", "subfield": "batch_size"}
+    }
+  },
+  "2": {
+    "inputs": {
+      "text": "worst quality, low quality, normal quality, lowres, blurry, distorted, grainy, plastic, waxy, 3D render, CGI, cartoon, doll-like, fake skin texture, oversaturated, flat lighting, unnatural shadows, artificial colors, bad anatomy, deformed, extra limbs, fused fingers, cloned face, asymmetrical, text, watermark, logo, signature, out of frame.",
+      "clip": ["27", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Negative Prompt)"}
+  },
+  "7": {
+    "inputs": {"shift": 3, "model": ["25", 0]},
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {"title": "ModelSamplingAuraFlow"}
+  },
+  "8": {
+    "inputs": {"clip_name": "qwen_3_4b.safetensors", "type": "lumina2"},
+    "class_type": "CLIPLoaderGGUF",
+    "_meta": {"title": "CLIPLoader (GGUF)"}
+  },
+  "9": {
+    "inputs": {"vae_name": "ae.safetensors"},
+    "class_type": "VAELoader",
+    "_meta": {"title": "Load VAE"}
+  },
+  "5": {
+    "inputs": {"samples": ["15", 0], "vae": ["9", 0]},
+    "class_type": "VAEDecode",
+    "_meta": {"title": "VAE Decode"}
+  },
+  "15": {
+    "inputs": {
+      "seed": 434637170144726,
+      "steps": 9,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["27", 0],
+      "positive": ["23", 0],
+      "negative": ["2", 0],
+      "latent_image": ["24", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": {"title": "KSampler"}
+  },
+  "21": {
+    "inputs": {"filename_prefix": "ComfyUI", "images": ["5", 0]},
+    "class_type": "SaveImage",
+    "_meta": {"title": "Save Image"}
+  },
+  "23": {
+    "inputs": {
+      "text": "A portrait photo of a person",
+      "clip": ["27", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "CLIP Text Encode (Positive Prompt)"}
+  },
+  "24": {
+    "inputs": {"width": 768, "height": 1024, "batch_size": 1},
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {"title": "EmptySD3LatentImage"}
+  },
+  "25": {
+    "inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"},
+    "class_type": "UNETLoader",
+    "_meta": {"title": "Load Diffusion Model"}
+  },
+  "27": {
+    "inputs": {
+      "lora_name": "placeholder.safetensors",
+      "strength_model": 1,
+      "strength_clip": 1,
+      "model": ["7", 0],
+      "clip": ["8", 0]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {"title": "Character LoRA Loader"}
+  }
+}

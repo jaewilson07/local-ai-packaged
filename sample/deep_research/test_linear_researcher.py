@@ -23,7 +23,7 @@ sys.path.insert(0, lambda_dir)
 
 async def test_linear_researcher():
     """Test the Linear Researcher agent."""
-    from server.projects.deep_research.workflow import run_linear_research
+    from workflows.research.deep_research.workflow import run_linear_research
 
     print("=" * 80)
     print("Testing Linear Researcher Agent (Phase 3)")

@@ -3,19 +3,20 @@
 import logging
 from typing import Any
 
-from pydantic_ai import RunContext
-
-from server.projects.graphiti_rag.config import config
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
-from server.projects.graphiti_rag.knowledge_graphs.ai_script_analyzer import AIScriptAnalyzer
-from server.projects.graphiti_rag.knowledge_graphs.hallucination_reporter import (
+from capabilities.retrieval.graphiti_rag.config import config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.graphiti_rag.knowledge_graphs.ai_script_analyzer import AIScriptAnalyzer
+from capabilities.retrieval.graphiti_rag.knowledge_graphs.hallucination_reporter import (
     HallucinationReporter,
 )
-from server.projects.graphiti_rag.knowledge_graphs.hallucination_validator import (
+from capabilities.retrieval.graphiti_rag.knowledge_graphs.hallucination_validator import (
     KnowledgeGraphValidator,
 )
-from server.projects.graphiti_rag.knowledge_graphs.repository_parser import DirectNeo4jExtractor
-from server.projects.graphiti_rag.search.graph_search import graphiti_search
+from capabilities.retrieval.graphiti_rag.knowledge_graphs.repository_parser import (
+    DirectNeo4jExtractor,
+)
+from capabilities.retrieval.graphiti_rag.search.graph_search import graphiti_search
+from pydantic_ai import RunContext
 
 logger = logging.getLogger(__name__)
 

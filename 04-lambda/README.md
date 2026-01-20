@@ -447,9 +447,9 @@ LLM_BASE_URL=http://ollama:11434/v1
 
 # Embeddings (Ollama default)
 EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_MODEL=qwen3-embedding:4b
 EMBEDDING_BASE_URL=http://ollama:11434/v1
-EMBEDDING_DIMENSION=768
+EMBEDDING_DIMENSION=2560
 
 # Neo4j (for Graphiti and knowledge graph)
 NEO4J_URI=bolt://neo4j:7687
@@ -594,8 +594,8 @@ infisical secrets set CLOUDFLARE_AUD_TAG=e869f0dbb027893e1c9ded98f81e6c85420c574
 
 #### Related Documentation
 
-- [Auth Project README](server/projects/auth/README.md) - Complete authentication system documentation
-- [Security Considerations](server/projects/auth/SECURITY.md) - Security best practices
+- [Auth Project README](src/services/auth/README.md) - Complete authentication system documentation
+- [Security Considerations](src/services/auth/SECURITY.md) - Security best practices
 - [Cloudflare Access Setup](00-infrastructure/scripts/setup-lambda-api-access.py) - Script to create Access application
 
 ## Usage
@@ -667,16 +667,16 @@ uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Adding New Projects
 
-1. Create project folder: `server/projects/your_project/`
+1. Create project folder: `src/capabilities/your_capability/`
 2. Implement project logic (config, dependencies, tools)
 3. Create API router: `server/api/your_project.py`
 4. Register router in `server/main.py`
-5. Add MCP tools in `server/mcp/server.py`
+5. Add MCP tools in `src/mcp_server/server.py`
 
 ## Projects
 
 ### MongoDB RAG (Retrieval Augmented Generation)
-- **Location**: `server/projects/mongo_rag/`
+- **Location**: `src/capabilities/retrieval/mongo_rag/`
 - **Inspiration**: Based on [MongoDB-RAG-Agent](https://github.com/coleam00/MongoDB-RAG-Agent)
 - **Features**:
   - **Docling Integration**: Production-grade document processing with DocumentConverter and HybridChunker for intelligent document conversion and chunking
@@ -689,11 +689,11 @@ uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
   - Cross-encoder reranking (optional)
 - **Database**: MongoDB Atlas Local (vector + full-text search)
 - **LLM**: Ollama (llama3.2)
-- **Embeddings**: Ollama (nomic-embed-text)
+- **Embeddings**: Ollama (qwen3-embedding:4b)
 - **Document Processing**: Docling 2.14+ (DocumentConverter, HybridChunker, ASR pipeline)
 
 ### Crawl4AI RAG (Web Crawling & Ingestion)
-- **Location**: `server/projects/crawl4ai_rag/`
+- **Location**: `src/workflows/ingestion/crawl4ai_rag/`
 - **Features**:
   - Single page and deep recursive web crawling
   - Automatic ingestion into MongoDB RAG
@@ -707,7 +707,7 @@ uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
 - **Documentation**: [Crawl4AI Installation](https://docs.crawl4ai.com/basic/installation/)
 
 ### Graphiti RAG (Knowledge Graph RAG)
-- **Location**: `server/projects/graphiti_rag/`
+- **Location**: `src/capabilities/retrieval/graphiti_rag/`
 - **Features**:
   - Graph-based search using Graphiti
   - Temporal fact storage with source metadata
@@ -790,7 +790,7 @@ docker ps | grep ollama
 
 # Pull required models
 docker exec ollama ollama pull llama3.2
-docker exec ollama ollama pull nomic-embed-text
+docker exec ollama ollama pull qwen3-embedding:4b
 ```
 
 ### Build Issues
@@ -863,7 +863,8 @@ Start order: infrastructure → data → compute → lambda
 
 ## Documentation
 
+- [API Strategy Documentation](docs/API_STRATEGY.md) - Route naming conventions, error handling, capability/workflow API links
 - [RAG MCP Architecture Decision](docs/RAG_MCP_ARCHITECTURE_DECISION.md) - Architecture decision for RAG tools design
 - [RAG Functionality Documentation](docs/RAG_FUNCTIONALITY.md) - Complete RAG systems overview
-- [MCP Integration Guide](../../docs/MCP_INTEGRATION.md) - MCP tools catalog and usage examples
-- [MCP Function Design Best Practices](server/mcp/AGENTS.md) - MCP tool design guidelines
+- [MCP Troubleshooting Skill](../../.cursor/skills/mcp-troubleshooting/SKILL.md) - MCP connection and usage guide
+- [Lambda AGENTS.md](AGENTS.md) - MCP tool design guidelines and Lambda patterns

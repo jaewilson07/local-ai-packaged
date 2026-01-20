@@ -46,7 +46,7 @@ docker compose -p localai -f 02-compute/docker-compose.yml restart comfyui
 
 **Via Script:**
 ```bash
-python 00-infrastructure/docs/cloudflare/setup_tunnel_routes.py
+python 00-infrastructure/scripts/setup-cloudflare-tunnel-routes.py
 ```
 
 ### 4. (Optional) Set Up Cloudflare Access
@@ -59,7 +59,7 @@ python 00-infrastructure/docs/cloudflare/setup_tunnel_routes.py
 # COMFYUI_CREATE_SERVICE_TOKEN=true
 
 # Run the setup script
-python3 00-infrastructure/docs/cloudflare/setup_comfyui_access.py
+python3 00-infrastructure/scripts/setup-lambda-api-access.py
 ```
 
 **Via Dashboard:**
@@ -68,7 +68,7 @@ python3 00-infrastructure/docs/cloudflare/setup_comfyui_access.py
 3. Configure policy (who can access)
 4. Link to tunnel route
 
-See [CLI Access Setup](../../00-infrastructure/docs/cloudflare/CLI_ACCESS_SETUP.md) for detailed CLI instructions.
+See [cloudflare-access-setup skill](../../../.cursor/skills/cloudflare-access-setup/SKILL.md) for detailed instructions.
 
 ## Access URLs
 

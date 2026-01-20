@@ -24,13 +24,13 @@ GOOGLE_REFRESH_TOKEN=your_refresh_token
 #### Simple Search
 Search Google Drive and list results:
 ```bash
-python sample/external/google_drive_simple_search.py
+uv run sample/external/google_drive/google_drive_simple_search.py
 ```
 
 #### Search and Download Tabs
 Search for documents and download all tabs with organized file structure:
 ```bash
-python sample/external/google_drive_search_and_download_tabs.py
+uv run sample/external/google_drive/search_and_download_tabs.py
 ```
 
 This will:
@@ -120,5 +120,4 @@ except GoogleDriveSearchError as e:
 ## See Also
 
 - [Google Drive Service Documentation](../../04-lambda/src/services/external/google_drive/README.md)
-- [Google Drive Class Documentation](../../04-lambda/src/services/external/google_drive/classes/)
-- [Text Utils Documentation](../../04-lambda/src/shared/text_utils.py)
+- [Text Utils](../../04-lambda/src/shared/text_utils.py)

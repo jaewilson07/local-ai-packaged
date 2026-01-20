@@ -1,9 +1,10 @@
 """Calendar agent for event scheduling and sync."""
 
+from capabilities.calendar.ai.dependencies import CalendarDeps
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from src.capabilities.calendar.ai.dependencies import CalendarDeps
-from src.shared.llm import get_llm_model
+
+from shared.llm import get_llm_model
 
 
 class CalendarState(BaseModel):
@@ -48,13 +49,13 @@ async def create_event(
         String confirming event creation
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.calendar.calendar_sync.tools import create_event as _create
+    from capabilities.calendar.calendar_sync.tools import create_event as _create
 
     deps = ctx.deps
     if not deps.db:
         await deps.initialize()
 
-    from src.capabilities.calendar.schemas import CalendarEventData, CreateCalendarEventRequest
+    from capabilities.calendar.schemas import CalendarEventData, CreateCalendarEventRequest
 
     event_data = CalendarEventData(
         summary=summary,
@@ -95,13 +96,13 @@ async def list_events(
         String describing the calendar events
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.calendar.calendar_sync.tools import list_events as _list
+    from capabilities.calendar.calendar_sync.tools import list_events as _list
 
     deps = ctx.deps
     if not deps.db:
         await deps.initialize()
 
-    from src.capabilities.calendar.schemas import ListCalendarEventsRequest
+    from capabilities.calendar.schemas import ListCalendarEventsRequest
 
     request = ListCalendarEventsRequest(
         user_id="system",

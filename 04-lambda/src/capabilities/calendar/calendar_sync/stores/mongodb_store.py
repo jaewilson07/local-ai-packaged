@@ -1,303 +1,341 @@
-"""MongoDB implementation of calendar sync state store."""
+"""MongoDB store for calendar sync state.
+
+This module provides MongoDB persistence for calendar synchronization state,
+tracking the mapping between external event IDs and Google Calendar event IDs.
+"""
 
 import logging
 from datetime import datetime
 from typing import Any
 
-from pymongo.database import Database
-from src.shared.stores.base import BaseMongoStore
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
-class MongoDBCalendarStore(BaseMongoStore):
-    """
-    MongoDB store for calendar sync state.
+class SyncState(BaseModel):
+    """Model for calendar sync state stored in MongoDB."""
 
-    Adapts MongoDB to the interface expected by GoogleCalendarSyncService.
+    external_id: str = Field(..., description="External system's event identifier")
+    google_event_id: str = Field(..., description="Google Calendar event ID")
+    user_id: str = Field(..., description="User who owns this sync state")
+    persona_id: str | None = Field(None, description="Persona ID if applicable")
+    calendar_id: str = Field("primary", description="Google Calendar ID")
+    source_system: str = Field("manual", description="Source system name")
+    synced_at: datetime = Field(default_factory=datetime.utcnow, description="Last sync timestamp")
+    event_hash: str | None = Field(None, description="Hash of event data for change detection")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class MongoDBCalendarStore:
+    """MongoDB-based storage for calendar sync state.
+
+    Provides CRUD operations for sync state documents, enabling
+    duplicate detection and change tracking for calendar synchronization.
     """
 
-    def __init__(self, db: Database, collection_name: str = "calendar_sync_state"):
+    COLLECTION_NAME = "calendar_sync_state"
+
+    def __init__(self, db: AsyncIOMotorDatabase):
         """
-        Initialize MongoDB calendar store.
+        Initialize the store with a MongoDB database.
 
         Args:
-            db: MongoDB database instance
-            collection_name: Name of the collection for sync state
+            db: Motor async MongoDB database instance
         """
-        super().__init__(db, collection_name=collection_name)
-        self._create_indexes()
+        self.db = db
+        self.collection = db[self.COLLECTION_NAME]
+        self._indexes_created = False
 
-    def _create_indexes(self) -> None:
+    async def ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        from pymongo import ASCENDING
+        if self._indexes_created:
+            return
 
-        # Index for lookups by user_id, persona_id, local_event_id
-        self._create_index_safe(
-            self.collection,
-            [("user_id", ASCENDING), ("persona_id", ASCENDING), ("local_event_id", ASCENDING)],
+        # Compound unique index on user + persona + external_id
+        await self.collection.create_index(
+            [("user_id", 1), ("persona_id", 1), ("external_id", 1)],
             unique=True,
-            name="user_persona_event_unique",
+            name="user_persona_external_unique",
         )
 
-        # Index for lookups by gcal_event_id
-        self._create_index_safe(
-            self.collection, [("gcal_event_id", ASCENDING)], name="gcal_event_id"
+        # Index for looking up by Google event ID
+        await self.collection.create_index(
+            [("google_event_id", 1)],
+            name="google_event_id_idx",
         )
 
-        # Index for sync status queries
-        self._create_index_safe(
-            self.collection,
-            [("sync_status", ASCENDING), ("last_sync_attempt", ASCENDING)],
-            name="sync_status_attempt",
+        # Index for listing by user
+        await self.collection.create_index(
+            [("user_id", 1), ("synced_at", -1)],
+            name="user_synced_at_idx",
         )
 
-    async def get_sync_state(
-        self, user_id: str, persona_id: str, local_event_id: str
-    ) -> dict[str, Any] | None:
-        """
-        Get sync state for a local event.
+        self._indexes_created = True
+        logger.info("calendar_sync_indexes_created")
 
-        Args:
-            user_id: User ID
-            persona_id: Persona ID
-            local_event_id: Local event identifier
-
-        Returns:
-            Dict with sync state or None if not found
-        """
-        try:
-            result = await self.collection.find_one(
-                {"user_id": user_id, "persona_id": persona_id, "local_event_id": local_event_id}
-            )
-            return result
-        except Exception as e:
-            self._handle_operation_error("getting sync state", e, raise_on_error=False)
-            return None
-
-    async def save_sync_state(
+    async def get_by_external_id(
         self,
         user_id: str,
-        persona_id: str,
-        local_event_id: str,
-        gcal_event_id: str | None = None,
-        sync_status: str = "pending",
-        event_data: dict[str, Any] | None = None,
-        sync_error: str | None = None,
-        gcal_calendar_id: str | None = None,
-    ) -> None:
+        persona_id: str | None,
+        external_id: str,
+    ) -> SyncState | None:
         """
-        Save sync state to database.
+        Get sync state by external ID.
 
         Args:
-            user_id: User ID
-            persona_id: Persona ID
-            local_event_id: Local event identifier
-            gcal_event_id: Google Calendar event ID (if synced)
-            sync_status: Status ('pending', 'synced', 'failed', 'skipped')
-            event_data: Event data snapshot
-            sync_error: Error message if sync failed
-            gcal_calendar_id: Google Calendar ID where event is synced
-        """
-        try:
-            # Extract event metadata
-            event_summary = None
-            event_start_time = None
-            event_end_time = None
-            event_location = None
-
-            if event_data:
-                event_summary = event_data.get("summary")
-                event_location = event_data.get("location")
-
-                # Parse start/end times
-                start_time = event_data.get("start")
-                end_time = event_data.get("end")
-
-                if isinstance(start_time, str):
-                    event_start_time = datetime.fromisoformat(
-                        start_time.replace("Z", "+00:00")
-                    ).isoformat()
-                elif isinstance(start_time, datetime):
-                    event_start_time = start_time.isoformat()
-
-                if isinstance(end_time, str):
-                    event_end_time = datetime.fromisoformat(
-                        end_time.replace("Z", "+00:00")
-                    ).isoformat()
-                elif isinstance(end_time, datetime):
-                    event_end_time = end_time.isoformat()
-
-            sync_data = {
-                "user_id": user_id,
-                "persona_id": persona_id,
-                "local_event_id": local_event_id,
-                "gcal_event_id": gcal_event_id,
-                "gcal_calendar_id": gcal_calendar_id or "primary",
-                "sync_status": sync_status,
-                "event_summary": event_summary,
-                "event_start_time": event_start_time,
-                "event_end_time": event_end_time,
-                "event_location": event_location,
-                "event_data": event_data or {},
-                "sync_error": sync_error,
-                "last_sync_attempt": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-            }
-
-            if sync_status == "synced":
-                sync_data["last_synced_at"] = datetime.now().isoformat()
-
-            # Check if sync state already exists
-            existing = await self.get_sync_state(user_id, persona_id, local_event_id)
-
-            if existing:
-                # Update existing record
-                await self.collection.update_one({"_id": existing["_id"]}, {"$set": sync_data})
-            else:
-                # Insert new record
-                sync_data["created_at"] = datetime.now().isoformat()
-                await self.collection.insert_one(sync_data)
-
-            logger.info(f"Saved sync state: {local_event_id} -> {gcal_event_id} ({sync_status})")
-        except Exception as e:
-            self._handle_operation_error("saving sync state", e, raise_on_error=True)
-
-    async def get_by_external_id(self, external_id: str) -> dict[str, Any] | None:
-        """
-        Get sync state by external ID (for backward compatibility).
-
-        External ID format: "local:{local_event_id}"
-
-        Note: This method doesn't have user_id/persona_id context, so it may
-        return results from any user. Prefer using get_sync_state() with full context.
-
-        Args:
-            external_id: External identifier (e.g., "local:event_123")
+            user_id: User who owns the sync state
+            persona_id: Persona ID (can be None)
+            external_id: External system's event identifier
 
         Returns:
-            Dict with sync state or None if not found
+            SyncState if found, None otherwise
         """
-        try:
-            # Extract local_event_id from external_id format "local:{local_event_id}"
-            if external_id.startswith("local:"):
-                local_event_id = external_id[6:]  # Remove "local:" prefix
-                result = await self.collection.find_one({"local_event_id": local_event_id})
-                return result
-            # Try to find by external_id directly (if stored)
-            result = await self.collection.find_one({"external_id": external_id})
-            return result
-        except Exception as e:
-            self._handle_operation_error(
-                "getting sync state by external_id", e, raise_on_error=False
-            )
-            return None
+        await self.ensure_indexes()
+
+        query = {
+            "user_id": user_id,
+            "external_id": external_id,
+        }
+        if persona_id:
+            query["persona_id"] = persona_id
+        else:
+            query["persona_id"] = None
+
+        doc = await self.collection.find_one(query)
+        if doc:
+            doc.pop("_id", None)
+            return SyncState(**doc)
+        return None
+
+    async def get_by_google_event_id(
+        self,
+        google_event_id: str,
+    ) -> SyncState | None:
+        """
+        Get sync state by Google Calendar event ID.
+
+        Args:
+            google_event_id: Google Calendar event ID
+
+        Returns:
+            SyncState if found, None otherwise
+        """
+        await self.ensure_indexes()
+
+        doc = await self.collection.find_one({"google_event_id": google_event_id})
+        if doc:
+            doc.pop("_id", None)
+            return SyncState(**doc)
+        return None
 
     async def record_sync_state(
         self,
+        user_id: str,
+        persona_id: str | None,
         external_id: str,
         google_event_id: str,
-        source_system: str = "local",
+        calendar_id: str = "primary",
+        source_system: str = "manual",
+        event_hash: str | None = None,
         metadata: dict[str, Any] | None = None,
-        user_id: str | None = None,
-        persona_id: str | None = None,
-    ) -> None:
+    ) -> SyncState:
         """
-        Record sync state using external_id format (for backward compatibility).
-
-        This is a wrapper around save_sync_state() that extracts user_id/persona_id
-        from metadata or requires them as parameters.
+        Record a new sync state.
 
         Args:
-            external_id: External identifier (e.g., "local:event_123")
+            user_id: User who owns the sync state
+            persona_id: Persona ID (can be None)
+            external_id: External system's event identifier
             google_event_id: Google Calendar event ID
-            source_system: Source system identifier (default: "local")
-            metadata: Optional metadata dict (may contain user_id, persona_id, calendar_id, local_event_id)
-            user_id: User ID (required if not in metadata)
-            persona_id: Persona ID (required if not in metadata)
+            calendar_id: Google Calendar ID
+            source_system: Name of the source system
+            event_hash: Hash of event data for change detection
+            metadata: Additional metadata to store
+
+        Returns:
+            The created SyncState
         """
-        metadata = metadata or {}
+        await self.ensure_indexes()
 
-        # Extract user_id and persona_id from metadata or parameters
-        user_id = user_id or metadata.get("user_id")
-        persona_id = persona_id or metadata.get("persona_id")
-
-        if not user_id or not persona_id:
-            raise ValueError(
-                "user_id and persona_id must be provided either as parameters or in metadata"
-            )
-
-        # Extract local_event_id from external_id format "local:{local_event_id}"
-        if external_id.startswith("local:"):
-            local_event_id = external_id[6:]  # Remove "local:" prefix
-        else:
-            local_event_id = external_id
-
-        # Extract calendar_id from metadata
-        calendar_id = metadata.get("calendar_id", "primary")
-
-        # Call save_sync_state with proper parameters
-        await self.save_sync_state(
+        now = datetime.utcnow()
+        state = SyncState(
+            external_id=external_id,
+            google_event_id=google_event_id,
             user_id=user_id,
             persona_id=persona_id,
-            local_event_id=local_event_id,
-            gcal_event_id=google_event_id,
-            sync_status="synced",
-            gcal_calendar_id=calendar_id,
+            calendar_id=calendar_id,
+            source_system=source_system,
+            synced_at=now,
+            event_hash=event_hash,
+            metadata=metadata or {},
         )
 
-    async def count_events_by_user(
+        await self.collection.insert_one(state.model_dump())
+
+        logger.info(
+            "sync_state_recorded",
+            extra={
+                "user_id": user_id,
+                "external_id": external_id,
+                "google_event_id": google_event_id,
+            },
+        )
+
+        return state
+
+    async def update_sync_state(
+        self,
+        user_id: str,
+        persona_id: str | None,
+        external_id: str,
+        google_event_id: str | None = None,
+        event_hash: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        """
+        Update an existing sync state.
+
+        Args:
+            user_id: User who owns the sync state
+            persona_id: Persona ID (can be None)
+            external_id: External system's event identifier
+            google_event_id: New Google Calendar event ID (optional)
+            event_hash: New event hash (optional)
+            metadata: Metadata to merge (optional)
+
+        Returns:
+            True if updated, False if not found
+        """
+        await self.ensure_indexes()
+
+        query = {
+            "user_id": user_id,
+            "external_id": external_id,
+        }
+        if persona_id:
+            query["persona_id"] = persona_id
+        else:
+            query["persona_id"] = None
+
+        update: dict[str, Any] = {"$set": {"synced_at": datetime.utcnow()}}
+
+        if google_event_id is not None:
+            update["$set"]["google_event_id"] = google_event_id
+        if event_hash is not None:
+            update["$set"]["event_hash"] = event_hash
+        if metadata is not None:
+            for key, value in metadata.items():
+                update["$set"][f"metadata.{key}"] = value
+
+        result = await self.collection.update_one(query, update)
+
+        if result.modified_count > 0:
+            logger.info(
+                "sync_state_updated",
+                extra={"user_id": user_id, "external_id": external_id},
+            )
+            return True
+        return False
+
+    async def delete_sync_state(
+        self,
+        user_id: str,
+        persona_id: str | None,
+        external_id: str,
+    ) -> bool:
+        """
+        Delete a sync state.
+
+        Args:
+            user_id: User who owns the sync state
+            persona_id: Persona ID (can be None)
+            external_id: External system's event identifier
+
+        Returns:
+            True if deleted, False if not found
+        """
+        await self.ensure_indexes()
+
+        query = {
+            "user_id": user_id,
+            "external_id": external_id,
+        }
+        if persona_id:
+            query["persona_id"] = persona_id
+        else:
+            query["persona_id"] = None
+
+        result = await self.collection.delete_one(query)
+
+        if result.deleted_count > 0:
+            logger.info(
+                "sync_state_deleted",
+                extra={"user_id": user_id, "external_id": external_id},
+            )
+            return True
+        return False
+
+    async def list_sync_states(
         self,
         user_id: str,
         persona_id: str | None = None,
-        calendar_id: str | None = None,
-        sync_status: str | None = None,
-    ) -> dict[str, Any]:
+        limit: int = 100,
+        skip: int = 0,
+    ) -> list[SyncState]:
         """
-        Count synced events for a user with optional filters.
+        List sync states for a user.
 
         Args:
-            user_id: User ID (required)
-            persona_id: Optional persona ID filter
-            calendar_id: Optional calendar ID filter
-            sync_status: Optional sync status filter (e.g., "synced", "pending", "failed")
+            user_id: User who owns the sync states
+            persona_id: Filter by persona ID (optional)
+            limit: Maximum number of results
+            skip: Number of results to skip
 
         Returns:
-            Dict with:
-            - total: Total count of events matching criteria
-            - by_calendar: Dict mapping calendar_id to count
-            - calendars_count: Number of unique calendars
+            List of SyncState objects
         """
-        try:
-            # Build query filter
-            query = {"user_id": user_id}
+        await self.ensure_indexes()
 
-            if persona_id:
-                query["persona_id"] = persona_id
+        query: dict[str, Any] = {"user_id": user_id}
+        if persona_id is not None:
+            query["persona_id"] = persona_id
 
-            if calendar_id:
-                query["gcal_calendar_id"] = calendar_id
+        cursor = self.collection.find(query).sort("synced_at", -1).skip(skip).limit(limit)
 
-            if sync_status:
-                query["sync_status"] = sync_status
+        states = []
+        async for doc in cursor:
+            doc.pop("_id", None)
+            states.append(SyncState(**doc))
 
-            # Get total count
-            total = await self.collection.count_documents(query)
+        return states
 
-            # Get counts grouped by calendar_id
-            pipeline = [
-                {"$match": query},
-                {"$group": {"_id": "$gcal_calendar_id", "count": {"$sum": 1}}},
-            ]
+    async def count_sync_states(
+        self,
+        user_id: str,
+        persona_id: str | None = None,
+    ) -> int:
+        """
+        Count sync states for a user.
 
-            by_calendar = {}
-            async for doc in self.collection.aggregate(pipeline):
-                calendar_id_key = doc["_id"] or "primary"
-                by_calendar[calendar_id_key] = doc["count"]
+        Args:
+            user_id: User who owns the sync states
+            persona_id: Filter by persona ID (optional)
 
-            calendars_count = len(by_calendar)
+        Returns:
+            Count of sync states
+        """
+        await self.ensure_indexes()
 
-            return {"total": total, "by_calendar": by_calendar, "calendars_count": calendars_count}
-        except Exception as e:
-            self._handle_operation_error("counting events by user", e, raise_on_error=False)
-            return {"total": 0, "by_calendar": {}, "calendars_count": 0}
+        query: dict[str, Any] = {"user_id": user_id}
+        if persona_id is not None:
+            query["persona_id"] = persona_id
+
+        return await self.collection.count_documents(query)
+
+
+__all__ = ["MongoDBCalendarStore", "SyncState"]

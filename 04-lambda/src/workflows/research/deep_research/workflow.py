@@ -7,8 +7,8 @@ import logging
 import uuid
 from typing import Any
 
-from server.projects.deep_research.agent import linear_researcher_agent
-from server.projects.deep_research.dependencies import DeepResearchDeps
+from workflows.research.deep_research.agent import linear_researcher_agent
+from workflows.research.deep_research.dependencies import DeepResearchDeps
 
 logger = logging.getLogger(__name__)
 

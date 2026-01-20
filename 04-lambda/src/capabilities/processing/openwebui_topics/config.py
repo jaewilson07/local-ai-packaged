@@ -1,20 +1,24 @@
-"""Open WebUI topic classification configuration."""
+"""OpenWebUI Topics project configuration."""
 
 from server.config import settings as global_settings
 
 
-class TopicClassificationConfig:
-    """Topic classification configuration."""
+class OpenWebUITopicsConfig:
+    """OpenWebUI Topics-specific configuration derived from global settings."""
 
-    # LLM for topic classification
-    llm_provider = global_settings.llm_provider
+    # MongoDB
+    mongodb_uri = global_settings.mongodb_uri
+    mongodb_database = global_settings.mongodb_database
+
+    # LLM settings
     llm_model = global_settings.llm_model
     llm_base_url = global_settings.llm_base_url
     llm_api_key = global_settings.llm_api_key
 
-    # Classification settings
-    max_topics: int = 5
-    min_topic_confidence: float = 0.7
+    # Topic settings
+    max_topics = 5
 
 
-config = TopicClassificationConfig()
+config = OpenWebUITopicsConfig()
+
+__all__ = ["OpenWebUITopicsConfig", "config"]

@@ -115,7 +115,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:9999/health"
+          "http://127.0.0.1:9999/health"
         ]
       timeout: 5s
       interval: 5s
@@ -223,7 +223,7 @@ services:
       analytics:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/4000' || exit 1"]
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/127.0.0.1/4000' || exit 1"]
       timeout: 5s
       interval: 10s
       retries: 5
@@ -259,7 +259,7 @@ services:
       MINIO_ROOT_PASSWORD: ${SUPABASE_MINIO_ROOT_PASSWORD:-secret1234}
     command: server --address ":9020" --console-address ":9021" /data
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9020/minio/health/live" ]
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:9020/minio/health/live" ]
       interval: 2s
       timeout: 10s
       retries: 5
@@ -365,6 +365,14 @@ services:
     container_name: supabase-edge-functions
     image: supabase/edge-runtime:v1.69.28
     restart: unless-stopped
+    healthcheck:
+      # Use bash TCP port check - the edge runtime listens on port 9000 internally
+      # nc is not available in this container, but bash is
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/127.0.0.1/9000' || exit 1"]
+      timeout: 5s
+      interval: 10s
+      retries: 3
+      start_period: 30s
     env_file:
       - ../../.env
     volumes:
@@ -404,7 +412,7 @@ services:
         [
           "CMD",
           "curl",
-          "http://localhost:4000/health"
+          "http://127.0.0.1:4000/health"
         ]
       timeout: 5s
       interval: 5s
@@ -465,7 +473,7 @@ services:
         "-U",
         "postgres",
         "-h",
-        "localhost"
+        "127.0.0.1"
         ]
       interval: 5s
       timeout: 5s

@@ -62,7 +62,7 @@ The calendar integration from wandering-athena provides Google Calendar sync cap
 
 ### Option 1: Add as Lambda Project
 
-**Approach**: Create new project in `04-lambda/server/projects/calendar/`
+**Approach**: Create new project in `04-lambda/src/capabilities/calendar/calendar_sync/`
 
 **Pros**:
 - Matches wandering-athena pattern
@@ -75,7 +75,7 @@ The calendar integration from wandering-athena provides Google Calendar sync cap
 - Needs database table for sync state
 
 **Implementation Steps**:
-1. Create `04-lambda/server/projects/calendar/` directory
+1. Create `04-lambda/src/capabilities/calendar/calendar_sync/` directory
 2. Port GoogleCalendarSyncService
 3. Create CalendarOrchestrator (simplified, no LangGraph)
 4. Create calendar store implementations (MongoDB, Supabase)
@@ -166,7 +166,7 @@ events = await sync_service.list_events(
    - Can expose via MCP tools
    - Can integrate with existing memory systems
 
-2. **Memory Systems** (`04-lambda/server/projects/mongo_rag/`)
+2. **Memory Systems** (`04-lambda/src/capabilities/retrieval/mongo_rag/`)
    - Can store sync state in MongoDB
    - Can use Supabase for sync state (if available)
    - Can integrate with existing fact storage
@@ -209,7 +209,7 @@ CREATE TABLE calendar_sync_state (
 ## Recommended Approach
 
 **Phase 1**: Add as Lambda project
-- Create `04-lambda/server/projects/calendar/`
+- Create `04-lambda/src/capabilities/calendar/calendar_sync/`
 - Port GoogleCalendarSyncService
 - Create CalendarOrchestrator
 - Create MongoDB sync state store

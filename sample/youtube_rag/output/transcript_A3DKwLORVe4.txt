@@ -1,0 +1,211 @@
+[00:00] Hey folks, it's Sydney from LinkChain
+[00:02] and I'm super excited to chat with you
+[00:04] today about a specific application of
+[00:06] context engineering and that is design
+[00:08] decisions when building a multi- aent
+[00:10] system with a sub aent architecture.
+[00:13] Let's first do a quick review of the sub
+[00:14] aents architecture. So in a sub agents
+[00:17] often called supervisor architecture, we
+[00:19] have a user request coming into the main
+[00:21] agent which can then delegate tasks to
+[00:24] any number of sub aents in parallel and
+[00:26] then the main agent is responsible for
+[00:28] returning a final response in the end.
+[00:31] This architecture scores quite well in
+[00:33] terms of supporting distributed
+[00:34] development across teams. So sub aents
+[00:37] can be developed along different
+[00:38] verticals. It's also great if you need
+[00:40] to invoke sub aents in parallel compared
+[00:42] to some of the other architectures that
+[00:44] we've covered. You can also have
+[00:46] multihop interactions. So many
+[00:48] iterations of that model and tool
+[00:49] calling loop where you're calling sub
+[00:51] aents in series.
+[00:53] Let's jump into some of the key design
+[00:55] decisions that you'll want to make when
+[00:56] you're building with this architecture.
+[00:58] So there's three main categories here.
+[01:00] The first is whether or not you're
+[01:02] invoking your sub aent in an
+[01:03] asynchronous versus synchronous way.
+[01:05] This isn't to be confused with Python's
+[01:07] async and await quite literally. But
+[01:10] generally the pattern here is if you're
+[01:11] invoking your sub aents in a synchronous
+[01:14] way, the main agent waits.
+[01:17] But generally [clears throat] what this
+[01:18] means is if you're invoking your sub
+[01:20] aents in a synchronous way, your main
+[01:22] agent is blocked by those calls and
+[01:24] waits on all of the sub aent results.
+[01:26] And if you're invoking your sub agents
+[01:27] in an asynchronous way, those sub aents
+[01:30] run as background tasks that don't block
+[01:32] the main agents execution.
+[01:35] Secondarily, we'll chat about tool
+[01:36] design. So, you can either have a single
+[01:39] tool that dispatches to any available
+[01:42] sub aents or a tool per sub aent.
+[01:46] Finally, we'll talk about some context
+[01:48] engineering strategies with the sub
+[01:50] aents architecture. So, that includes
+[01:52] things like the specifications of your
+[01:54] sub aents and then the inputs that you
+[01:56] provide to your sub aents and the
+[01:58] outputs that you take from your sub
+[02:00] aents and feed back to the main agent.
+[02:02] First we'll chat about the sync versus
+[02:04] async execution of sub aents. So in the
+[02:07] synchronous case the main agent behavior
+[02:09] is waiting for that sub aent to complete
+[02:12] and this is best for the case when that
+[02:13] main agent needs the results of the sub
+[02:16] aent executors in order to continue.
+[02:18] This is a more simple architecture but
+[02:20] does block the conversation and so isn't
+[02:23] the best choice if you have specific
+[02:25] latency requirements. Conversely, in the
+[02:27] async case, the main agent actually
+[02:30] continues while those sub aent tasks run
+[02:32] in the background. So, this is best when
+[02:34] you have independent tasks that the end
+[02:36] user doesn't need to wait on.
+[02:39] This architecture is generally more
+[02:41] responsive and better if you have
+[02:43] stricter latency requirements, but it is
+[02:45] definitely more complex. So, the first
+[02:48] option that you have with tool design is
+[02:50] that you can use a tool per agent. And
+[02:52] we see this in this slightly modified
+[02:54] diagram of the sub agents architecture
+[02:56] here. So still the user request is
+[02:58] passed to the main agent and then we're
+[03:00] representing tools in green here. So we
+[03:02] have tools for each of sub aent A, B and
+[03:04] C and then those tools are responsible
+[03:07] for invoking the actual sub aents
+[03:09] themselves which we're showing in gray.
+[03:12] The biggest advantage of this
+[03:13] architecture is that it gives you really
+[03:15] fine grain control over your sub aent
+[03:17] inputs and outputs. So you control
+[03:19] exactly what goes into each of those sub
+[03:21] aents and then you can filter those
+[03:23] outputs before passing them back to the
+[03:25] main agent and you can do that in a
+[03:26] custom way per sub agent.
+[03:29] One downside of this architecture though
+[03:31] is that there is more to configure. Uh
+[03:34] it's a little bit more complex. The
+[03:36] second tool design choice that you could
+[03:38] make is to use a single dispatch tool.
+[03:40] So in this case we just have one task
+[03:42] tool shown in green and that task tool
+[03:45] can dispatch to any of the available sub
+[03:47] aents again shown in gray. This is
+[03:50] actually the pattern that quad code uses
+[03:52] as well as deep agents.
+[03:54] One thing that you want to make sure to
+[03:55] do if you're using this single dispatch
+[03:57] tool pattern is exposing all of the
+[03:59] available agents to your main agent.
+[04:03] So in the case of the tool per agent,
+[04:05] your main agent knows about each of the
+[04:07] available sub aents because it has the
+[04:09] list of available tools. But in this
+[04:11] case, there's a couple of different ways
+[04:13] that you can provide that sub aent
+[04:14] information. So the first approach is
+[04:17] just to list all of the available sub
+[04:19] aents in the system prompt of the main
+[04:21] agent. This works great if you don't
+[04:23] have too many sub aents available. The
+[04:26] second approach is to enumerate all of
+[04:28] the available sub agents as one of the
+[04:30] tool arguments for the task tool or the
+[04:33] dispatch tool. And so what that might
+[04:35] look like is know the task tool has an
+[04:37] agent name arg and so you could
+[04:39] enumerate each of sub agent A, B and C
+[04:41] there. Finally, you could also consider
+[04:44] a progressive disclosure approach here.
+[04:46] So if you have an abundance of sub aents
+[04:49] where it doesn't make sense to list all
+[04:50] of them up front you can provide your
+[04:52] main agent with access to a list agents
+[04:55] tool that list agents tool can expose
+[04:58] the appropriate sub agents for a given
+[05:00] task. One of the benefits of this
+[05:02] architecture in particular is that it is
+[05:04] more supportive of the case where you
+[05:07] have many sub aents and you can't expose
+[05:09] all of them as tools at once. Ultimately
+[05:12] though the tool design decision is up to
+[05:15] you. These are just two pretty similar
+[05:17] architectures and the great thing is
+[05:19] that both of these architectures support
+[05:21] distributed development of sub aents.
+[05:24] All right. And then finally, we'll touch
+[05:26] on a bit more of the context engineering
+[05:28] portion. So we're going to talk about
+[05:30] sub aent specifications, inputs, and
+[05:32] outputs. In terms of sub aent specs,
+[05:35] what this really means is you need to
+[05:37] provide the main agent with enough
+[05:39] information about the sub aents so that
+[05:40] it can call the right ones when
+[05:42] appropriate given the context. Here we
+[05:45] have a code snippet defining a deep
+[05:48] research sub aent tool. You can see that
+[05:50] the tool is defined as a function and
+[05:52] then we actually call the researcher
+[05:54] agent from within that tool. It's
+[05:57] important that we think carefully about
+[05:58] a few things here. The first is the tool
+[06:00] name or agent name in this case which
+[06:03] helps to inform the main agent regarding
+[06:05] when it should call this sub aent. The
+[06:08] second is the agent description provided
+[06:10] via the dock string here. And the third
+[06:13] when you're using a tool per agent is
+[06:15] the actual function args types and
+[06:17] descriptions shown here. In this basic
+[06:20] case, we're just feeding the query
+[06:22] passed to the function directly into
+[06:24] that researcher sub aent. But what if we
+[06:26] want to customize the sub aent input so
+[06:28] that it can do a bit of a better job
+[06:30] with the context provided? In this case,
+[06:33] we can add an expertise argument to our
+[06:35] deep research sub aent tool that can be
+[06:37] either beginner, intermediate, or
+[06:39] expert. Then we modify the human message
+[06:42] that we're going to pass to our
+[06:43] researcher based on this expertise.
+[06:46] Generally when we think about modifying
+[06:47] sub aent inputs that can include
+[06:50] filtering and editing the message
+[06:51] history or injecting additional relevant
+[06:54] state or context. You can also customize
+[06:57] the sub aent outputs. So previously
+[07:00] while we were returning just the last
+[07:02] message from our researcher sub aent we
+[07:04] can instead return the entire message
+[07:06] history from that sub aent to our main
+[07:08] agent if we think that the main agent
+[07:11] understanding the trajectory of the
+[07:12] research would help with the broader
+[07:14] task at hand.
+[07:16] Generally we find that folks have a lot
+[07:18] of success with the sub agents
+[07:19] multi-agent architecture. It's quite
+[07:21] simple to understand and nice that you
+[07:22] can support parallel agent invocations
+[07:24] and distributed development across
+[07:26] teams. It's definitely critical though
+[07:28] to think carefully about these design
+[07:29] decisions when you're building out your
+[07:30] next multi-agent system.

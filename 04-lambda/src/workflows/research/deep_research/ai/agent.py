@@ -14,9 +14,8 @@ import uuid
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-
-from server.projects.deep_research.dependencies import DeepResearchDeps
-from server.projects.deep_research.models import (
+from workflows.research.deep_research.dependencies import DeepResearchDeps
+from workflows.research.deep_research.models import (
     DocumentChunk,
     FetchPageRequest,
     IngestKnowledgeRequest,
@@ -24,14 +23,15 @@ from server.projects.deep_research.models import (
     QueryKnowledgeRequest,
     SearchWebRequest,
 )
-from server.projects.deep_research.tools import (
+from workflows.research.deep_research.tools import (
     fetch_page,
     ingest_knowledge,
     parse_document,
     query_knowledge,
     search_web,
 )
-from server.projects.shared.llm import get_llm_model
+
+from shared.llm import get_llm_model
 
 logger = logging.getLogger(__name__)
 

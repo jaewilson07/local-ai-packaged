@@ -122,13 +122,16 @@ class UploadCapability(BaseCapability):
 
     async def on_ready(self, tree: app_commands.CommandTree) -> None:
         """
-        Called when bot is ready. Registers the /claim_face command.
+        Called when bot is ready. Registers slash commands.
 
         Args:
             tree: The command tree to register commands with
         """
         # Register /claim_face command
         await self._register_claim_face_command(tree)
+
+        # Register /link_discord command for account linking
+        await self._register_link_discord_command(tree)
 
         logger.info(
             f"Upload capability ready - monitoring "
@@ -196,6 +199,83 @@ class UploadCapability(BaseCapability):
                 error_msg = str(e)
                 await interaction.followup.send(
                     f"❌ Error searching for people: {error_msg}", ephemeral=True
+                )
+
+    async def _register_link_discord_command(self, tree: app_commands.CommandTree) -> None:
+        """Register the /link_discord slash command for account linking."""
+
+        @tree.command(
+            name="link_discord",
+            description="Link your Discord account to your datacrew.space account for personal uploads",
+        )
+        @app_commands.describe(email="Your Cloudflare Access email (e.g., your@email.com)")
+        async def link_discord(interaction: Interaction, email: str):
+            """
+            Link Discord account to Cloudflare-authenticated user via Lambda API.
+
+            This allows the bot to upload files to your personal Immich library
+            instead of a shared account.
+            """
+            await interaction.response.defer(ephemeral=True)
+
+            try:
+                # Validate email format
+                if "@" not in email or "." not in email:
+                    await interaction.followup.send(
+                        "❌ Invalid email format. Please provide your Cloudflare Access email.",
+                        ephemeral=True,
+                    )
+                    return
+
+                discord_user_id = str(interaction.user.id)
+
+                # Call Lambda API to link accounts
+                # Note: We MUST use X-User-Email with the user's provided email here,
+                # not the bot's Bearer token, because we want to update the user's
+                # profile (not the bot owner's profile). The Lambda server will
+                # authenticate based on the X-User-Email header from internal network.
+                async with aiohttp.ClientSession() as session:
+                    url = f"{config.LAMBDA_API_URL}/api/v1/auth/me/discord/link"
+                    headers = {"X-User-Email": email}
+                    params = {"discord_user_id": discord_user_id}
+
+                    async with session.post(
+                        url, headers=headers, params=params, timeout=10
+                    ) as resp:
+                        if resp.status == 200:
+                            await interaction.followup.send(
+                                f"✅ Successfully linked your Discord account to **{email}**!\n\n"
+                                "Your uploads will now go to your personal Immich library. "
+                                "Make sure you've logged into datacrew.space at least once to "
+                                "provision your Immich account.",
+                                ephemeral=True,
+                            )
+                        elif resp.status == 404:
+                            await interaction.followup.send(
+                                f"❌ No account found for **{email}**.\n\n"
+                                "Please log into datacrew.space first to create your account, "
+                                "then try this command again.",
+                                ephemeral=True,
+                            )
+                        else:
+                            error_text = await resp.text()
+                            logger.warning(f"Lambda API returned {resp.status}: {error_text}")
+                            await interaction.followup.send(
+                                f"❌ Failed to link accounts. Server returned: {resp.status}",
+                                ephemeral=True,
+                            )
+
+            except aiohttp.ClientError as e:
+                logger.warning(f"Failed to connect to Lambda API: {e}")
+                await interaction.followup.send(
+                    "❌ Could not connect to the server. Please try again later.",
+                    ephemeral=True,
+                )
+            except Exception as e:
+                error_msg = str(e)
+                logger.exception("Error in link_discord command")
+                await interaction.followup.send(
+                    f"❌ Error linking accounts: {error_msg}", ephemeral=True
                 )
 
     async def on_message(self, message: discord.Message) -> bool:
@@ -293,9 +373,39 @@ class UploadCapability(BaseCapability):
 
         return uploaded_any
 
+    def _get_lambda_auth_headers(self) -> dict[str, str]:
+        """
+        Get authentication headers for Lambda API calls.
+
+        Prefers Bearer token authentication (LAMBDA_API_TOKEN) for security,
+        falls back to internal network auth (X-User-Email header) when running
+        inside Docker network.
+
+        Returns:
+            Dictionary of authentication headers
+        """
+        headers = {}
+
+        # Prefer Bearer token authentication if available
+        if config.LAMBDA_API_TOKEN:
+            headers["Authorization"] = f"Bearer {config.LAMBDA_API_TOKEN}"
+        # Fallback to internal network auth
+        elif config.CLOUDFLARE_EMAIL:
+            headers["X-User-Email"] = config.CLOUDFLARE_EMAIL
+
+        return headers
+
     async def _get_user_immich_api_key(self, discord_user_id: str) -> str | None:
         """
         Get user's Immich API key from Lambda API.
+
+        Calls the Lambda server's internal endpoint to lookup the user by their
+        Discord ID and retrieve their Immich API key. This requires the user to
+        have linked their Discord account via /api/v1/auth/me/discord/link first.
+
+        Authentication methods (in priority order):
+        1. Bearer token (LAMBDA_API_TOKEN) - preferred, works anywhere
+        2. Internal network auth (X-User-Email) - Docker internal network only
 
         Args:
             discord_user_id: Discord user ID
@@ -303,20 +413,40 @@ class UploadCapability(BaseCapability):
         Returns:
             Immich API key or None if not found/error
         """
-        if not config.CLOUDFLARE_EMAIL:
-            logger.debug("CLOUDFLARE_EMAIL not configured, using global API key")
+        if not config.LAMBDA_API_URL:
+            logger.debug("LAMBDA_API_URL not configured, using global API key")
             return None
 
         try:
-            # First, get user by Discord ID to find their email
-            # Note: This requires the user to have linked their Discord account via /api/me/discord/link
-            # For now, we'll use a fallback to the global API key if user-specific lookup fails
             async with aiohttp.ClientSession() as session:
-                # Try to get API key directly (Lambda API will handle user lookup)
-                # Since we don't have Cloudflare JWT in Discord bot, we'll need to use a service key
-                # or implement a different approach
-                # For now, return None to use fallback
-                return None
+                url = f"{config.LAMBDA_API_URL}/api/v1/auth/user/by-discord/{discord_user_id}"
+                headers = self._get_lambda_auth_headers()
+
+                async with session.get(url, headers=headers, timeout=10) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        api_key = data.get("immich_api_key")
+                        if api_key:
+                            logger.debug(
+                                f"Retrieved Immich API key for Discord user {discord_user_id}"
+                            )
+                            return api_key
+                        logger.debug(f"User {discord_user_id} has no Immich API key configured")
+                        return None
+                    if resp.status == 404:
+                        logger.debug(f"Discord user {discord_user_id} not linked to any account")
+                        return None
+                    if resp.status == 403:
+                        logger.warning(
+                            "Lambda API access denied. Configure LAMBDA_API_TOKEN for "
+                            "external access or ensure bot is running on Docker internal network."
+                        )
+                        return None
+                    logger.warning(f"Lambda API returned {resp.status} for Discord user lookup")
+                    return None
+        except aiohttp.ClientError as e:
+            logger.warning(f"Failed to connect to Lambda API: {e}")
+            return None
         except Exception as e:
             logger.warning(f"Failed to get user Immich API key: {e}")
             return None

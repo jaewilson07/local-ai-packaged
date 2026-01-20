@@ -4,10 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-
-from server.projects.n8n_workflow.dependencies import N8nWorkflowDeps
-from server.projects.n8n_workflow.prompts import N8N_WORKFLOW_SYSTEM_PROMPT
-from server.projects.n8n_workflow.tools import (
+from workflows.automation.n8n_workflow.dependencies import N8nWorkflowDeps
+from workflows.automation.n8n_workflow.prompts import N8N_WORKFLOW_SYSTEM_PROMPT
+from workflows.automation.n8n_workflow.tools import (
     activate_workflow,
     create_workflow,
     delete_workflow,
@@ -18,8 +17,9 @@ from server.projects.n8n_workflow.tools import (
     search_node_examples,
     update_workflow,
 )
-from server.projects.shared.llm import get_llm_model as _get_n8n_workflow_model
-from server.projects.shared.wrappers import DepsWrapper
+
+from shared.llm import get_llm_model as _get_n8n_workflow_model
+from shared.wrappers import DepsWrapper
 
 
 class N8nWorkflowState(BaseModel):

@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Knowledge project provides event extraction from web content using both regex-based and LLM-based approaches. It extracts structured event information (title, date, time, location, instructor) from web pages and can store extracted events as facts in MongoDB RAG.
@@ -23,7 +27,7 @@ The Knowledge project provides event extraction from web content using both rege
 ## Component Identity
 
 - **Project**: `knowledge`
-- **Location**: `04-lambda/server/projects/knowledge/`
+- **Location**: `04-lambda/src/knowledge/`
 - **Purpose**: Event extraction from web content and integration with MongoDB RAG for fact storage
 - **Dependencies**: MongoDB RAG project (for storing extracted events as facts)
 - **Agent**: No dedicated agent (utility project, used by other projects)
@@ -209,13 +213,13 @@ async def extract_events_from_content(
 **Search Hints:**
 ```bash
 # Find event extraction usage
-rg -n "EventExtractor|extract_events_from_content" 04-lambda/server/projects/knowledge/
+rg -n "EventExtractor|extract_events_from_content" 04-lambda/src/knowledge/
 
 # Find event model
-rg -n "class ExtractedEvent" 04-lambda/server/projects/knowledge/
+rg -n "class ExtractedEvent" 04-lambda/src/knowledge/
 
 # Find event extraction patterns
-rg -n "date|time|location|instructor" 04-lambda/server/projects/knowledge/event_extractor.py
+rg -n "date|time|location|instructor" 04-lambda/src/knowledge/event_extractor.py
 ```
 
 ## Testing & Validation
@@ -251,7 +255,7 @@ curl -X POST http://lambda-server:8000/api/v1/knowledge/extract-events \
 - **MongoDB RAG**: Stores extracted events as facts
 - **Calendar Project**: Extracted events can be used to create calendar events
 - **REST API**: Endpoint in `server/api/knowledge.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 
 ## Configuration
 

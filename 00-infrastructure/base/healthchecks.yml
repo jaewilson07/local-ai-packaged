@@ -1,6 +1,9 @@
 # Shared Health Check Patterns
 # Standard health check configurations for common service types
 # Use these as templates, adjusting ports and paths as needed
+#
+# Note: start_interval (Docker Compose 3.12+) enables faster health detection
+# during the start_period grace period, then switches to normal interval after healthy
 
 # HTTP-based health checks
 x-healthcheck-http: &healthcheck-http
@@ -8,6 +11,7 @@ x-healthcheck-http: &healthcheck-http
   timeout: 10s
   retries: 3
   start_period: 40s
+  start_interval: 5s  # Faster checks during startup
 
 # Database health checks
 x-healthcheck-db: &healthcheck-db
@@ -15,6 +19,7 @@ x-healthcheck-db: &healthcheck-db
   timeout: 5s
   retries: 10
   start_period: 30s
+  start_interval: 2s  # Faster checks during startup
 
 # Fast health checks (for lightweight services)
 x-healthcheck-fast: &healthcheck-fast
@@ -22,6 +27,7 @@ x-healthcheck-fast: &healthcheck-fast
   timeout: 5s
   retries: 3
   start_period: 10s
+  start_interval: 1s  # Faster checks during startup
 
 # Slow health checks (for heavy services)
 x-healthcheck-slow: &healthcheck-slow
@@ -29,3 +35,4 @@ x-healthcheck-slow: &healthcheck-slow
   timeout: 15s
   retries: 5
   start_period: 120s
+  start_interval: 10s  # Faster checks during startup

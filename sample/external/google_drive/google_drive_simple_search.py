@@ -3,15 +3,16 @@
 This demonstrates basic Google Drive search functionality.
 
 Usage:
-    python sample/external/google_drive_simple_search.py
+    uv run sample/external/google_drive/google_drive_simple_search.py
 """
 
 import sys
 from pathlib import Path
 
-# Add project root to path
+# Add Lambda src to path for direct imports
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "04-lambda" / "src"))
+lambda_src = project_root / "04-lambda" / "src"
+sys.path.insert(0, str(lambda_src))
 
 from services.external.google_drive import GoogleDriveService
 

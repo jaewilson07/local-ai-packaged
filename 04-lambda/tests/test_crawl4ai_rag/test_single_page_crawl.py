@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from workflows.ingestion.crawl4ai_rag.tools import crawl_and_ingest_single_page
 
-from server.projects.crawl4ai_rag.tools import crawl_and_ingest_single_page
 from tests.conftest import MockRunContext
 
 
@@ -17,13 +17,13 @@ async def test_crawl_single_page(mock_crawl4ai_deps, sample_crawl_result):
 
     # Mock crawler
     with patch(
-        "server.projects.crawl4ai_rag.tools.crawl_single_page", new_callable=AsyncMock
+        "workflows.ingestion.crawl4ai_rag.tools.crawl_single_page", new_callable=AsyncMock
     ) as mock_crawl:
         mock_crawl.return_value = sample_crawl_result
 
         # Mock ingestion
         with patch(
-            "server.projects.crawl4ai_rag.tools.CrawledContentIngester"
+            "workflows.ingestion.crawl4ai_rag.tools.ContentIngestionService"
         ) as mock_ingester_class:
             mock_ingester = AsyncMock()
             mock_ingester.initialize = AsyncMock()

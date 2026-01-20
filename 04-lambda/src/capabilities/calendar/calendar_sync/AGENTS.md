@@ -2,6 +2,10 @@
 
 > **Override**: This file extends [../../AGENTS.md](../../AGENTS.md). Project-specific rules take precedence.
 
+## Related API Documentation
+
+- **[API Strategy](../../../../docs/API_STRATEGY.md)** - Route naming conventions, error handling, and API standards
+
 ## Overview
 
 The Calendar project provides Google Calendar integration with full CRUD operations for events and sync state tracking. It enables AI agents to create, update, delete, and list calendar events while maintaining sync state to prevent duplicates and track changes.
@@ -23,7 +27,7 @@ The Calendar project provides Google Calendar integration with full CRUD operati
 ## Component Identity
 
 - **Project**: `calendar`
-- **Location**: `04-lambda/server/projects/calendar/`
+- **Location**: `04-lambda/src/calendar/`
 - **Purpose**: Google Calendar integration with event CRUD operations and sync state tracking
 - **Dependencies**: MongoDB (01-data for sync state), Google Calendar API (OAuth2)
 - **Agent**: `calendar_agent` (Pydantic AI agent with StateDeps)
@@ -262,16 +266,16 @@ if sync_state:
 **Search Hints:**
 ```bash
 # Find calendar agent tools
-rg -n "@calendar_agent\.tool" 04-lambda/server/projects/calendar/
+rg -n "@calendar_agent\.tool" 04-lambda/src/calendar/
 
 # Find sync service methods
-rg -n "def (create|update|delete|list)_event" 04-lambda/server/projects/calendar/
+rg -n "def (create|update|delete|list)_event" 04-lambda/src/calendar/
 
 # Find sync state operations
-rg -n "sync_store|record_sync_state|get_by_external_id" 04-lambda/server/projects/calendar/
+rg -n "sync_store|record_sync_state|get_by_external_id" 04-lambda/src/calendar/
 
 # Find Google Calendar API usage
-rg -n "calendar\.events\(\)\.(insert|update|delete|list)" 04-lambda/server/projects/calendar/
+rg -n "calendar\.events\(\)\.(insert|update|delete|list)" 04-lambda/src/calendar/
 ```
 
 ## Testing & Validation
@@ -315,7 +319,7 @@ curl -X DELETE "http://lambda-server:8000/api/v1/calendar/events/delete?event_id
 - **MongoDB**: Sync state storage (`mongodb:27017`)
 - **Google Calendar API**: Event CRUD operations (OAuth2 authenticated)
 - **REST API**: Endpoints in `server/api/calendar.py`
-- **MCP Tools**: Exposed via `server/mcp/fastmcp_server.py`
+- **MCP Tools**: Exposed via `src/mcp_server/server.py`
 - **Knowledge Project**: Event extraction can create calendar events
 
 ## Configuration

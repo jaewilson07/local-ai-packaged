@@ -1,9 +1,10 @@
 """Retrieval agent for vector and graph search."""
 
+from capabilities.retrieval.ai.dependencies import RetrievalDeps
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from src.capabilities.retrieval.ai.dependencies import RetrievalDeps
-from src.shared.llm import get_llm_model
+
+from shared.llm import get_llm_model
 
 
 class RetrievalState(BaseModel):
@@ -45,13 +46,13 @@ async def vector_search(
         String describing the search results
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.retrieval.mongo_rag.tools import search as mongo_search
+    from capabilities.retrieval.mongo_rag.tools import search as mongo_search
 
     deps = ctx.deps
     if not deps.db:
         await deps.initialize()
 
-    from src.capabilities.retrieval.schemas import VectorSearchRequest
+    from capabilities.retrieval.schemas import VectorSearchRequest
 
     request = VectorSearchRequest(
         query=query,
@@ -84,13 +85,13 @@ async def graph_search(
         String describing the graph search results
     """
     # Import here to avoid circular dependencies
-    from src.capabilities.retrieval.graphiti_rag.tools import search as graphiti_search
+    from capabilities.retrieval.graphiti_rag.tools import search as graphiti_search
 
     deps = ctx.deps
     if deps.graphiti_deps:
         await deps.graphiti_deps.initialize()
 
-    from src.capabilities.retrieval.schemas import GraphSearchRequest
+    from capabilities.retrieval.schemas import GraphSearchRequest
 
     request = GraphSearchRequest(
         query=query,

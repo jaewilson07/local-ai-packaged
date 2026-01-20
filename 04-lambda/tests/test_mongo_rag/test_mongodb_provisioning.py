@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pymongo.errors import OperationFailure
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.mongodb_service import MongoDBService
 

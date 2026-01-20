@@ -84,7 +84,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["server", "tests"]
+known-first-party = ["src", "tests"]
 
 [tool.black]
 line-length = 100

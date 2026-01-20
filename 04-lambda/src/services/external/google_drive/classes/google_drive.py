@@ -10,22 +10,21 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 from ..models import GoogleDriveFile, SearchResult
-from .config import DEFAULT_FOLDER_ID, DEFAULT_FIELDS, GOOGLE_DOC_MIME_TYPE
+from .config import DEFAULT_FIELDS, DEFAULT_FOLDER_ID, GOOGLE_DOC_MIME_TYPE
 from .exceptions import (
     GoogleDriveException,
-    GoogleDriveAuthError,
-    GoogleDriveNotFoundError, 
     GoogleDriveExportError,
+    GoogleDriveFolderResolutionError,
+    GoogleDriveNotFoundError,
     GoogleDriveSearchError,
-    GoogleDriveFolderResolutionError
 )
 from .google_auth import GoogleAuth
-from .google_base import GoogleBaseAPI, GoogleBaseSearch, GoogleBaseExport
+from .google_base import GoogleBaseAPI, GoogleBaseExport, GoogleBaseSearch
 
 
 class GoogleDrive(GoogleBaseAPI):
     """Low-level wrapper for Google Drive API operations with composition-based architecture.
-    
+
     Uses inner classes for Search and Export operations following SOLID principles.
     Provides access to Drive API operations through composed functionality.
     """
@@ -39,11 +38,11 @@ class GoogleDrive(GoogleBaseAPI):
         """
         super().__init__(authenticator)
         self._service = None
-        
+
         # Composition: Initialize inner class instances
         self.Search = GoogleDrive.Search(self)
         self.Export = GoogleDrive.Export(self)
-    
+
     @property
     def service(self):
         """Lazy-loaded Google Drive API service client."""
@@ -141,14 +140,14 @@ class GoogleDrive(GoogleBaseAPI):
 
     class Search(GoogleBaseSearch):
         """Google Drive search operations with folder resolution and query building."""
-        
+
         def _execute_search(self, query: str, **kwargs) -> dict[str, Any]:
             """Execute Drive API search query.
-            
+
             Args:
-                query: Search query string  
+                query: Search query string
                 **kwargs: Additional parameters (page_size, order_by, fields)
-                
+
             Returns:
                 Raw Drive API response
             """
@@ -156,26 +155,28 @@ class GoogleDrive(GoogleBaseAPI):
                 query,
                 page_size=kwargs.get("page_size", 10),
                 order_by=kwargs.get("order_by", "modifiedTime desc"),
-                fields=kwargs.get("fields", DEFAULT_FIELDS)
+                fields=kwargs.get("fields", DEFAULT_FIELDS),
             )
-        
-        def _format_results(self, raw_results: dict[str, Any], query: str, **kwargs) -> SearchResult:
+
+        def _format_results(
+            self, raw_results: dict[str, Any], query: str, **kwargs
+        ) -> SearchResult:
             """Format Drive API results into SearchResult object.
-            
+
             Args:
                 raw_results: Raw Drive API response
                 query: Original search query
                 **kwargs: Additional context (folder_id, folder_name)
-                
+
             Returns:
                 SearchResult with GoogleDriveFile objects
             """
             files_data = raw_results.get("files", [])
-            
+
             files = [
                 GoogleDriveFile(
                     id=f["id"],
-                    name=f["name"], 
+                    name=f["name"],
                     mime_type=f["mimeType"],
                     created_time=f["createdTime"],
                     modified_time=f["modifiedTime"],
@@ -185,7 +186,7 @@ class GoogleDrive(GoogleBaseAPI):
                 )
                 for f in files_data
             ]
-            
+
             return SearchResult(
                 query=query,
                 folder_id=kwargs.get("folder_id"),
@@ -193,21 +194,21 @@ class GoogleDrive(GoogleBaseAPI):
                 total_results=len(files),
                 files=files,
             )
-        
+
         def resolve_folder(
             self,
-            folder_name: str, 
+            folder_name: str,
             on_duplicates: Literal["error", "newest"] = "error",
         ) -> str:
             """Resolve a folder name to its folder ID.
-            
+
             Args:
                 folder_name: Name of the folder to find
                 on_duplicates: How to handle duplicate folder names
-                
+
             Returns:
                 Folder ID string
-                
+
             Raises:
                 GoogleDriveFolderResolutionError: If folder resolution fails
             """
@@ -217,51 +218,55 @@ class GoogleDrive(GoogleBaseAPI):
                     f"and name='{folder_name}' "
                     f"and trashed=false"
                 )
-                
+
                 results = self._parent.execute_query(
                     query,
                     fields="files(id, name, modifiedTime)",
                     page_size=100,
                     order_by="modifiedTime desc",
                 )
-                
+
                 folders = results.get("files", [])
-                
+
                 if not folders:
-                    raise GoogleDriveFolderResolutionError(f"No folder found with name: {folder_name}")
-                
+                    raise GoogleDriveFolderResolutionError(
+                        f"No folder found with name: {folder_name}"
+                    )
+
                 if len(folders) > 1 and on_duplicates == "error":
                     folder_list = "\\n".join([f"  - {f['name']} (ID: {f['id']})" for f in folders])
                     raise GoogleDriveFolderResolutionError(
                         f"Multiple folders found with name '{folder_name}':\\n{folder_list}\\n"
                         f"Use folder_id parameter directly or set on_duplicates='newest'"
                     )
-                
+
                 return folders[0]["id"]
-                
+
             except HttpError as e:
-                raise GoogleDriveFolderResolutionError(f"Failed to resolve folder name: {e}", e) from e
-        
+                raise GoogleDriveFolderResolutionError(
+                    f"Failed to resolve folder name: {e}", e
+                ) from e
+
         def search(
             self,
             query: str,
             top_n: int = 10,
             folder_id: str | None = None,
-            folder_name: str | None = None, 
+            folder_name: str | None = None,
             on_duplicates: Literal["error", "newest"] = "error",
         ) -> SearchResult:
             """Search Google Drive for files matching a query.
-            
+
             Args:
                 query: Search query string (Drive query syntax or keywords)
                 top_n: Maximum number of results to return
                 folder_id: Optional folder ID to restrict search to
-                folder_name: Optional folder name to restrict search to (resolved to ID)  
+                folder_name: Optional folder name to restrict search to (resolved to ID)
                 on_duplicates: How to handle duplicate folder names (if folder_name used)
-                
+
             Returns:
                 SearchResult with matching files
-                
+
             Raises:
                 GoogleDriveSearchError: If search fails
                 GoogleDriveFolderResolutionError: If folder resolution fails
@@ -269,34 +274,33 @@ class GoogleDrive(GoogleBaseAPI):
             target_folder_id = folder_id
             if folder_name:
                 if folder_id:
-                    raise GoogleDriveSearchError("Cannot specify both folder_id and folder_name. Choose one.")
+                    raise GoogleDriveSearchError(
+                        "Cannot specify both folder_id and folder_name. Choose one."
+                    )
                 target_folder_id = self.resolve_folder(folder_name, on_duplicates)
-            
+
             if not target_folder_id:
                 target_folder_id = DEFAULT_FOLDER_ID
-            
+
             # Build Drive API query
             has_operators = any(
                 op in query.lower() for op in [" = ", " != ", "contains", " in ", " and ", " or "]
             )
             drive_query = query if has_operators else f"fullText contains '{query}'"
-            
+
             if target_folder_id:
                 drive_query = f"('{target_folder_id}' in parents) and ({drive_query})"
-            
+
             drive_query = f"{drive_query} and trashed=false"
-            
+
             try:
                 results = self._execute_search(drive_query, page_size=top_n)
                 return self._format_results(
-                    results,
-                    query, 
-                    folder_id=target_folder_id,
-                    folder_name=folder_name
+                    results, query, folder_id=target_folder_id, folder_name=folder_name
                 )
             except HttpError as e:
                 raise GoogleDriveSearchError(f"Failed to search Google Drive: {e}", e) from e
-        
+
         def search_ids(
             self,
             query: str,
@@ -306,14 +310,14 @@ class GoogleDrive(GoogleBaseAPI):
             on_duplicates: Literal["error", "newest"] = "error",
         ) -> list[str]:
             """Search for documents and return a list of document IDs.
-            
+
             Args:
                 query: Search query string
                 top_n: Maximum number of results
                 folder_id: Optional folder ID to search within
                 folder_name: Optional folder name to search within
                 on_duplicates: How to handle duplicate folder names
-                
+
             Returns:
                 List of document IDs
             """
@@ -328,17 +332,17 @@ class GoogleDrive(GoogleBaseAPI):
 
     class Export(GoogleBaseExport):
         """Google Drive export and download operations."""
-        
+
         def _download_content(self, file_id: str, mime_type: str) -> str:
             """Download content from Google Drive API.
-            
+
             Args:
                 file_id: File identifier
                 mime_type: MIME type of the file
-                
+
             Returns:
                 File content as string
-                
+
             Raises:
                 GoogleDriveExportError: If download fails
             """
@@ -361,15 +365,17 @@ class GoogleDrive(GoogleBaseAPI):
                 return file_content.getvalue().decode("utf-8")
 
             except HttpError as e:
-                raise GoogleDriveExportError(f"Failed to download content for {file_id}: {e}", e) from e
-        
+                raise GoogleDriveExportError(
+                    f"Failed to download content for {file_id}: {e}", e
+                ) from e
+
         def _build_with_frontmatter(self, metadata: dict[str, Any], content: str) -> str:
             """Build markdown content with YAML frontmatter.
-            
+
             Args:
                 metadata: File metadata from Drive API
                 content: Document content
-                
+
             Returns:
                 Markdown with YAML frontmatter
             """
@@ -393,19 +399,19 @@ class GoogleDrive(GoogleBaseAPI):
 
             yaml_frontmatter = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
             return f"---\\n{yaml_frontmatter}---\\n\\n{content}"
-        
+
         def download_file(self, file_id: str) -> bytes:
             """Download a file from Google Drive as binary data.
-            
+
             This method is useful for downloading binary files like LoRA models,
             images, or other non-text files.
-            
+
             Args:
                 file_id: File ID in Google Drive
-                
+
             Returns:
                 File content as bytes
-                
+
             Raises:
                 GoogleDriveExportError: If download fails
             """
@@ -420,7 +426,7 @@ class GoogleDrive(GoogleBaseAPI):
                 return file_content.getvalue()
             except HttpError as e:
                 raise GoogleDriveExportError(f"Failed to download file {file_id}: {e}", e) from e
-        
+
         def export_as_markdown(
             self,
             document_id: str,
@@ -428,15 +434,15 @@ class GoogleDrive(GoogleBaseAPI):
             output_path: str | Path | None = None,
         ) -> str:
             """Export a Google Drive document as markdown with optional YAML frontmatter.
-            
+
             Args:
                 document_id: The Google Drive document ID
                 include_metadata: Whether to include YAML frontmatter with metadata
                 output_path: Optional path to write the markdown file to
-                
+
             Returns:
                 The markdown content as a string
-                
+
             Raises:
                 GoogleDriveExportError: If document cannot be exported or doesn't exist
             """
@@ -461,11 +467,13 @@ class GoogleDrive(GoogleBaseAPI):
                 return markdown_content
 
             except HttpError as e:
-                raise GoogleDriveExportError(f"Failed to export document {document_id}: {e}", e) from e
-        
+                raise GoogleDriveExportError(
+                    f"Failed to export document {document_id}: {e}", e
+                ) from e
+
         def _write_file(self, output_path: str | Path, content: str) -> None:
             """Write markdown content to a file, creating parent directories if needed.
-            
+
             Args:
                 output_path: Path where to write the file
                 content: Content to write

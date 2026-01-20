@@ -24,7 +24,7 @@ This document summarizes the implementation of Open WebUI enhancements for conve
 
 ### 2. Conversation Export Service ✅
 
-**Location**: `04-lambda/server/projects/openwebui_export/`
+**Location**: `04-lambda/src/workflows/ingestion/openwebui_export/`
 
 **Components**:
 - **Models** (`models.py`): Pydantic models for export requests/responses
@@ -48,7 +48,7 @@ This document summarizes the implementation of Open WebUI enhancements for conve
 
 ### 3. Topic Classification Service ✅
 
-**Location**: `04-lambda/server/projects/openwebui_topics/`
+**Location**: `04-lambda/src/capabilities/processing/openwebui_topics/`
 
 **Components**:
 - **Models** (`models.py`): Pydantic models for classification
@@ -68,8 +68,8 @@ This document summarizes the implementation of Open WebUI enhancements for conve
 ### 4. Enhanced RAG Search ✅
 
 **Files Modified**:
-- `04-lambda/server/projects/mongo_rag/models.py` - Added filter fields to SearchRequest
-- `04-lambda/server/projects/mongo_rag/tools.py` - Added filter support to search functions
+- `04-lambda/src/capabilities/retrieval/mongo_rag/models.py` - Added filter fields to SearchRequest
+- `04-lambda/src/capabilities/retrieval/mongo_rag/tools.py` - Added filter support to search functions
 - `04-lambda/server/api/mongo_rag.py` - Added filter building and documentation
 
 **New Filter Options**:
@@ -98,8 +98,8 @@ This document summarizes the implementation of Open WebUI enhancements for conve
 - `search_conversations` - Search conversations in RAG
 
 **Files Modified**:
-- `04-lambda/server/mcp/server.py` - Added tool definitions and handlers
-- `04-lambda/server/mcp/server.py` - Updated TOOL_SERVER_MAP
+- `04-lambda/src/mcp_server/server.py` - Added tool definitions and handlers
+- `04-lambda/src/mcp_server/server.py` - Updated TOOL_SERVER_MAP
 
 ### 6. Google OAuth Authentication ✅
 
@@ -279,8 +279,8 @@ Open WebUI (Port 8080)
 ## Files Created/Modified
 
 ### Created
-- `04-lambda/server/projects/openwebui_export/` - Export service
-- `04-lambda/server/projects/openwebui_topics/` - Topic classification
+- `04-lambda/src/workflows/ingestion/openwebui_export/` - Export service
+- `04-lambda/src/capabilities/processing/openwebui_topics/` - Topic classification
 - `04-lambda/server/api/openwebui_export.py` - Export API
 - `04-lambda/server/api/openwebui_topics.py` - Topics API
 - `03-apps/open-webui/docs/` - Documentation
@@ -288,9 +288,9 @@ Open WebUI (Port 8080)
 ### Modified
 - `03-apps/docker-compose.yml` - PostgreSQL config
 - `04-lambda/server/main.py` - Added routers
-- `04-lambda/server/mcp/server.py` - Added MCP tools
-- `04-lambda/server/projects/mongo_rag/models.py` - Added filters
-- `04-lambda/server/projects/mongo_rag/tools.py` - Added filter support
+- `04-lambda/src/mcp_server/server.py` - Added MCP tools
+- `04-lambda/src/capabilities/retrieval/mongo_rag/models.py` - Added filters
+- `04-lambda/src/capabilities/retrieval/mongo_rag/tools.py` - Added filter support
 - `04-lambda/server/api/mongo_rag.py` - Added filter building
 
 ## Dependencies

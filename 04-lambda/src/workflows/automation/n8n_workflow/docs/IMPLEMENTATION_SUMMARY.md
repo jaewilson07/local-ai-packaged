@@ -86,14 +86,14 @@ The agent now follows this enhanced process:
 ## Files Modified
 
 ### New Files
-- `server/projects/n8n_workflow/docs/ENHANCEMENT_RESEARCH.md` - Research document
-- `server/projects/n8n_workflow/docs/IMPLEMENTATION_SUMMARY.md` - This file
+- `src/workflows/automation/n8n_workflow/docs/ENHANCEMENT_RESEARCH.md` - Research document
+- `src/workflows/automation/n8n_workflow/docs/IMPLEMENTATION_SUMMARY.md` - This file
 
 ### Modified Files
-- `server/projects/n8n_workflow/tools.py` - Added 3 new tools
-- `server/projects/n8n_workflow/agent.py` - Registered new tools
-- `server/projects/n8n_workflow/prompts.py` - Enhanced system prompt
-- `server/mcp/server.py` - Added MCP tool definitions and handlers
+- `src/workflows/automation/n8n_workflow/tools.py` - Added 3 new tools
+- `src/workflows/automation/n8n_workflow/agent.py` - Registered new tools
+- `src/workflows/automation/n8n_workflow/prompts.py` - Enhanced system prompt
+- `src/mcp_server/server.py` - Added MCP tool definitions and handlers
 - `04-lambda/AGENTS.md` - Updated documentation
 
 ## Next Steps (Future Enhancements)

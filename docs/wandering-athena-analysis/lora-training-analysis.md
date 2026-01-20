@@ -90,14 +90,14 @@ The LoRA training service from wandering-athena provides a complete pipeline for
 
 **Implementation Steps**:
 1. Add Ostris AI-Toolkit to ComfyUI container or create separate training container
-2. Create training service in `04-lambda/server/projects/lora_training/`
+2. Create training service in `04-lambda/src/capabilities/training/lora_training/`
 3. Add REST API endpoints for training operations
 4. Add MCP tools for training management
 5. Integrate with existing storage (MinIO/Supabase) for training data
 
 ### Option 2: Add as Lambda Project
 
-**Approach**: Create new project in `04-lambda/server/projects/lora_training/`
+**Approach**: Create new project in `04-lambda/src/capabilities/training/lora_training/`
 
 **Pros**:
 - Matches wandering-athena pattern
@@ -111,10 +111,10 @@ The LoRA training service from wandering-athena provides a complete pipeline for
 - Additional dependencies
 
 **Implementation Steps**:
-1. Create `04-lambda/server/projects/lora_training/` directory
+1. Create `04-lambda/src/capabilities/training/lora_training/` directory
 2. Port trainer, config generator, and caption tools from wandering-athena
 3. Add REST API endpoints in `04-lambda/server/api/`
-4. Add MCP tools in `04-lambda/server/mcp/`
+4. Add MCP tools in `04-lambda/src/mcp_server/`
 5. Create Docker Compose service or use existing GPU resources
 
 ### Option 3: Hybrid Approach
@@ -239,7 +239,7 @@ validation_yaml = await validate_and_save_to_yaml(
 ## Recommended Approach
 
 **Phase 1**: Add as Lambda project with training container
-- Create `04-lambda/server/projects/lora_training/`
+- Create `04-lambda/src/capabilities/training/lora_training/`
 - Port core training service classes
 - Add REST API endpoints
 - Add MCP tools

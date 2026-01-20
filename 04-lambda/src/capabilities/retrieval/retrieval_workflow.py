@@ -1,7 +1,7 @@
 """Retrieval workflow - orchestration for vector and graph search."""
 
-from src.capabilities.retrieval.ai import RetrievalDeps
-from src.capabilities.retrieval.schemas import (
+from capabilities.retrieval.ai import RetrievalDeps
+from capabilities.retrieval.schemas import (
     GraphSearchRequest,
     GraphSearchResponse,
     VectorSearchRequest,
@@ -28,8 +28,8 @@ async def vector_search_workflow(
 
     await deps.initialize()
     try:
+        from capabilities.retrieval.mongo_rag.tools import search as mongo_search
         from pydantic_ai import RunContext
-        from src.capabilities.retrieval.mongo_rag.tools import search as mongo_search
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await mongo_search(ctx, request)
@@ -57,8 +57,8 @@ async def graph_search_workflow(
 
     await deps.initialize()
     try:
+        from capabilities.retrieval.graphiti_rag.tools import search as graphiti_search
         from pydantic_ai import RunContext
-        from src.capabilities.retrieval.graphiti_rag.tools import search as graphiti_search
 
         ctx = RunContext(deps=deps, state={}, agent=None, run_id="")
         result = await graphiti_search(ctx, request)

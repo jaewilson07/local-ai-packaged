@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from bson import ObjectId
-
 from server.projects.mongo_rag.ingestion.pipeline import (
     DocumentIngestionPipeline,
     IngestionConfig,

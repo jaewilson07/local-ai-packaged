@@ -230,6 +230,7 @@
     }
 
     # Qdrant route for Cloudflare Tunnel (Web UI at /dashboard)
+    # DEPRECATED: Qdrant is scheduled for removal. See 01-data/qdrant/docker-compose.yml
     @qdrant host qdrant.datacrew.space
     handle @qdrant {
         import security_headers_base
@@ -435,6 +436,7 @@
 }
 
 # Qdrant
+# DEPRECATED: Qdrant is scheduled for removal. See 01-data/qdrant/docker-compose.yml
 {$QDRANT_HOSTNAME} {
     import security_headers_base
     import csp_standard

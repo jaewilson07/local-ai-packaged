@@ -1,0 +1,210 @@
+---
+globs: "**/*.py"
+alwaysApply: false
+---
+# Research Tools for Cursor Agent
+
+This project has MCP tools available for researching topics and storing findings in a searchable knowledge base. Use these tools when you need to:
+
+- Research emerging AI/coding trends from developer communities
+- Ingest YouTube videos, web articles, or community discussions
+- Search previously ingested content during development
+
+## Prerequisites
+
+The Lambda server must be running for MCP tools to work:
+
+```bash
+python start_services.py --stack lambda
+```
+
+Verify MCP connection status in Cursor Settings > MCP.
+
+## Supported Research Sources
+
+| Source | Description | API Key Required |
+|--------|-------------|------------------|
+| **youtube** | YouTube videos (transcript extraction) | No |
+| **web** | General web articles (SearXNG) | No |
+| **reddit** | Reddit discussions (site: search) | No |
+| **hackernews** | Hacker News posts (Algolia API) | No |
+| **devto** | Dev.to articles (public API) | No |
+
+## Available Research MCP Tools
+
+### 1. `research_and_store` (Composite Tool - Recommended)
+
+The primary tool for research. Searches multiple sources, filters, and ingests content in one operation.
+
+**When to use:**
+- "Research z-image-turbo LORA fidelity settings"
+- "Find recent discussions about ComfyUI controlnet workflows"
+- "Build knowledge base on pydantic-ai agent patterns from HN and Dev.to"
+
+**Parameters:**
+- `query`: Research topic (required)
+- `focus`: "videos", "articles", "communities", "all" (default: "all")
+- `sources`: Explicit list of sources (overrides focus). Options: youtube, web, reddit, hackernews, devto
+- `video_recency_days`: Only ingest videos from last N days (default: 90)
+- `max_videos`: Max videos to ingest (default: 3)
+- `max_articles`: Max articles to ingest (default: 5)
+- `max_community_posts`: Max community posts per source (default: 10)
+- `subreddits`: Specific subreddits to search (e.g., ["LocalLLaMA", "StableDiffusion"])
+- `project_scope`: Optional project tag for organizing research
+
+**Examples:**
+
+Search all sources:
+```
+research_and_store(
+    query="LORA fine-tuning techniques",
+    focus="all"
+)
+```
+
+Search only community sources:
+```
+research_and_store(
+    query="ComfyUI workflow best practices",
+    focus="communities",
+    max_community_posts=15
+)
+```
+
+Search specific sources:
+```
+research_and_store(
+    query="Flux model comparisons",
+    sources=["reddit", "hackernews", "youtube"],
+    subreddits=["StableDiffusion", "comfyui"]
+)
+```
+
+### 2. `search_knowledge_base`
+
+Search previously ingested content using semantic, text, or hybrid search.
+
+**When to use:**
+- After `research_and_store` to query findings
+- When you need information from the knowledge base
+- To check if information already exists before researching
+
+**Parameters:**
+- `query`: Search query (required)
+- `match_count`: Number of results (default: 5)
+- `search_type`: "semantic", "text", or "hybrid" (default: "hybrid")
+- `project_scope`: Filter by project scope
+- `tags`: Filter by tags (all must match)
+- `source_type`: Filter by source type (e.g., "youtube", "hackernews", "devto")
+
+**Example with filters:**
+```
+search_knowledge_base(
+    query="LORA training parameters",
+    project_scope="comfyui-research",
+    source_type="hackernews"
+)
+```
+
+### 3. `ingest_youtube_video`
+
+Ingest a specific YouTube video (when you have the exact URL).
+
+**Parameters:**
+- `url`: YouTube URL (required)
+- `extract_chapters`: Extract chapter markers (default: true)
+- `extract_entities`: Extract named entities via LLM (default: false)
+- `extract_topics`: Classify topics via LLM (default: false)
+
+### 4. `crawl_single_page`
+
+Crawl and ingest a specific web page.
+
+**Parameters:**
+- `url`: Page URL (required)
+- `chunk_size`: Chunk size for splitting (default: 1000)
+- `chunk_overlap`: Overlap between chunks (default: 200)
+
+### 5. `web_search`
+
+Search the web via SearXNG (without ingesting results).
+
+**When to use:**
+- When you need to find URLs before deciding what to ingest
+- For real-time information queries
+
+## Typical Workflow
+
+1. **Research Phase**: When starting work on a topic:
+   ```
+   research_and_store(
+       query="topic of interest",
+       focus="all",
+       project_scope="my-project"
+   )
+   ```
+
+2. **Query Phase**: When you need information during development:
+   ```
+   search_knowledge_base(
+       query="specific question about the topic",
+       project_scope="my-project"
+   )
+   ```
+
+3. **Targeted Community Research**: For emerging trends:
+   ```
+   research_and_store(
+       query="latest developments in topic",
+       focus="communities",
+       subreddits=["relevant_subreddit"]
+   )
+   ```
+
+4. **Targeted Ingest**: When you find a specific useful resource:
+   ```
+   ingest_youtube_video(url="https://youtube.com/watch?v=...")
+   # or
+   crawl_single_page(url="https://docs.example.com/page")
+   ```
+
+## Recommended Subreddits for AI/Coding Research
+
+When searching Reddit, consider these subreddits:
+
+**AI/ML:**
+- r/LocalLLaMA - Local LLM discussions
+- r/MachineLearning - ML research and papers
+- r/artificial - AI news and discussions
+
+**Image Generation:**
+- r/StableDiffusion - SD models and techniques
+- r/comfyui - ComfyUI workflows and nodes
+- r/sdforall - Stable Diffusion community
+
+**Programming:**
+- r/Python - Python development
+- r/programming - General programming
+- r/learnprogramming - Learning resources
+
+## Project Scope Tags
+
+Use `project_scope` parameter to organize research by project:
+
+```
+research_and_store(
+    query="LORA training techniques",
+    project_scope="comfyui-lora-project"
+)
+```
+
+This helps isolate research for different projects and makes it easier to find relevant content later.
+
+## Notes
+
+- YouTube videos must have transcripts available for ingestion
+- Video recency filtering uses the upload date from YouTube
+- Duplicate detection prevents re-ingesting the same content
+- All ingested content is immediately searchable via `search_knowledge_base`
+- Hacker News and Dev.to use free, no-auth APIs
+- Reddit uses site: search via SearXNG (no API key needed)

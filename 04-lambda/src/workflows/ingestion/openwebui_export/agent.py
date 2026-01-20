@@ -1,15 +1,18 @@
 """Main Open WebUI Export agent implementation."""
 
 from pydantic_ai import Agent, RunContext
-
-from server.projects.openwebui_export.dependencies import OpenWebUIExportDeps
-from server.projects.openwebui_export.models import ConversationExportRequest, ConversationMessage
-from server.projects.openwebui_export.tools import (
+from workflows.ingestion.openwebui_export.dependencies import OpenWebUIExportDeps
+from workflows.ingestion.openwebui_export.models import (
+    ConversationExportRequest,
+    ConversationMessage,
+)
+from workflows.ingestion.openwebui_export.tools import (
     export_conversation,
     get_conversation,
     get_conversations,
 )
-from server.projects.shared.llm import get_llm_model as _get_openwebui_export_model
+
+from shared.llm import get_llm_model as _get_openwebui_export_model
 
 # Create the Open WebUI export agent with OpenWebUIExportDeps
 openwebui_export_agent = Agent(

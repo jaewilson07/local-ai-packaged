@@ -3,10 +3,12 @@
 import logging
 from dataclasses import dataclass
 
+# Import directly from submodules to avoid circular imports
+from capabilities.persona.persona_state.config import config
+from capabilities.persona.persona_state.stores.mongodb_store import MongoPersonaStore
 from pymongo import AsyncMongoClient
-from src.capabilities.persona.persona_state.config import config
-from src.capabilities.persona.persona_state.stores.mongodb_store import MongoPersonaStore
-from src.shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+
+from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

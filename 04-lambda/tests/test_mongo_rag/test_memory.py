@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-
 from server.projects.mongo_rag.memory_models import MemoryFact, MemoryMessage
 from server.projects.mongo_rag.memory_tools import MemoryTools
 

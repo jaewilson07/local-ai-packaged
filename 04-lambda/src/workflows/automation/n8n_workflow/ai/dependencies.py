@@ -4,8 +4,9 @@ import logging
 from dataclasses import dataclass, field
 
 import httpx
-from src.shared.dependencies import BaseDependencies
-from src.workflows.automation.n8n_workflow.config import config
+from workflows.automation.n8n_workflow.config import config
+
+from shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from server.projects.mongo_rag.tools import SearchResult
+    from capabilities.retrieval.mongo_rag.tools import SearchResult
 
 from sentence_transformers import CrossEncoder
 
@@ -59,7 +59,7 @@ class Reranker:
             Reranked list of results
         """
         # Import here to avoid circular import
-        from server.projects.mongo_rag.tools import SearchResult
+        from capabilities.retrieval.mongo_rag.tools import SearchResult
 
         if not self.model or not results:
             return results

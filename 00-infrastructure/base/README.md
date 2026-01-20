@@ -132,8 +132,7 @@ The include paths are relative to the compose file location:
 ## Documentation
 
 For complete details, see:
-- [Docker Compose Optimization Guide](../../docs/docker-compose-optimization-guide.md)
-- [Optimization Changes](../../docs/OPTIMIZATION_CHANGES.md)
+- [docker-compose-patterns skill](../../.cursor/skills/docker-compose-patterns/SKILL.md)
 - [Root AGENTS.md](../../AGENTS.md)
 
 ## Version

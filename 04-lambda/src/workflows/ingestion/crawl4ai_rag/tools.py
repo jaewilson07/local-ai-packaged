@@ -3,6 +3,11 @@
 This module separates crawling (data acquisition) from ingestion (data storage).
 Crawling uses the local crawler service, while ingestion delegates to the
 centralized ContentIngestionService in mongo_rag.
+
+The unified ingestion uses:
+- ScrapedContent model for normalized input
+- ContentIngestionService.ingest_scraped_content() for processing
+- Graphiti episodes for temporal anchoring
 """
 
 import asyncio
@@ -11,10 +16,12 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
+from capabilities.retrieval.mongo_rag.ingestion.content_service import ContentIngestionService
 from pydantic_ai import RunContext
 from services.compute.crawl4ai import crawl_deep, crawl_single_page
 from workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies
-from workflows.ingestion.mongo_rag.ingestion.content_service import ContentIngestionService
+
+from shared.models import IngestionOptions, ScrapedContent
 
 logger = logging.getLogger(__name__)
 
@@ -159,14 +166,33 @@ async def crawl_and_ingest_single_page(
                 "errors": [f"Failed to crawl URL: {url}"],
             }
 
-        # Phase 2: Ingest using centralized ContentIngestionService
-        logger.info("💾 Starting storage phase via ContentIngestionService")
+        # Phase 2: Ingest using unified ScrapedContent pipeline
+        logger.info("Starting storage phase via unified ContentIngestionService")
         storage_start_time = datetime.now()
 
         # Build metadata and extract title
         crawl_metadata = result.get("metadata", {})
         metadata = _build_web_metadata(url, crawl_metadata)
         title = _extract_title_from_metadata(url, result["markdown"], crawl_metadata)
+
+        # Create ScrapedContent for unified ingestion
+        scraped = ScrapedContent(
+            content=result["markdown"],
+            title=title,
+            source=url,
+            source_type="web",
+            metadata=metadata,
+            reference_time=datetime.now(),  # Use current time as reference
+            user_id=user_id,
+            user_email=user_email,
+            options=IngestionOptions(
+                use_docling=True,
+                extract_code_examples=True,  # Web pages may have code
+                create_graphiti_episode=True,  # Create temporal episode
+                graphiti_episode_type="overview",
+                extract_facts=True,
+            ),
+        )
 
         # Use centralized ingestion service
         service = ContentIngestionService(
@@ -177,19 +203,10 @@ async def crawl_and_ingest_single_page(
         try:
             await service.initialize()
 
-            ingestion_result = await service.ingest_content(
-                content=result["markdown"],
-                title=title,
-                source=url,
-                source_type="web",
-                metadata=metadata,
-                user_id=user_id,
-                user_email=user_email,
-                use_docling=True,  # Use Docling for structure-aware chunking
-            )
+            ingestion_result = await service.ingest_scraped_content(scraped)
 
             storage_duration = (datetime.now() - storage_start_time).total_seconds()
-            logger.info(f"✅ Storage phase complete in {storage_duration:.2f}s")
+            logger.info(f"Storage phase complete in {storage_duration:.2f}s")
 
             return {
                 "success": len(ingestion_result.errors) == 0,
@@ -328,16 +345,26 @@ async def crawl_and_ingest_deep(
                         metadata = _build_web_metadata(url, crawl_metadata)
                         title = _extract_title_from_metadata(url, markdown, crawl_metadata)
 
-                        result = await service.ingest_content(
+                        # Create ScrapedContent for unified ingestion
+                        scraped = ScrapedContent(
                             content=markdown,
                             title=title,
                             source=url,
                             source_type="web",
                             metadata=metadata,
+                            reference_time=datetime.now(),
                             user_id=user_id,
                             user_email=user_email,
-                            use_docling=True,
+                            options=IngestionOptions(
+                                use_docling=True,
+                                extract_code_examples=True,
+                                create_graphiti_episode=True,
+                                graphiti_episode_type="overview",
+                                extract_facts=True,
+                            ),
                         )
+
+                        result = await service.ingest_scraped_content(scraped)
 
                         if result.document_id:
                             document_ids.append(result.document_id)

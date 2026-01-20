@@ -19,8 +19,22 @@ except ImportError:
     HAS_YAML = False
     print("Warning: PyYAML not available, using simple YAML parsing")
 
-MODELS_YAML = "/provision/models.yml"
-BASE_DIR = "/basedir"
+# Default paths (can be overridden with environment variables)
+# In Docker: /provision/models.yml and /basedir/models
+# Locally: Use MODELS_YAML and COMFYUI_BASE_DIR environment variables
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_MODELS_YAML = SCRIPT_DIR / "models.yml"
+DEFAULT_BASE_DIR = SCRIPT_DIR.parent / "data" / "basedir"
+
+MODELS_YAML = os.environ.get("MODELS_YAML", str(DEFAULT_MODELS_YAML))
+BASE_DIR = os.environ.get("COMFYUI_BASE_DIR", str(DEFAULT_BASE_DIR))
+
+# Check if running in Docker (container paths)
+if os.path.exists("/provision/models.yml"):
+    MODELS_YAML = "/provision/models.yml"
+if os.path.exists("/basedir"):
+    BASE_DIR = "/basedir"
+
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 # Model type directories
@@ -29,6 +43,12 @@ DIRECTORIES = {
     "vae": os.path.join(MODELS_DIR, "vae"),
     "loras": os.path.join(MODELS_DIR, "loras"),
     "upscale_models": os.path.join(MODELS_DIR, "upscale_models"),
+    "unet": os.path.join(MODELS_DIR, "unet"),
+    "clip": os.path.join(MODELS_DIR, "clip"),
+    "controlnet": os.path.join(MODELS_DIR, "controlnet"),
+    "model_patches": os.path.join(
+        MODELS_DIR, "diffusion_models"
+    ),  # Model patches go to diffusion_models
 }
 
 
@@ -97,8 +117,12 @@ def parse_simple_yaml(yaml_path):
 def download_file(url, output_path, description):
     """Download a file with progress indication."""
     if os.path.exists(output_path):
-        print(f"✓ {description} already exists, skipping...")
-        return True
+        file_size = os.path.getsize(output_path)
+        if file_size > 0:
+            print(f"✓ {description} already exists ({file_size / (1024**3):.2f} GB), skipping...")
+            return True
+        print(f"⚠ {description} exists but is empty (0 bytes), re-downloading...")
+        os.remove(output_path)
 
     print(f"Downloading {description}...")
     try:

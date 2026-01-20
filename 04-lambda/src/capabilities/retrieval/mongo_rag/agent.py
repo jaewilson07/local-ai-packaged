@@ -1,28 +1,28 @@
 """Main MongoDB RAG agent implementation with shared state."""
 
+from capabilities.retrieval.mongo_rag.config import config
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
+from capabilities.retrieval.mongo_rag.prompts import MAIN_SYSTEM_PROMPT
+from capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_search, text_search
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from server.projects.mongo_rag.config import config
-from server.projects.mongo_rag.dependencies import AgentDependencies
-from server.projects.mongo_rag.prompts import MAIN_SYSTEM_PROMPT
-from server.projects.mongo_rag.tools import hybrid_search, semantic_search, text_search
-from server.projects.shared.llm import get_llm_model
-from server.projects.shared.wrappers import DepsWrapper
+from shared.llm import get_llm_model
+from shared.wrappers import DepsWrapper
 
 # Optional Neo4j import (only if neo4j package is available)
 try:
-    from server.projects.mongo_rag.neo4j_client import Neo4jClient, Neo4jConfig
+    from capabilities.retrieval.mongo_rag.neo4j_client import Neo4jClient, Neo4jConfig
 except ImportError:
     Neo4jClient = None
     Neo4jConfig = None
 
-from server.projects.mongo_rag.memory_tools import MemoryTools
-from server.projects.mongo_rag.nodes.citations import extract_citations, format_citations
-from server.projects.mongo_rag.nodes.decompose import decompose_query
-from server.projects.mongo_rag.nodes.grade import grade_documents
-from server.projects.mongo_rag.nodes.rewrite import rewrite_query
-from server.projects.mongo_rag.nodes.synthesize import synthesize_results
+from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+from capabilities.retrieval.mongo_rag.nodes.citations import extract_citations, format_citations
+from capabilities.retrieval.mongo_rag.nodes.decompose import decompose_query
+from capabilities.retrieval.mongo_rag.nodes.grade import grade_documents
+from capabilities.retrieval.mongo_rag.nodes.rewrite import rewrite_query
+from capabilities.retrieval.mongo_rag.nodes.synthesize import synthesize_results
 
 # Use shared LLM utility
 

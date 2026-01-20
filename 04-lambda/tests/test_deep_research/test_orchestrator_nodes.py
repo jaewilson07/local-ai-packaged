@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.deep_research.orchestrator import (
     auditor_node,
     executor_node,

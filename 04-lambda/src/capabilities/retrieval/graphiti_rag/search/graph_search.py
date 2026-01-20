@@ -4,9 +4,8 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from capabilities.retrieval.mongo_rag.tools import SearchResult
     from graphiti_core import Graphiti
-
-    from server.projects.mongo_rag.tools import SearchResult
 else:
     try:
         from graphiti_core import Graphiti
@@ -31,7 +30,7 @@ async def graphiti_search(
         List of SearchResult objects compatible with MongoDB RAG tools
     """
     # Import here to avoid circular import
-    from server.projects.mongo_rag.tools import SearchResult
+    from capabilities.retrieval.mongo_rag.tools import SearchResult
 
     if not graphiti:
         logger.warning("Graphiti client not available")

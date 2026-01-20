@@ -28,7 +28,7 @@ sys.path.insert(0, lambda_dir)
 
 async def test_storm_research():
     """Test the STORM-based deep research workflow."""
-    from server.projects.deep_research.storm_workflow import run_storm_research
+    from workflows.research.deep_research.storm_workflow import run_storm_research
 
     print("=" * 80)
     print("Testing STORM-based Deep Research Agent (Phase 4-6)")

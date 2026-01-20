@@ -4,8 +4,7 @@ import logging
 from typing import Any
 
 import httpx
-
-from server.projects.openwebui_export.config import config
+from workflows.ingestion.openwebui_export.config import config
 
 logger = logging.getLogger(__name__)
 

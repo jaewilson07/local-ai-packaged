@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.mongo_rag.agent import RAGState, rag_agent
 
 # Skip agent tests for now - they require full agent initialization

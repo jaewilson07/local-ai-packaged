@@ -128,6 +128,14 @@ class IngestYouTubeRequest(BaseModel):
     preferred_language: str | None = Field(
         default=None, description="Preferred transcript language"
     )
+    skip_duplicates: bool = Field(
+        default=True,
+        description="Skip if video already exists in knowledge base (matches by video ID)",
+    )
+    force_reindex: bool = Field(
+        default=False,
+        description="Delete existing document and re-ingest (overrides skip_duplicates)",
+    )
 
     @field_validator("url")
     @classmethod
@@ -162,6 +170,8 @@ class IngestYouTubeResponse(BaseModel):
     topics_classified: list[str] = Field(default_factory=list, description="Classified topics")
     processing_time_ms: float = Field(default=0, description="Processing time in milliseconds")
     errors: list[str] = Field(default_factory=list, description="Any errors encountered")
+    skipped: bool = Field(default=False, description="Whether ingestion was skipped (duplicate)")
+    skipped_reason: str | None = Field(default=None, description="Reason for skipping")
 
 
 class GetYouTubeMetadataRequest(BaseModel):

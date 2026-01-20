@@ -1,14 +1,18 @@
 """Authentication and identity API endpoints."""
 
 import logging
+from datetime import datetime
+from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure
-from src.services.auth.config import config
-from src.services.auth.dependencies import get_current_user
-from src.services.auth.models import (
+from server.config import settings
+from services.auth.config import config
+from services.auth.dependencies import get_current_user
+from services.auth.models import (
     CalendarSummary,
     DataSummary,
     ImmichSummary,
@@ -17,15 +21,80 @@ from src.services.auth.models import (
     User,
     UserProfile,
 )
-from src.services.auth.services.auth_service import AuthService
-from src.services.database.supabase import SupabaseClient, SupabaseConfig
-from src.services.external.immich import ImmichService
-from src.services.storage.minio import MinIOClient, MinIOConfig
+from services.auth.services.auth_service import AuthService
+from services.auth.services.token_service import TokenService
+from services.database.supabase import SupabaseClient, SupabaseConfig
+from services.external.immich import ImmichService
+from services.storage.minio import MinIOClient, MinIOConfig
 
-from server.config import settings
-
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models for token endpoints
+class TokenCreateResponse(BaseModel):
+    """Response when creating a new API token."""
+
+    token: str = Field(
+        ..., description="The API token. Store this securely - it cannot be retrieved again!"
+    )
+    created_at: str = Field(..., description="ISO timestamp when the token was created")
+    message: str = Field(default="Token created successfully. Store it securely!")
+
+
+class TokenInfoResponse(BaseModel):
+    """Response for token info (without the actual token)."""
+
+    has_token: bool = Field(..., description="Whether the user has an API token")
+    created_at: str | None = Field(None, description="ISO timestamp when the token was created")
+    token_prefix: str = Field(default="lat_", description="Token prefix for identification")
+
+
+class TokenRevokeResponse(BaseModel):
+    """Response when revoking a token."""
+
+    revoked: bool = Field(..., description="Whether a token was revoked")
+    message: str
+
+
+class NamedTokenCreateRequest(BaseModel):
+    """Request to create a named API token."""
+
+    name: str = Field(..., description="Name for the token (must be unique per user)")
+    scopes: list[str] = Field(
+        default_factory=list, description="Optional list of scopes/permissions"
+    )
+    expires_in_days: int | None = Field(None, description="Optional expiration in days from now")
+
+
+class NamedTokenResponse(BaseModel):
+    """Response for a named token (without the actual token value)."""
+
+    id: str
+    name: str
+    scopes: list[str]
+    expires_at: str | None
+    last_used_at: str | None
+    created_at: str | None
+
+
+class NamedTokenListResponse(BaseModel):
+    """Response listing all named tokens."""
+
+    tokens: list[NamedTokenResponse]
+    total: int
+
+
+# Helper to get database pool for token service
+async def get_token_service() -> TokenService:
+    """Get TokenService instance with database pool."""
+    supabase_config = SupabaseConfig()
+    pool = await asyncpg.create_pool(
+        dsn=supabase_config.db_url,
+        min_size=1,
+        max_size=5,
+    )
+    return TokenService(pool)
 
 
 # Helper functions for data summaries
@@ -170,15 +239,50 @@ async def get_rag_summary(user: User, is_admin: bool) -> RAGSummary:
 
 
 async def get_immich_summary(user: User) -> ImmichSummary:
-    """Get Immich data summary (placeholder for now)."""
-    # TODO: Implement Immich API integration
-    return ImmichSummary(
-        total_photos=0,
-        total_videos=0,
-        total_albums=0,
-        total_size_bytes=0,
-        message="Immich API integration not yet implemented",
-    )
+    """Get Immich data summary from user's account."""
+    # Get user's Immich API key from their profile
+    immich_api_key = user.__dict__.get("immich_api_key")
+
+    if not immich_api_key:
+        return ImmichSummary(
+            total_photos=0,
+            total_videos=0,
+            total_albums=0,
+            total_size_bytes=0,
+            message="Immich account not linked. Log into datacrew.space to provision your account.",
+        )
+
+    try:
+        immich_service = ImmichService(config)
+        stats = await immich_service.get_user_statistics(immich_api_key)
+        await immich_service.close()
+
+        if stats is None:
+            return ImmichSummary(
+                total_photos=0,
+                total_videos=0,
+                total_albums=0,
+                total_size_bytes=0,
+                message="Failed to retrieve Immich statistics. Server may be unavailable.",
+            )
+
+        return ImmichSummary(
+            total_photos=stats.get("total_photos", 0),
+            total_videos=stats.get("total_videos", 0),
+            total_albums=stats.get("total_albums", 0),
+            total_size_bytes=stats.get("total_size_bytes", 0),
+            message=None,
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to get Immich summary for {user.email}: {e}")
+        return ImmichSummary(
+            total_photos=0,
+            total_videos=0,
+            total_albums=0,
+            total_size_bytes=0,
+            message=f"Error retrieving Immich statistics: {e!s}",
+        )
 
 
 async def get_loras_summary(user: User, is_admin: bool) -> LoRASummary:
@@ -298,7 +402,7 @@ async def get_calendar_summary(user: User, is_admin: bool) -> CalendarSummary:
     )
 
 
-@router.get("/api/me", response_model=UserProfile)
+@router.get("/me", response_model=UserProfile)
 async def get_current_user_profile(user: User = Depends(get_current_user)) -> UserProfile:
     """
     Get current user profile.
@@ -320,7 +424,7 @@ async def get_current_user_profile(user: User = Depends(get_current_user)) -> Us
     )
 
 
-@router.get("/api/me/data", response_model=DataSummary)
+@router.get("/me/data", response_model=DataSummary)
 async def get_data_summary(user: User = Depends(get_current_user)) -> DataSummary:
     """
     Get summary of data across all services the user has access to.
@@ -341,7 +445,7 @@ async def get_data_summary(user: User = Depends(get_current_user)) -> DataSummar
     )
 
 
-@router.get("/api/me/data/rag", response_model=RAGSummary)
+@router.get("/me/data/rag", response_model=RAGSummary)
 async def get_rag_data_summary(user: User = Depends(get_current_user)) -> RAGSummary:
     """
     Get RAG data summary across MongoDB and Supabase.
@@ -364,7 +468,7 @@ async def get_immich_data_summary(user: User = Depends(get_current_user)) -> Imm
     return await get_immich_summary(user)
 
 
-@router.get("/api/me/data/loras", response_model=LoRASummary)
+@router.get("/me/data/loras", response_model=LoRASummary)
 async def get_loras_data_summary(user: User = Depends(get_current_user)) -> LoRASummary:
     """
     Get LoRA models summary.
@@ -377,7 +481,7 @@ async def get_loras_data_summary(user: User = Depends(get_current_user)) -> LoRA
     return await get_loras_summary(user, is_admin)
 
 
-@router.get("/api/me/data/calendar", response_model=CalendarSummary)
+@router.get("/me/data/calendar", response_model=CalendarSummary)
 async def get_calendar_data_summary(user: User = Depends(get_current_user)) -> CalendarSummary:
     """
     Get calendar events summary.
@@ -391,7 +495,7 @@ async def get_calendar_data_summary(user: User = Depends(get_current_user)) -> C
     return await get_calendar_summary(user, is_admin)
 
 
-@router.get("/api/me/immich/api-key")
+@router.get("/me/immich/api-key")
 async def get_immich_api_key(user: User = Depends(get_current_user)) -> dict[str, str | None]:
     """
     Get Immich API key for the current user.
@@ -422,7 +526,7 @@ async def get_immich_api_key(user: User = Depends(get_current_user)) -> dict[str
     return {"api_key": immich_api_key}
 
 
-@router.post("/api/me/discord/link")
+@router.post("/me/discord/link")
 async def link_discord_account(
     discord_user_id: str, user: User = Depends(get_current_user)
 ) -> dict[str, str]:
@@ -439,6 +543,255 @@ async def link_discord_account(
     await supabase_service.update_discord_user_id(user.email, discord_user_id)
 
     return {"message": f"Discord account {discord_user_id} linked to {user.email}"}
+
+
+@router.get("/user/by-discord/{discord_user_id}")
+async def get_user_by_discord_id(
+    discord_user_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str | None]:
+    """
+    Get user by Discord ID for service-to-service lookups.
+
+    This endpoint allows the Discord bot to lookup users by their Discord ID
+    to retrieve their Immich API key for user-specific uploads.
+
+    Authentication (any of these):
+    - Bearer token (LAMBDA_API_TOKEN) - for external access
+    - Internal network request (X-User-Email header) - Docker internal network
+
+    Args:
+        discord_user_id: Discord user ID to lookup
+
+    Returns:
+        Dictionary with user email and immich_api_key (or None if not set)
+
+    Raises:
+        HTTPException 401: If not authenticated
+        HTTPException 404: If no user found with this Discord ID
+    """
+    # Authentication is handled by get_current_user dependency
+    # If we reach here, the request is authenticated
+
+    supabase_service = SupabaseClient(SupabaseConfig())
+    user = await supabase_service.get_user_by_discord_id(discord_user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No user found with Discord ID {discord_user_id}. "
+            "User must link their Discord account first via /api/v1/auth/me/discord/link",
+        )
+
+    return {
+        "email": user.email,
+        "immich_api_key": user.__dict__.get("immich_api_key"),
+    }
+
+
+# ============================================================================
+# API Token Management Endpoints
+# ============================================================================
+
+
+@router.post("/me/token", response_model=TokenCreateResponse)
+async def create_api_token(
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenCreateResponse:
+    """
+    Create or regenerate the primary API token for the current user.
+
+    This creates a new API token that can be used for headless automation
+    (scripts, n8n workflows, external webhooks) without requiring Cloudflare
+    Access authentication.
+
+    **Important**: The token is only returned once. Store it securely!
+    If you lose it, you'll need to generate a new one (which invalidates the old one).
+
+    Usage:
+    ```
+    curl -H "Authorization: Bearer lat_xxx..." https://api.example.com/api/v1/...
+    ```
+
+    Returns:
+        TokenCreateResponse with the new token
+    """
+    token = await token_service.create_primary_token(user.id)
+    created_at = datetime.utcnow().isoformat() + "Z"
+
+    logger.info(f"Created API token for user {user.email}")
+
+    return TokenCreateResponse(
+        token=token,
+        created_at=created_at,
+        message="Token created successfully. Store it securely - it cannot be retrieved again!",
+    )
+
+
+@router.get("/me/token", response_model=TokenInfoResponse)
+async def get_api_token_info(
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenInfoResponse:
+    """
+    Get information about the current user's API token.
+
+    Returns whether a token exists and when it was created.
+    Does NOT return the actual token value (that's only shown on creation).
+    """
+    info = await token_service.get_primary_token_info(user.id)
+
+    if info is None:
+        return TokenInfoResponse(has_token=False, created_at=None)
+
+    return TokenInfoResponse(
+        has_token=info["has_token"],
+        created_at=info.get("created_at"),
+        token_prefix=info.get("token_prefix", "lat_"),
+    )
+
+
+@router.delete("/me/token", response_model=TokenRevokeResponse)
+async def revoke_api_token(
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenRevokeResponse:
+    """
+    Revoke the current user's API token.
+
+    After revocation, the token can no longer be used for authentication.
+    You can create a new token using POST /api/me/token.
+    """
+    revoked = await token_service.revoke_primary_token(user.id)
+
+    if revoked:
+        logger.info(f"Revoked API token for user {user.email}")
+        return TokenRevokeResponse(revoked=True, message="Token revoked successfully")
+    return TokenRevokeResponse(revoked=False, message="No token to revoke")
+
+
+# ============================================================================
+# Named Tokens (Multiple tokens with names/scopes)
+# ============================================================================
+
+
+@router.post("/me/tokens", response_model=TokenCreateResponse)
+async def create_named_token(
+    request: NamedTokenCreateRequest,
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenCreateResponse:
+    """
+    Create a named API token with optional scopes and expiration.
+
+    Named tokens allow you to have multiple tokens for different purposes,
+    each with its own name, optional scopes, and optional expiration.
+
+    Example use cases:
+    - "n8n-production" for n8n workflow automation
+    - "github-actions" for CI/CD pipelines
+    - "dev-testing" for development with short expiration
+
+    Args:
+        request: Token creation request with name, scopes, and optional expiration
+
+    Returns:
+        TokenCreateResponse with the new token
+    """
+    from datetime import timedelta
+
+    expires_at = None
+    if request.expires_in_days:
+        expires_at = datetime.utcnow() + timedelta(days=request.expires_in_days)
+
+    try:
+        token = await token_service.create_named_token(
+            user_id=user.id,
+            name=request.name,
+            scopes=request.scopes,
+            expires_at=expires_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    created_at = datetime.utcnow().isoformat() + "Z"
+    logger.info(f"Created named token '{request.name}' for user {user.email}")
+
+    return TokenCreateResponse(
+        token=token,
+        created_at=created_at,
+        message=f"Named token '{request.name}' created. Store it securely!",
+    )
+
+
+@router.get("/me/tokens", response_model=NamedTokenListResponse)
+async def list_named_tokens(
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> NamedTokenListResponse:
+    """
+    List all named tokens for the current user.
+
+    Returns token metadata (name, scopes, expiration, last used) but NOT
+    the actual token values.
+    """
+    tokens = await token_service.list_named_tokens(user.id)
+
+    return NamedTokenListResponse(
+        tokens=[
+            NamedTokenResponse(
+                id=t["id"],
+                name=t["name"],
+                scopes=t["scopes"],
+                expires_at=t["expires_at"],
+                last_used_at=t["last_used_at"],
+                created_at=t["created_at"],
+            )
+            for t in tokens
+        ],
+        total=len(tokens),
+    )
+
+
+@router.delete("/me/tokens/{token_id}", response_model=TokenRevokeResponse)
+async def revoke_named_token_by_id(
+    token_id: UUID,
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenRevokeResponse:
+    """
+    Revoke a named token by its ID.
+
+    Args:
+        token_id: UUID of the token to revoke
+    """
+    revoked = await token_service.revoke_named_token(user.id, token_id)
+
+    if revoked:
+        logger.info(f"Revoked named token {token_id} for user {user.email}")
+        return TokenRevokeResponse(revoked=True, message="Named token revoked successfully")
+    raise HTTPException(status_code=404, detail="Token not found")
+
+
+@router.delete("/me/tokens/name/{token_name}", response_model=TokenRevokeResponse)
+async def revoke_named_token_by_name(
+    token_name: str,
+    user: User = Depends(get_current_user),
+    token_service: TokenService = Depends(get_token_service),
+) -> TokenRevokeResponse:
+    """
+    Revoke a named token by its name.
+
+    Args:
+        token_name: Name of the token to revoke
+    """
+    revoked = await token_service.revoke_named_token_by_name(user.id, token_name)
+
+    if revoked:
+        logger.info(f"Revoked named token '{token_name}' for user {user.email}")
+        return TokenRevokeResponse(revoked=True, message=f"Named token '{token_name}' revoked")
+    raise HTTPException(status_code=404, detail=f"Token '{token_name}' not found")
 
 
 # ============================================================================

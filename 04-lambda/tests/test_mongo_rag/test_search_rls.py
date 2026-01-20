@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from bson import ObjectId
-
 from server.projects.mongo_rag.tools import hybrid_search, semantic_search, text_search
+
 from tests.conftest import MockRunContext, async_iter
 
 

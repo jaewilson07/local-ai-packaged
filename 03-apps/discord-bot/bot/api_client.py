@@ -179,6 +179,10 @@ class APIClient:
         """
         Get Discord bot configuration from Lambda API.
 
+        As of 2026-01-20, Discord bot configuration is stored in Supabase preferences
+        instead of MongoDB. The API response schema remains unchanged for backward
+        compatibility. See: 01-data/supabase/migrations/010_discord_preferences.sql
+
         Args:
             config_id: Configuration identifier ('global' or guild_id)
 

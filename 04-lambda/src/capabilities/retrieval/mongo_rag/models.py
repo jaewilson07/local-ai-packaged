@@ -17,11 +17,18 @@ class SearchRequest(BaseModel):
     )
     # Conversation filtering
     source_type: str | None = Field(
-        None, description="Filter by source type (e.g., 'openwebui_conversation')"
+        None, description="Filter by source type (e.g., 'openwebui_conversation', 'youtube')"
     )
     user_id: str | None = Field(None, description="Filter by user ID (for conversations)")
     conversation_id: str | None = Field(None, description="Filter by conversation ID")
     topics: list[str] | None = Field(None, description="Filter by topics (for conversations)")
+    # Project scope filtering
+    project_scope: str | None = Field(
+        None, description="Filter by project scope (e.g., 'comfyui-lora-research')"
+    )
+    tags: list[str] | None = Field(None, description="Filter by tags")
+    # Generic metadata filter
+    metadata_filter: dict[str, Any] | None = Field(None, description="Additional metadata filters")
 
 
 class SearchResult(BaseModel):

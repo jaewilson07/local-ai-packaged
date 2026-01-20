@@ -17,19 +17,18 @@ from pathlib import Path
 
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
 from pydantic_ai import RunContext  # noqa: E402
 from pydantic_ai.ag_ui import StateDeps  # noqa: E402
-
-from server.projects.conversation.agent import (
+from workflows.chat.conversation.ai.agent import (  # noqa: E402
     ConversationState,
     orchestrate_conversation_tool,
 )
-from server.projects.conversation.dependencies import ConversationDeps  # noqa: E402
+from workflows.chat.conversation.ai.dependencies import ConversationDeps  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

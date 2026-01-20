@@ -54,7 +54,7 @@
 - **Init Container**: `ollama-pull-llama-*` (profile-specific)
 - **Default Models**:
   - `qwen2.5:7b-instruct-q4_K_M` (instruction-tuned LLM)
-  - `nomic-embed-text` (embedding model)
+  - `qwen3-embedding:4b` (embedding model)
 - **Trigger**: Runs automatically on first start (one-time)
 
 ### Patterns

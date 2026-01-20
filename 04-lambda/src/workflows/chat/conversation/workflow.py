@@ -37,15 +37,17 @@ async def conversation_workflow(request: ConversationRequest) -> ConversationRes
         from capabilities.persona.tools import get_voice_instructions
         from workflows.chat.conversation.services.orchestrator import ConversationOrchestrator
 
-        # Get voice instructions
-        voice_instructions = await get_voice_instructions(deps, request.user_id, request.persona_id)
+        # Get voice instructions (unused until full orchestration is implemented)
+        _voice_instructions = await get_voice_instructions(
+            deps, request.user_id, request.persona_id
+        )
 
-        # Create orchestrator
-        orchestrator = ConversationOrchestrator(llm_client=deps.openai_client)
+        # Create orchestrator (unused until full orchestration is implemented)
+        _orchestrator = ConversationOrchestrator(llm_client=deps.openai_client)
 
         # Plan response (this should call the orchestrator's planning logic)
         # For now, returning a placeholder response
-        # TODO: Implement full orchestration logic
+        # TODO: Implement full orchestration logic using _voice_instructions and _orchestrator
         response_text = f"Received message: {request.message}"
         tools_used: list[str] = []
         mode = "balanced"

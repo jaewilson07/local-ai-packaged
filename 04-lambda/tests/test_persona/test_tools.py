@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from server.projects.persona.dependencies import PersonaDeps
 from server.projects.persona.tools import (
     get_voice_instructions,

@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pytest
 from botocore.exceptions import ClientError
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.minio_service import MinIOService
 

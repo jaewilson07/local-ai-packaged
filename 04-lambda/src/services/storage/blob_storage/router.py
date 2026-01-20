@@ -3,21 +3,22 @@
 import logging
 from uuid import UUID
 
-from src.services.storage.blob_storage.dependencies import BlobStorageDeps
-from src.services.storage.blob_storage.models import (
+from services.storage.blob_storage.dependencies import BlobStorageDeps
+from services.storage.blob_storage.models import (
     DeleteFileResponse,
     FileUrlResponse,
     ListFilesResponse,
     UploadFileResponse,
 )
-from src.services.storage.blob_storage.tools import (
+from services.storage.blob_storage.tools import (
     delete_file_tool,
     download_file_tool,
     get_file_url_tool,
     list_files_tool,
     upload_file_tool,
 )
-from src.shared.context_helpers import create_run_context
+
+from shared.context_helpers import create_run_context
 
 logger = logging.getLogger(__name__)
 

@@ -80,11 +80,13 @@ class Settings(BaseSettings):
     llm_api_key: str = "not-needed"
 
     # Embeddings
+    # Qwen3-Embedding-4B: Best MTEB score (~68), 32K context, excellent multilingual
+    # Requires ~4-6GB VRAM (Q4 quantized)
     embedding_provider: str = "ollama"
-    embedding_model: str = "nomic-embed-text"
+    embedding_model: str = "qwen3-embedding:4b"
     embedding_base_url: str = "http://ollama:11434/v1"
     embedding_api_key: str = "not-needed"
-    embedding_dimension: int = 768
+    embedding_dimension: int = 2560
 
     # Neo4j / Graphiti
     neo4j_uri: str = Field("bolt://neo4j:7687", env="NEO4J_URI")

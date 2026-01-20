@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import openai
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.mongo_rag.config import config
 from pymongo import AsyncMongoClient
-from src.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
-from src.capabilities.retrieval.mongo_rag.config import config
-from src.shared.dependencies import BaseDependencies
+
+from shared.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

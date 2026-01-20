@@ -1,12 +1,15 @@
-"""AI agents for persona capability."""
+"""Persona AI submodule.
 
-from .dependencies import PersonaDeps
-from .persona_agent import PersonaAgentState, get_persona_state, persona_agent, update_persona_mood
+Exports for convenient imports.
+"""
+
+from capabilities.persona.ai.dependencies import PersonaDeps
+from capabilities.persona.ai.persona_agent import PersonaAgentState, persona_agent
+from capabilities.persona.ai.tools import get_voice_instructions
 
 __all__ = [
     "PersonaAgentState",
     "PersonaDeps",
-    "get_persona_state",
+    "get_voice_instructions",
     "persona_agent",
-    "update_persona_mood",
 ]

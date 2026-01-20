@@ -2,8 +2,9 @@
 
 import logging
 
-from neo4j import AsyncGraphDatabase
 from server.config import settings
+
+from neo4j import AsyncGraphDatabase
 
 from .schemas import Neo4jConnectionStatus, UserNode
 

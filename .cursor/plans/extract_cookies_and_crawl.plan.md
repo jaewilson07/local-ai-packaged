@@ -127,7 +127,7 @@ if __name__ == "__main__":
      - Paste the cookie string
 
 **Crawl Execution**:
-- Use existing `crawl_and_ingest_single_page` function from `04-lambda/server/projects/crawl4ai_rag/tools.py`
+- Use existing `crawl_and_ingest_single_page` function from `04-lambda/src/workflows/ingestion/crawl4ai_rag/tools.py`
 - Pass extracted cookies as `cookies` parameter
 - Use default chunk settings (chunk_size=1000, chunk_overlap=200)
 - Display crawl results (success, pages crawled, chunks created, document ID)
@@ -143,7 +143,7 @@ if __name__ == "__main__":
 - **New Script**: `sample/crawl4ai_rag/extract_and_crawl.py`
 - **Reference Files**:
   - `sample/crawl4ai_rag/single_page_crawl_example.py` (pattern to follow)
-  - `04-lambda/server/projects/crawl4ai_rag/tools.py` (crawl function)
+  - `04-lambda/src/workflows/ingestion/crawl4ai_rag/tools.py` (crawl function)
   - `sample/crawl4ai_rag/extract_cookies.js` (manual extraction script)
 
 ### 4. Testing Strategy

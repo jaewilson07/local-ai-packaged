@@ -18,18 +18,19 @@ from pathlib import Path
 # Add server to path so we can import from the project
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))  # Add project root for sample.shared imports
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
+
+from capabilities.calendar.ai.dependencies import CalendarDeps  # noqa: E402
+from capabilities.calendar.calendar_sync.agent import list_calendar_events_tool  # noqa: E402
 
 from sample.shared.auth_helpers import (  # noqa: E402
     get_mongodb_credentials,
     require_cloudflare_email,
 )
-from server.projects.calendar.agent import list_calendar_events_tool  # noqa: E402
-from server.projects.calendar.dependencies import CalendarDeps  # noqa: E402
-from server.projects.shared.context_helpers import create_run_context  # noqa: E402
+from shared.context_helpers import create_run_context  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

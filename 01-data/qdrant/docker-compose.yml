@@ -1,33 +1,47 @@
-# Qdrant Vector Database
-# Network: Uses external network ai-network
+# ============================================================================
+# REMOVED: Qdrant Vector Database
+# ============================================================================
+# As of 2026-01-20, Qdrant has been removed from the stack.
+# MongoDB Atlas provides all vector search capabilities with:
+#   - Hybrid search (vector + keyword) with RRF ranking
+#   - Better integration with RAG document storage
+#   - Unified data model for documents, chunks, and embeddings
+#
+# Migration completed:
+#   - Lambda server uses MongoDB $vectorSearch (never used Qdrant)
+#   - n8n workflows should use MongoDB RAG endpoints
+#
+# If you need to restore Qdrant for legacy compatibility, uncomment below.
+# See: .cursor/plans/database_consolidation_analysis_*.plan.md
+# ============================================================================
 
-# Shared configuration anchors
-x-healthcheck-fast: &healthcheck-fast
-  interval: 5s
-  timeout: 5s
-  retries: 3
-  start_period: 10s
-
-networks:
-  default:
-    external: true
-    name: ai-network
-
-volumes:
-  qdrant_storage:
-
-services:
-  qdrant:
-    image: qdrant/qdrant
-    container_name: qdrant
-    restart: unless-stopped
-    expose:
-      - 6333/tcp
-      - 6334/tcp
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    networks:
-      - default
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/6333' || exit 1"]
-      <<: *healthcheck-fast
+# # Shared configuration anchors
+# x-healthcheck-fast: &healthcheck-fast
+#   interval: 5s
+#   timeout: 5s
+#   retries: 3
+#   start_period: 10s
+#
+# networks:
+#   default:
+#     external: true
+#     name: ai-network
+#
+# volumes:
+#   qdrant_storage:
+#
+# services:
+#   qdrant:
+#     image: qdrant/qdrant
+#     container_name: qdrant
+#     restart: unless-stopped
+#     expose:
+#       - 6333/tcp
+#       - 6334/tcp
+#     volumes:
+#       - qdrant_storage:/qdrant/storage
+#     networks:
+#       - default
+#     healthcheck:
+#       test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+#       <<: *healthcheck-fast

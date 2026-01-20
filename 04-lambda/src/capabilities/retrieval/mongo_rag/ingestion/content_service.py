@@ -16,22 +16,28 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
-from server.projects.graphiti_rag.config import config as graphiti_config
-from server.projects.graphiti_rag.dependencies import GraphitiRAGDeps
-from server.projects.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
-from server.projects.mongo_rag.config import config as rag_config
-from server.projects.mongo_rag.extraction.code_ingestion import ingest_code_examples
-from server.projects.mongo_rag.ingestion.chunker import (
+if TYPE_CHECKING:
+    from capabilities.retrieval.graphiti_rag.ingestion.adapter import (
+        GraphitiIngestionOptions,
+    )
+
+    from shared.models import IngestionOptions, ScrapedContent
+from capabilities.retrieval.graphiti_rag.config import config as graphiti_config
+from capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
+from capabilities.retrieval.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
+from capabilities.retrieval.mongo_rag.config import config as rag_config
+from capabilities.retrieval.mongo_rag.extraction.code_ingestion import ingest_code_examples
+from capabilities.retrieval.mongo_rag.ingestion.chunker import (
     ChunkingConfig,
     DocumentChunk,
     create_chunker,
 )
-from server.projects.mongo_rag.ingestion.embedder import create_embedder
+from capabilities.retrieval.mongo_rag.ingestion.embedder import create_embedder
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -518,6 +524,89 @@ class ContentIngestionService:
             return str(existing["_id"])
         return None
 
+    async def check_youtube_duplicate(self, video_id: str) -> tuple[str | None, str | None]:
+        """
+        Check if a YouTube video already exists in the knowledge base.
+
+        This method searches by video_id in metadata, which handles all URL variations:
+        - https://www.youtube.com/watch?v=VIDEO_ID
+        - https://youtu.be/VIDEO_ID
+        - https://www.youtube.com/watch?v=VIDEO_ID&t=123  (timestamp)
+        - https://www.youtube.com/watch?v=VIDEO_ID&list=PLxxx  (playlist)
+        - https://www.youtube.com/watch?v=VIDEO_ID&si=xxx  (share tracking)
+
+        Args:
+            video_id: YouTube video ID (extracted from URL)
+
+        Returns:
+            Tuple of (document_id, source_url) if duplicate exists, (None, None) otherwise
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        documents_collection = self.db[self.settings.mongodb_collection_documents]
+
+        # Search by video_id in metadata (handles all URL variations)
+        existing = await documents_collection.find_one(
+            {
+                "source_type": "youtube",
+                "metadata.video_id": video_id,
+            },
+            {"_id": 1, "source": 1, "title": 1},
+        )
+
+        if existing:
+            logger.info(
+                f"Found existing YouTube document for video_id={video_id}: "
+                f"doc_id={existing['_id']}, title={existing.get('title', 'Unknown')}"
+            )
+            return str(existing["_id"]), existing.get("source")
+
+        return None, None
+
+    async def delete_youtube_by_video_id(self, video_id: str) -> bool:
+        """
+        Delete a YouTube document and its chunks by video ID.
+
+        Args:
+            video_id: YouTube video ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        documents_collection = self.db[self.settings.mongodb_collection_documents]
+        chunks_collection = self.db[self.settings.mongodb_collection_chunks]
+
+        # Find document by video_id
+        doc = await documents_collection.find_one(
+            {
+                "source_type": "youtube",
+                "metadata.video_id": video_id,
+            },
+            {"_id": 1, "source": 1},
+        )
+
+        if not doc:
+            return False
+
+        document_id = doc["_id"]
+        source = doc.get("source", video_id)
+
+        # Delete chunks first
+        chunks_result = await chunks_collection.delete_many({"document_id": document_id})
+
+        # Delete document
+        await documents_collection.delete_one({"_id": document_id})
+
+        logger.info(
+            f"Deleted YouTube document video_id={video_id}: "
+            f"doc_id={document_id}, chunks_deleted={chunks_result.deleted_count}, source={source}"
+        )
+        return True
+
     async def delete_by_source(self, source: str) -> bool:
         """
         Delete document and its chunks by source.
@@ -549,6 +638,333 @@ class ContentIngestionService:
 
         logger.info(f"Deleted document and chunks for source: {source}")
         return True
+
+    async def ingest_scraped_content(
+        self,
+        scraped: "ScrapedContent",
+    ) -> ContentIngestionResult:
+        """
+        Ingest normalized ScrapedContent into the RAG pipeline.
+
+        This is the unified entry point for all content ingestion. It accepts
+        a ScrapedContent object and handles:
+        - Chunk-by-chapters if chapters are provided and option is enabled
+        - Graphiti episode creation with proper temporal anchoring
+        - MongoDB storage with RLS fields
+        - Code example extraction
+
+        Args:
+            scraped: Normalized ScrapedContent object from any source
+
+        Returns:
+            ContentIngestionResult with document ID and statistics
+
+        Example:
+            from shared.models import ScrapedContent, IngestionOptions
+
+            scraped = ScrapedContent(
+                content="# My Document\\n...",
+                title="My Document",
+                source="https://example.com",
+                source_type="web",
+                metadata={"domain": "example.com"},
+                user_email="user@example.com",
+                options=IngestionOptions(chunk_by_chapters=True),
+            )
+
+            result = await service.ingest_scraped_content(scraped)
+        """
+        from capabilities.retrieval.graphiti_rag.ingestion.adapter import (
+            ChapterInfo,
+            GraphitiIngestionOptions,
+        )
+
+        from shared.models import IngestionOptions
+
+        # Get options with defaults
+        options = scraped.options or IngestionOptions()
+
+        # Convert chapter models if present
+        graphiti_chapters = None
+        if scraped.chapters and options.chunk_by_chapters:
+            graphiti_chapters = [
+                ChapterInfo(
+                    title=ch.title,
+                    start_time=ch.start_time,
+                    end_time=ch.end_time,
+                    content=ch.content,
+                )
+                for ch in scraped.chapters
+            ]
+
+        # Create Graphiti ingestion options
+        graphiti_options = GraphitiIngestionOptions(
+            create_episode=options.create_graphiti_episode and not options.skip_graphiti,
+            episode_type=options.graphiti_episode_type,
+            extract_facts=options.extract_facts and not options.skip_graphiti,
+            reference_time=scraped.get_reference_time(),
+            chapters=graphiti_chapters,
+        )
+
+        # If chunk_by_chapters is enabled and we have chapters with content,
+        # we should chunk differently
+        if options.chunk_by_chapters and scraped.has_chapters():
+            return await self._ingest_with_chapters(scraped, options, graphiti_options)
+
+        # Standard ingestion
+        return await self._ingest_standard(scraped, options, graphiti_options)
+
+    async def _ingest_standard(
+        self,
+        scraped: "ScrapedContent",
+        options: "IngestionOptions",
+        graphiti_options: "GraphitiIngestionOptions",
+    ) -> ContentIngestionResult:
+        """Standard ingestion without chapter-based chunking."""
+
+        if not self._initialized:
+            await self.initialize()
+
+        start_time = datetime.now()
+        errors: list[str] = []
+
+        # Build metadata including source-specific fields
+        base_metadata = {
+            "source_type": scraped.source_type,
+            "ingested_at": datetime.now().isoformat(),
+            **scraped.metadata,
+        }
+
+        # Extract frontmatter metadata if present
+        frontmatter = self._extract_metadata_from_content(scraped.content)
+        base_metadata.update(frontmatter)
+
+        logger.info(f"Ingesting scraped content: {scraped.title} ({scraped.source_type})")
+
+        # Convert to DoclingDocument if requested
+        docling_doc = None
+        if options.use_docling:
+            docling_doc = self._convert_markdown_to_docling(scraped.content)
+            if docling_doc:
+                base_metadata["docling_converted"] = True
+
+        # Chunk the document
+        chunks = await self.chunker.chunk_document(
+            content=scraped.content,
+            title=scraped.title,
+            source=scraped.source,
+            metadata=base_metadata,
+            docling_doc=docling_doc,
+        )
+
+        if not chunks:
+            return ContentIngestionResult(
+                document_id="",
+                title=scraped.title,
+                source=scraped.source,
+                source_type=scraped.source_type,
+                chunks_created=0,
+                processing_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                errors=["No chunks created from content"],
+            )
+
+        logger.info(f"Created {len(chunks)} chunks")
+
+        # Generate embeddings
+        embedded_chunks = await self.embedder.embed_chunks(chunks)
+        logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")
+
+        # Save to MongoDB (unless skipped)
+        document_id = ""
+        if not options.skip_mongodb:
+            document_id = await self._save_to_mongodb(
+                title=scraped.title,
+                source=scraped.source,
+                source_type=scraped.source_type,
+                content=scraped.content,
+                chunks=embedded_chunks,
+                metadata=base_metadata,
+                user_id=scraped.user_id,
+                user_email=scraped.user_email,
+                is_public=scraped.is_public,
+            )
+            logger.info(f"Saved document to MongoDB with ID: {document_id}")
+        else:
+            logger.info("MongoDB storage skipped per options")
+
+        # Ingest into Graphiti if enabled
+        episodes_created = 0
+        facts_added = 0
+        if self.graphiti_adapter and not options.skip_graphiti:
+            try:
+                graphiti_result = await self.graphiti_adapter.ingest_document(
+                    document_id=document_id or "no-mongo-id",
+                    chunks=embedded_chunks,
+                    metadata=base_metadata,
+                    title=scraped.title,
+                    source=scraped.source,
+                    options=graphiti_options,
+                )
+                episodes_created = graphiti_result.get("episodes_created", 0)
+                facts_added = graphiti_result.get("facts_added", 0)
+                if graphiti_result.get("errors"):
+                    errors.extend(graphiti_result["errors"])
+                logger.info(
+                    f"Graphiti ingestion: {episodes_created} episodes, {facts_added} facts "
+                    f"from {graphiti_result.get('chunks_processed', 0)} chunks"
+                )
+            except Exception as e:
+                error_msg = f"Graphiti ingestion failed: {e!s}"
+                logger.exception(error_msg)
+                errors.append(error_msg)
+
+        # Extract code examples if enabled
+        if (
+            options.extract_code_examples
+            and self.settings.use_agentic_rag
+            and not options.skip_mongodb
+            and document_id
+        ):
+            try:
+                code_result = await ingest_code_examples(
+                    self.mongo_client,
+                    document_id,
+                    scraped.content,
+                    scraped.source,
+                    base_metadata,
+                )
+                if code_result.get("errors"):
+                    errors.extend(code_result["errors"])
+                logger.info(
+                    f"Code examples: {code_result.get('code_examples_stored', 0)} stored "
+                    f"from {code_result.get('code_examples_extracted', 0)} extracted"
+                )
+            except Exception as e:
+                error_msg = f"Code example extraction failed: {e!s}"
+                logger.exception(error_msg)
+                errors.append(error_msg)
+
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+        return ContentIngestionResult(
+            document_id=document_id,
+            title=scraped.title,
+            source=scraped.source,
+            source_type=scraped.source_type,
+            chunks_created=len(chunks),
+            processing_time_ms=processing_time,
+            errors=errors,
+        )
+
+    async def _ingest_with_chapters(
+        self,
+        scraped: "ScrapedContent",
+        options: "IngestionOptions",
+        graphiti_options: "GraphitiIngestionOptions",
+    ) -> ContentIngestionResult:
+        """Ingest content using chapters as chunk boundaries."""
+
+        if not self._initialized:
+            await self.initialize()
+
+        start_time = datetime.now()
+        errors: list[str] = []
+
+        # Build metadata
+        base_metadata = {
+            "source_type": scraped.source_type,
+            "ingested_at": datetime.now().isoformat(),
+            "chapter_count": len(scraped.chapters) if scraped.chapters else 0,
+            **scraped.metadata,
+        }
+
+        logger.info(f"Ingesting with chapters: {scraped.title} ({len(scraped.chapters)} chapters)")
+
+        # Create chunks from chapters
+        chunks = []
+        for idx, chapter in enumerate(scraped.chapters or []):
+            if not chapter.content:
+                continue
+
+            chunk_metadata = {
+                **base_metadata,
+                "chunk_type": "chapter",
+                "chapter_title": chapter.title,
+                "chapter_index": idx,
+                "start_time": chapter.start_time,
+                "end_time": chapter.end_time,
+            }
+
+            chunk = DocumentChunk(
+                content=f"## {chapter.title}\n\n{chapter.content}",
+                index=idx,
+                start_char=0,
+                end_char=len(chapter.content),
+                metadata=chunk_metadata,
+                token_count=len(chapter.content.split()),
+            )
+            chunks.append(chunk)
+
+        if not chunks:
+            # Fall back to standard ingestion
+            logger.warning("No chapter content available, falling back to standard chunking")
+            return await self._ingest_standard(scraped, options, graphiti_options)
+
+        logger.info(f"Created {len(chunks)} chapter-based chunks")
+
+        # Generate embeddings
+        embedded_chunks = await self.embedder.embed_chunks(chunks)
+        logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")
+
+        # Save to MongoDB
+        document_id = ""
+        if not options.skip_mongodb:
+            document_id = await self._save_to_mongodb(
+                title=scraped.title,
+                source=scraped.source,
+                source_type=scraped.source_type,
+                content=scraped.content,
+                chunks=embedded_chunks,
+                metadata=base_metadata,
+                user_id=scraped.user_id,
+                user_email=scraped.user_email,
+                is_public=scraped.is_public,
+            )
+            logger.info(f"Saved document to MongoDB with ID: {document_id}")
+
+        # Ingest into Graphiti
+        episodes_created = 0
+        facts_added = 0
+        if self.graphiti_adapter and not options.skip_graphiti:
+            try:
+                graphiti_result = await self.graphiti_adapter.ingest_document(
+                    document_id=document_id or "no-mongo-id",
+                    chunks=embedded_chunks,
+                    metadata=base_metadata,
+                    title=scraped.title,
+                    source=scraped.source,
+                    options=graphiti_options,
+                )
+                episodes_created = graphiti_result.get("episodes_created", 0)
+                facts_added = graphiti_result.get("facts_added", 0)
+                if graphiti_result.get("errors"):
+                    errors.extend(graphiti_result["errors"])
+            except Exception as e:
+                error_msg = f"Graphiti ingestion failed: {e!s}"
+                logger.exception(error_msg)
+                errors.append(error_msg)
+
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+        return ContentIngestionResult(
+            document_id=document_id,
+            title=scraped.title,
+            source=scraped.source,
+            source_type=scraped.source_type,
+            chunks_created=len(chunks),
+            processing_time_ms=processing_time,
+            errors=errors,
+        )
 
 
 # Factory function for convenience

@@ -4,9 +4,8 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from capabilities.retrieval.mongo_rag.config import config
 from pymongo import AsyncMongoClient
-
-from server.projects.mongo_rag.config import config
 
 logger = logging.getLogger(__name__)
 

@@ -47,7 +47,7 @@ mock_settings.searxng_url = os.getenv("SEARXNG_URL", "http://localhost:8081")
 mock_settings.llm_provider = os.getenv("LLM_PROVIDER", "ollama")
 mock_settings.llm_model = os.getenv("LLM_MODEL", "llama3.2")
 mock_settings.embedding_provider = os.getenv("EMBEDDING_PROVIDER", "ollama")
-mock_settings.embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+mock_settings.embedding_model = os.getenv("EMBEDDING_MODEL", "qwen3-embedding:4b")
 mock_settings.embedding_dimension = int(os.getenv("EMBEDDING_DIMENSION", "768"))
 mock_settings.log_level = os.getenv("LOG_LEVEL", "info")
 
@@ -58,7 +58,7 @@ sys.path.insert(0, lambda_dir)
 # Patch settings BEFORE importing server modules
 with patch("server.config.settings", mock_settings):
     # Now we can safely import server modules
-    from server.projects.deep_research.workflow import run_linear_research
+    from workflows.research.deep_research.workflow import run_linear_research
 
 
 def print_section(title: str, char: str = "="):

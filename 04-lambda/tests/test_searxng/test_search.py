@@ -11,7 +11,7 @@ mock_settings.searxng_url = "http://mock-searxng:8080"
 
 # Patch settings before importing the module
 with patch("server.config.settings", mock_settings):
-    from server.api.searxng import (
+    from services.external.searxng.router import (
         SearXNGSearchRequest,
         SearXNGSearchResponse,
         SearXNGSearchResult,

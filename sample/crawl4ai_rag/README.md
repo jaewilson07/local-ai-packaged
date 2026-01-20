@@ -76,6 +76,45 @@ Demonstrates adaptive crawling strategies that adjust parameters based on site c
 python sample/crawl4ai_rag/adaptive_crawl_example.py
 ```
 
+### 4. `crawl_full_pipeline.py` (NEW - Comprehensive Test)
+**Full pipeline test validating all crawl functionality including download, MongoDB ingestion, and Graphiti extraction.**
+
+**Tests:**
+1. **Download without MongoDB** (MCP tools)
+   - `download_page_markdown` - Single page download
+   - `download_website_markdown` - Deep crawl download
+
+2. **Crawl with MongoDB RAG ingestion**
+   - REST API `/api/v1/crawl/single`
+   - Verifies chunks are created
+
+3. **Graphiti knowledge graph extraction**
+   - Verifies facts are extracted to Neo4j
+   - Tests `/api/v1/graphiti/search` endpoint
+
+4. **Authentication support**
+   - Tests cookies and headers parameters
+
+**Usage:**
+```bash
+# Run full pipeline test (requires Lambda server)
+python sample/crawl4ai_rag/crawl_full_pipeline.py
+```
+
+**Output:**
+- Validates all crawl operations
+- Reports success/failure for each test
+- Returns exit code 0 (all passed) or 1 (failures)
+
+### 5. `extract_and_crawl.py`
+Authenticated deep crawl using BrowserProfiler for identity-based crawling.
+
+**Features:**
+- Creates browser profile for authenticated sessions
+- Opens headed browser for login
+- Saves session state for headless crawling
+- Downloads pages as markdown files (no MongoDB)
+
 ## Standalone Crawl4AI Tests
 
 For testing Crawl4AI without the full server setup, see:
@@ -154,10 +193,10 @@ Ensure `.env` file has required variables:
 - `MONGODB_URI=mongodb://admin:admin123@mongodb:27017/?directConnection=true`
 - `MONGODB_DATABASE=rag_db`
 - `LLM_BASE_URL=http://ollama:11434/v1`
-- `EMBEDDING_MODEL=nomic-embed-text`
+- `EMBEDDING_MODEL=qwen3-embedding:4b`
 
 ## Documentation
 
 - [Crawl4AI Official Docs](https://docs.crawl4ai.com/)
-- [Crawl4AI RAG Project](../../04-lambda/server/projects/crawl4ai_rag/AGENTS.md)
+- [Crawl4AI RAG Project](../../04-lambda/src/workflows/ingestion/crawl4ai_rag/AGENTS.md)
 - [RAG Functionality](../../04-lambda/docs/RAG_FUNCTIONALITY.md)

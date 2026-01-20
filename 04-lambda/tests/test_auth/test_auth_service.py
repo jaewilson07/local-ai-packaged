@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from server.projects.auth.config import AuthConfig
 from server.projects.auth.services.auth_service import AuthService
 

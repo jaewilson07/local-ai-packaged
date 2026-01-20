@@ -6,15 +6,13 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, UploadFile
-from pydantic import BaseModel, Field
-from src.capabilities.retrieval.mongo_rag.agent import rag_agent
-from src.capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
-from src.capabilities.retrieval.mongo_rag.ingestion.pipeline import (
+from capabilities.retrieval.mongo_rag.agent import rag_agent
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
+from capabilities.retrieval.mongo_rag.ingestion.pipeline import (
     DocumentIngestionPipeline,
     IngestionConfig,
 )
-from src.capabilities.retrieval.mongo_rag.models import (
+from capabilities.retrieval.mongo_rag.models import (
     AgentRequest,
     AgentResponse,
     IngestContentRequest,
@@ -23,14 +21,16 @@ from src.capabilities.retrieval.mongo_rag.models import (
     SearchRequest,
     SearchResponse,
 )
-from src.capabilities.retrieval.mongo_rag.sources import get_available_sources
-from src.capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_search, text_search
-from src.capabilities.retrieval.mongo_rag.tools_code import search_code_examples
-from src.services.auth.dependencies import get_current_user
-from src.services.auth.models import User
-from src.services.database.supabase import SupabaseClient, SupabaseConfig
+from capabilities.retrieval.mongo_rag.sources import get_available_sources
+from capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_search, text_search
+from capabilities.retrieval.mongo_rag.tools_code import search_code_examples
+from fastapi import APIRouter, Depends, File, UploadFile
+from pydantic import BaseModel, Field
+from services.auth.dependencies import get_current_user
+from services.auth.models import User
+from services.database.supabase import SupabaseClient, SupabaseConfig
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/rag", tags=["rag", "retrieval"])
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +56,7 @@ async def get_agent_deps(
         user_id=str(user.id),
         user_email=user.email,
         is_admin=is_admin,
-        user_groups=[],  # TODO: Implement group membership lookup
+        user_groups=[],  # Future: Add group membership from profiles.group_ids when implemented
         mongodb_username=mongodb_username,
         mongodb_password=mongodb_password,
     )
@@ -72,10 +72,13 @@ def _build_search_filter(request: SearchRequest) -> dict[str, Any]:
     Build MongoDB filter for search request.
 
     Supports filtering by:
-    - source_type: Filter by document source (e.g., 'openwebui_conversation')
+    - source_type: Filter by document source (e.g., 'openwebui_conversation', 'youtube')
     - user_id: Filter by user ID (for conversations)
     - conversation_id: Filter by conversation ID
     - topics: Filter by topics (for conversations)
+    - project_scope: Filter by project scope (e.g., 'comfyui-lora-research')
+    - tags: Filter by tags
+    - metadata_filter: Generic metadata filters
 
     Args:
         request: Search request with optional filters
@@ -100,6 +103,23 @@ def _build_search_filter(request: SearchRequest) -> dict[str, Any]:
     # Filter by topics (for conversations)
     if request.topics:
         filter_dict["metadata.topics"] = {"$in": request.topics}
+
+    # Filter by project scope
+    if request.project_scope:
+        filter_dict["metadata.project_scope"] = request.project_scope
+
+    # Filter by tags
+    if request.tags:
+        filter_dict["metadata.tags"] = {"$all": request.tags}
+
+    # Apply generic metadata filter
+    if request.metadata_filter:
+        for key, value in request.metadata_filter.items():
+            # Prefix with metadata. if not already
+            if not key.startswith("metadata."):
+                filter_dict[f"metadata.{key}"] = value
+            else:
+                filter_dict[key] = value
 
     return filter_dict
 
@@ -483,7 +503,7 @@ async def ingest_content(
     - YouTube RAG uses this for transcript storage
     - Sample scripts use this for article ingestion
     """
-    from src.capabilities.retrieval.mongo_rag.ingestion.content_service import (
+    from capabilities.retrieval.mongo_rag.ingestion.content_service import (
         ContentIngestionService,
     )
 
@@ -664,7 +684,7 @@ async def search_code_examples_endpoint(
     Returns code snippets with summaries, language, and context.
     Requires USE_AGENTIC_RAG=true to be enabled.
     """
-    from src.shared.wrappers import DepsWrapper
+    from shared.wrappers import DepsWrapper
 
     ctx = DepsWrapper(deps)
     results = await search_code_examples(ctx, request.query, request.match_count)
@@ -714,7 +734,7 @@ async def record_message_endpoint(
     role: str = "user",
 ):
     """Record a message in memory."""
-    from src.capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+    from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
 
     memory_tools = MemoryTools(deps=deps)
     memory_tools.record_message(str(user.id), persona_id, content, role)
@@ -729,7 +749,7 @@ async def get_context_window_endpoint(
     limit: int = 20,
 ):
     """Get recent messages for context window."""
-    from src.capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+    from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
 
     memory_tools = MemoryTools(deps=deps)
     messages = memory_tools.get_context_window(str(user.id), persona_id, limit)
@@ -757,7 +777,7 @@ async def store_fact_endpoint(
     tags: list[str] | None = None,
 ):
     """Store a fact in memory."""
-    from src.capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+    from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
 
     memory_tools = MemoryTools(deps=deps)
     memory_tools.store_fact(str(user.id), persona_id, fact, tags)
@@ -773,7 +793,7 @@ async def search_facts_endpoint(
     limit: int = 10,
 ):
     """Search for facts in memory."""
-    from src.capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+    from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
 
     memory_tools = MemoryTools(deps=deps)
     facts = memory_tools.search_facts(str(user.id), persona_id, query, limit)
@@ -804,7 +824,7 @@ async def store_web_content_endpoint(
     tags: list[str] | None = None,
 ):
     """Store web content in memory."""
-    from src.capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
+    from capabilities.retrieval.mongo_rag.memory_tools import MemoryTools
 
     memory_tools = MemoryTools(deps=deps)
     chunks = memory_tools.store_web_content(

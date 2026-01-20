@@ -2,30 +2,51 @@
 
 This module separates data extraction (via YouTubeClient) from ingestion
 (via centralized ContentIngestionService in mongo_rag).
+
+The unified ingestion uses:
+- ScrapedContent model for normalized input
+- ContentIngestionService.ingest_scraped_content() for processing
+- Graphiti episodes for temporal anchoring
 """
 
 import logging
 from datetime import datetime
 from typing import Any
 
-from server.projects.mongo_rag.ingestion.content_service import ContentIngestionService
-from server.projects.youtube_rag.dependencies import YouTubeRAGDeps
-from server.projects.youtube_rag.models import (
+from capabilities.retrieval.mongo_rag.ingestion.content_service import ContentIngestionService
+from workflows.ingestion.youtube_rag.dependencies import YouTubeRAGDeps
+from workflows.ingestion.youtube_rag.models import (
     GetYouTubeMetadataRequest,
     GetYouTubeMetadataResponse,
     IngestYouTubeRequest,
     IngestYouTubeResponse,
     YouTubeVideoData,
 )
-from server.projects.youtube_rag.services.extractors.entities import EntityExtractor
-from server.projects.youtube_rag.services.extractors.topics import TopicExtractor
-from server.projects.youtube_rag.services.youtube_client import (
+from workflows.ingestion.youtube_rag.services.extractors.entities import EntityExtractor
+from workflows.ingestion.youtube_rag.services.extractors.topics import TopicExtractor
+from workflows.ingestion.youtube_rag.services.youtube_client import (
     TranscriptNotAvailableError,
     VideoNotFoundError,
     YouTubeClient,
 )
 
+from shared.models import ChapterInfo, IngestionOptions, ScrapedContent
+
 logger = logging.getLogger(__name__)
+
+
+def _parse_upload_date(upload_date: str | None) -> datetime | None:
+    """Parse YouTube upload date string to datetime."""
+    if not upload_date:
+        return None
+
+    try:
+        return datetime.strptime(upload_date, "%Y%m%d")
+    except ValueError:
+        try:
+            return datetime.strptime(upload_date, "%Y-%m-%d")
+        except ValueError:
+            return None
 
 
 def _build_youtube_metadata(video_data: YouTubeVideoData) -> dict[str, Any]:
@@ -153,7 +174,7 @@ def _create_youtube_markdown(video_data: YouTubeVideoData) -> str:
 
         if video_data.chapters:
             # Format with chapter markers
-            from server.projects.youtube_rag.services.youtube_client import YouTubeClient
+            from workflows.ingestion.youtube_rag.services.youtube_client import YouTubeClient
 
             client = YouTubeClient()
             formatted = client.format_transcript_with_timestamps(
@@ -178,9 +199,24 @@ async def ingest_youtube_video(
     Ingest a YouTube video into the MongoDB RAG knowledge base.
 
     This function performs:
+    - Phase 0: Duplicate detection (by video ID, handles URL variations)
     - Phase 1: Extract video data via YouTubeClient (data acquisition)
     - Phase 2: Optional entity/topic extraction via LLM
-    - Phase 3: Ingest via ContentIngestionService (centralized storage)
+    - Phase 3: Convert to ScrapedContent and ingest via unified pipeline
+
+    The unified pipeline creates:
+    - MongoDB documents with chunks and embeddings
+    - Graphiti episodes for temporal queries (anchored to upload date)
+    - Graphiti facts extracted from content
+
+    Duplicate Detection:
+    - Matches by video_id (not full URL) to catch variations like:
+      - Timestamp links: ?v=xxx&t=123
+      - Playlist links: ?v=xxx&list=PLyyy
+      - Share tracking: ?v=xxx&si=zzz
+      - Short URLs: youtu.be/xxx
+    - Use skip_duplicates=False to allow re-ingestion
+    - Use force_reindex=True to delete existing and re-ingest
 
     Args:
         deps: YouTube RAG dependencies
@@ -199,9 +235,52 @@ async def ingest_youtube_video(
         if not deps.youtube_client:
             await deps.initialize()
 
-        # Extract video ID
+        # Extract video ID (normalized from any URL format)
         video_id = YouTubeClient.extract_video_id(request.url)
-        logger.info(f"🎬 Starting YouTube ingestion for video: {video_id}")
+        logger.info(f"Starting YouTube ingestion for video: {video_id}")
+
+        # Phase 0: Initialize service and check for duplicates
+        service = ContentIngestionService(
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
+        )
+        await service.initialize()
+
+        try:
+            existing_doc_id, existing_source = await service.check_youtube_duplicate(video_id)
+
+            if existing_doc_id:
+                if request.force_reindex:
+                    # Delete existing and proceed with re-ingestion
+                    logger.info(
+                        f"force_reindex=True: Deleting existing document for video {video_id}"
+                    )
+                    await service.delete_youtube_by_video_id(video_id)
+                elif request.skip_duplicates:
+                    # Skip - video already exists
+                    processing_time = (datetime.now() - start_time).total_seconds() * 1000
+                    logger.info(
+                        f"Skipping duplicate video {video_id}: existing doc_id={existing_doc_id}"
+                    )
+                    await service.close()  # Clean up before returning
+                    return IngestYouTubeResponse(
+                        success=True,
+                        url=request.url,
+                        video_id=video_id,
+                        document_id=existing_doc_id,
+                        skipped=True,
+                        skipped_reason=(
+                            f"Video already exists in knowledge base. "
+                            f"Original URL: {existing_source}. "
+                            f"Use force_reindex=true to re-ingest."
+                        ),
+                        processing_time_ms=processing_time,
+                    )
+                # else: skip_duplicates=False, proceed with creating another document
+        except Exception as e:
+            # Don't fail ingestion if duplicate check fails
+            logger.warning(f"Duplicate check failed for video {video_id}: {e}")
+            errors.append(f"Duplicate check warning: {e}")
 
         # Phase 1: Get video data (data acquisition)
         video_data = await deps.youtube_client.get_video_data(
@@ -226,7 +305,7 @@ async def ingest_youtube_video(
 
         # Phase 2: Extract entities if requested
         if request.extract_entities and deps.openai_client:
-            logger.info("🔍 Extracting entities from transcript")
+            logger.info("Extracting entities from transcript")
             entity_extractor = EntityExtractor(openai_client=deps.openai_client)
             video_data.entities = await entity_extractor.extract_entities(
                 transcript=video_data.transcript,
@@ -250,44 +329,73 @@ async def ingest_youtube_video(
 
         # Classify topics if requested
         if request.extract_topics and deps.openai_client:
-            logger.info("📚 Classifying video topics")
+            logger.info("Classifying video topics")
             topic_extractor = TopicExtractor(openai_client=deps.openai_client)
             video_data.topics = await topic_extractor.classify_topics(
                 transcript=video_data.transcript,
                 metadata=video_data.metadata,
             )
 
-        # Phase 3: Ingest using centralized ContentIngestionService
-        logger.info("💾 Ingesting video via ContentIngestionService")
+        # Phase 3: Convert to ScrapedContent and ingest via unified pipeline
+        logger.info("Ingesting video via unified ContentIngestionService")
 
         # Build metadata and markdown content
         metadata = _build_youtube_metadata(video_data)
         markdown_content = _create_youtube_markdown(video_data)
 
-        service = ContentIngestionService(
-            chunk_size=request.chunk_size,
-            chunk_overlap=request.chunk_overlap,
+        # Convert chapters to ChapterInfo models
+        chapters = None
+        if video_data.chapters and video_data.transcript:
+            from workflows.ingestion.youtube_rag.services.extractors.chapters import (
+                ChapterExtractor,
+            )
+
+            # Get chapter content from transcript
+            chapter_chunks = ChapterExtractor.chunk_transcript_by_chapters(
+                video_data.transcript,
+                video_data.chapters,
+            )
+
+            chapters = [
+                ChapterInfo(
+                    title=chunk["metadata"]["chapter_title"],
+                    start_time=chunk["metadata"]["start_time"],
+                    end_time=chunk["metadata"]["end_time"],
+                    content=chunk["content"],
+                )
+                for chunk in chapter_chunks
+            ]
+
+        # Create ScrapedContent for unified ingestion
+        scraped = ScrapedContent(
+            content=markdown_content,
+            title=video_data.metadata.title,
+            source=request.url,
+            source_type="youtube",
+            metadata=metadata,
+            reference_time=_parse_upload_date(video_data.metadata.upload_date),
+            chapters=chapters,
+            user_id=user_id,
+            user_email=user_email,
+            options=IngestionOptions(
+                use_docling=True,
+                extract_code_examples=False,  # YouTube videos rarely have code
+                create_graphiti_episode=True,  # Create temporal episodes
+                chunk_by_chapters=request.chunk_by_chapters and bool(chapters),
+                graphiti_episode_type="both" if chapters else "overview",
+                extract_facts=True,
+            ),
         )
 
+        # Ingest using the service (already initialized during duplicate check)
         try:
-            await service.initialize()
-
-            ingestion_result = await service.ingest_content(
-                content=markdown_content,
-                title=video_data.metadata.title,
-                source=request.url,
-                source_type="youtube",
-                metadata=metadata,
-                user_id=user_id,
-                user_email=user_email,
-                use_docling=True,  # Use Docling for structure-aware chunking
-            )
+            ingestion_result = await service.ingest_scraped_content(scraped)
 
             errors.extend(ingestion_result.errors)
             processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
             logger.info(
-                f"✅ YouTube ingestion complete: {ingestion_result.chunks_created} chunks created "
+                f"YouTube ingestion complete: {ingestion_result.chunks_created} chunks created "
                 f"in {processing_time:.2f}ms"
             )
 

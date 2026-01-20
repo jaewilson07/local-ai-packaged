@@ -2,27 +2,19 @@
 
 This module provides authentication services for the Lambda server,
 including JWT validation, user provisioning, and access control.
+
+Import specific items from submodules:
+    from services.auth.config import AuthConfig
+    from services.auth.dependencies import get_current_user
+    from services.auth.models import User
+    from services.auth.router import router
 """
 
-# Core auth components
+# Only export safe leaf items that don't cause circular imports
 from .config import AuthConfig
-from .dependencies import get_current_user
-
-# Sub-services (organized imports)
-from .jwt import JWTService
-from .middleware import AuthMiddleware
 from .models import User
-from .router import router as auth_router
-
-# Keep backward compatibility with old import paths
-from .services.auth_service import AuthService
 
 __all__ = [
     "AuthConfig",
-    "AuthMiddleware",
-    "AuthService",
-    "JWTService",
     "User",
-    "auth_router",
-    "get_current_user",
 ]

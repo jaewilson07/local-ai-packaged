@@ -331,6 +331,32 @@ class SupabaseClient:
 
             logger.info(f"Updated MongoDB credentials for {email}")
 
+    async def get_mongodb_credentials(self, email: str) -> tuple[str | None, str | None]:
+        """Get MongoDB credentials for a user.
+
+        Args:
+            email: User's email address
+
+        Returns:
+            Tuple of (username, password) or (None, None) if not found
+        """
+        pool = await self._get_pool()
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT mongodb_username, mongodb_password
+                FROM profiles
+                WHERE email = $1
+            """,
+                email,
+            )
+
+            if row:
+                return (row.get("mongodb_username"), row.get("mongodb_password"))
+
+        return (None, None)
+
     async def get_immich_credentials(self, email: str) -> tuple[str | None, str | None]:
         """Get Immich credentials for a user."""
         pool = await self._get_pool()

@@ -125,9 +125,9 @@ Users can compose tools in creative ways:
 
 ## Related Documentation
 
-- [MCP Integration Guide](../../docs/MCP_INTEGRATION.md) - Complete MCP tools catalog
+- [MCP Troubleshooting Skill](../../.cursor/skills/mcp-troubleshooting/SKILL.md) - MCP connection guide
 - [RAG Functionality Documentation](./RAG_FUNCTIONALITY.md) - RAG system details
-- [MCP Function Design Best Practices](../server/mcp/AGENTS.md) - Design guidelines
+- [Lambda AGENTS.md](../AGENTS.md) - MCP tool design guidelines
 
 ## Future Considerations
 

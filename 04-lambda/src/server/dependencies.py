@@ -12,8 +12,9 @@ from typing import Any
 import openai
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-from src.server.config import settings as global_settings
-from src.shared.embedding_service import EmbeddingService
+
+from server.config import settings as global_settings
+from shared.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 

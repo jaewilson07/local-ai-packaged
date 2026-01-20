@@ -1,21 +1,11 @@
-"""Pydantic models for topic classification."""
+"""OpenWebUI Topics models - re-exports from schemas.
 
-from pydantic import BaseModel, Field
+Import specific items directly from this module or from capabilities.processing.schemas.
+"""
 
+from capabilities.processing.schemas import (
+    TopicClassificationRequest,
+    TopicClassificationResponse,
+)
 
-class TopicClassificationRequest(BaseModel):
-    """Request to classify conversation topics."""
-
-    conversation_id: str = Field(..., description="Conversation ID")
-    title: str | None = Field(None, description="Conversation title")
-    messages: list[dict] = Field(..., description="Conversation messages")
-    existing_topics: list[str] | None = Field(None, description="Existing topics to consider")
-
-
-class TopicClassificationResponse(BaseModel):
-    """Response with classified topics."""
-
-    conversation_id: str
-    topics: list[str]
-    confidence: float
-    reasoning: str | None = None
+__all__ = ["TopicClassificationRequest", "TopicClassificationResponse"]

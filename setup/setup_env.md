@@ -286,7 +286,7 @@ After creating your `.env` file:
 2. Restart services: `python start_services.py`
 3. New values automatically used
 
-See [Infisical Usage Guide](../../docs/infisical/usage.md) for details.
+See [00-infrastructure/AGENTS.md](../00-infrastructure/AGENTS.md) for Infisical configuration details.
 
 ## Security Best Practices
 
@@ -375,9 +375,8 @@ echo $POSTGRES_PASSWORD
 
 ## Related Documentation
 
-- [Infisical Usage Guide](../../docs/infisical/usage.md) - How we use Infisical
-- [Infisical Setup Guide](../../docs/infisical/setup.md) - Setting up Infisical
-- [Main README](../../README.md) - Project overview
+- [00-infrastructure/AGENTS.md](../00-infrastructure/AGENTS.md) - Infisical configuration
+- [Main README](../README.md) - Project overview
 
 ## Tools and Resources
 

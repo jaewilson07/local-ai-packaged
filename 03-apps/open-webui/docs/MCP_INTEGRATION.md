@@ -164,4 +164,5 @@ MCP tools can trigger conversation exports:
 
 - [Open WebUI MCP Documentation](https://docs.openwebui.com/features/plugin/tools/)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)
-- Lambda MCP Server: `04-lambda/server/mcp/AGENTS.md`
+- [Lambda AGENTS.md](../../../04-lambda/AGENTS.md) - MCP tool design guidelines
+- [MCP Troubleshooting Skill](../../../.cursor/skills/mcp-troubleshooting/SKILL.md)

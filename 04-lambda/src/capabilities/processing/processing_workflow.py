@@ -1,12 +1,12 @@
 """Processing workflow - orchestration logic for content processing."""
 
-from pydantic_ai import RunContext
-from src.capabilities.processing.ai import ProcessingDeps
-from src.capabilities.processing.openwebui_topics.tools import classify_topics
-from src.capabilities.processing.schemas import (
+from capabilities.processing.ai import ProcessingDeps
+from capabilities.processing.openwebui_topics.tools import classify_topics
+from capabilities.processing.schemas import (
     TopicClassificationRequest,
     TopicClassificationResponse,
 )
+from pydantic_ai import RunContext
 
 
 async def classify_topics_workflow(

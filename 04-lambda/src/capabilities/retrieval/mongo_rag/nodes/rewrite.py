@@ -3,8 +3,7 @@
 import logging
 
 import openai
-
-from server.projects.mongo_rag.config import config
+from capabilities.retrieval.mongo_rag.config import config
 
 logger = logging.getLogger(__name__)
 

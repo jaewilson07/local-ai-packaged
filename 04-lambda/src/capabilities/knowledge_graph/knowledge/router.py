@@ -2,20 +2,20 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException
-from pydantic import ValidationError
-from pydantic_ai import RunContext
-from src.capabilities.knowledge_graph.knowledge.dependencies import KnowledgeDeps
-from src.capabilities.knowledge_graph.knowledge.models import (
+from capabilities.knowledge_graph.knowledge.dependencies import KnowledgeDeps
+from capabilities.knowledge_graph.knowledge.models import (
     ExtractEventsFromCrawledRequest,
     ExtractEventsFromCrawledResponse,
     ExtractEventsRequest,
     ExtractEventsResponse,
 )
-from src.capabilities.knowledge_graph.knowledge.tools import (
+from capabilities.knowledge_graph.knowledge.tools import (
     extract_events_from_content,
     extract_events_from_crawled_pages,
 )
+from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
+from pydantic_ai import RunContext
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

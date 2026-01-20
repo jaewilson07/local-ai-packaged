@@ -29,13 +29,13 @@ if "MONGODB_URI" not in os.environ:
 
 # Add server to path
 project_root = Path(__file__).parent.parent.parent
-lambda_path = project_root / "04-lambda"
+lambda_path = project_root / "04-lambda" / "src"
 sys.path.insert(0, str(lambda_path))
 
 import logging  # noqa: E402
 
-from server.projects.mongo_rag.dependencies import AgentDependencies  # noqa: E402
-from server.projects.mongo_rag.rls import (  # noqa: E402
+from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies  # noqa: E402
+from capabilities.retrieval.mongo_rag.rls import (  # noqa: E402
     add_sharing_to_document,
     build_access_filter,
     can_access_document,

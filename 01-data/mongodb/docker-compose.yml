@@ -33,6 +33,30 @@ services:
       - default
     restart: unless-stopped
 
+  # Atlas Search Index Initialization
+  # This service runs once to create required search indexes
+  mongodb-init:
+    image: mongodb/mongodb-atlas-local:latest
+    container_name: mongodb-init
+    restart: "no"  # Run once and exit
+    volumes:
+      - ./scripts/setup_search_indexes.js:/scripts/setup_search_indexes.js:ro
+    environment:
+      MONGODB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGODB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint: >
+      mongosh
+      --host mongodb
+      --username $${MONGODB_ROOT_USERNAME}
+      --password $${MONGODB_ROOT_PASSWORD}
+      --authenticationDatabase admin
+      /scripts/setup_search_indexes.js
+    networks:
+      - default
+
   mongodb-express:
     image: mongo-express:latest
     container_name: mongodb-express

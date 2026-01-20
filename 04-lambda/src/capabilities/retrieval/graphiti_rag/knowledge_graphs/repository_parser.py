@@ -30,7 +30,7 @@ else:
     except ImportError:
         AsyncGraphDatabase = None  # type: ignore
 
-from server.projects.graphiti_rag.config import config
+from capabilities.retrieval.graphiti_rag.config import config
 
 # Configure logging
 logger = logging.getLogger(__name__)

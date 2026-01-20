@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
-
 from server.projects.auth.dependencies import get_current_user
 from server.projects.auth.models import User
 
