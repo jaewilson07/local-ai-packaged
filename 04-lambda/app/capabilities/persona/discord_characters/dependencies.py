@@ -9,7 +9,7 @@ from app.capabilities.persona.discord_characters.services_legacy.store import Di
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
-from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

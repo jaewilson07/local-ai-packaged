@@ -6,7 +6,7 @@ from app.capabilities.persona.discord_characters.dependencies import DiscordChar
 from pydantic import Field
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 logger = logging.getLogger(__name__)
 

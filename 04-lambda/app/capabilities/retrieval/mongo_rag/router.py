@@ -684,7 +684,7 @@ async def search_code_examples_endpoint(
     Returns code snippets with summaries, language, and context.
     Requires USE_AGENTIC_RAG=true to be enabled.
     """
-    from shared.wrappers import DepsWrapper
+    from app.core.wrappers import DepsWrapper
 
     ctx = DepsWrapper(deps)
     results = await search_code_examples(ctx, request.query, request.match_count)

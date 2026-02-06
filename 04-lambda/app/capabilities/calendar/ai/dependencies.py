@@ -7,7 +7,7 @@ from typing import Any
 from app.capabilities.calendar.calendar_sync.config import config
 from pymongo import AsyncMongoClient
 
-from shared.dependencies import BaseDependencies, MongoDBMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin
 
 logger = logging.getLogger(__name__)
 

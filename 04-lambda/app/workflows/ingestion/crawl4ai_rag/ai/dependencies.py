@@ -11,8 +11,8 @@ from pymongo import AsyncMongoClient
 from app.workflows.ingestion.crawl4ai_rag.config import config
 
 # Import directly from submodules to avoid circular imports
-from shared.constants import CrawlingDefaults
-from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+from app.core.constants import CrawlingDefaults
+from app.core.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

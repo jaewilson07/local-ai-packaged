@@ -10,7 +10,7 @@ from app.workflows.ingestion.crawl4ai_rag.tools import (
     crawl_and_ingest_single_page,
 )
 
-from shared.llm import get_llm_model as _get_crawl4ai_model
+from app.core.llm import get_llm_model as _get_crawl4ai_model
 
 
 class Crawl4AIState(BaseModel):

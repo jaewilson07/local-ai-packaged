@@ -18,7 +18,7 @@ from app.workflows.ingestion.openwebui_export.tools import (
     get_conversations,
 )
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

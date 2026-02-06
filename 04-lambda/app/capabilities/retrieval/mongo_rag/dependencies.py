@@ -11,7 +11,7 @@ from app.capabilities.retrieval.mongo_rag.config import config
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
-from shared.dependencies import BaseDependencies
+from app.core.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

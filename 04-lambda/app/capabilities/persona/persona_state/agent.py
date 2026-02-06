@@ -7,7 +7,7 @@ from app.capabilities.persona.persona_state.tools import get_voice_instructions,
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 logger = logging.getLogger(__name__)
 

@@ -17,7 +17,7 @@ from app.capabilities.knowledge_graph.knowledge_base.models import (
 )
 from pymongo import AsyncMongoClient
 
-from shared.embedding_service import EmbeddingService
+from app.core.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 

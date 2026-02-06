@@ -12,7 +12,7 @@ from app.capabilities.processing.openwebui_topics.tools import classify_topics
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic_ai import RunContext
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

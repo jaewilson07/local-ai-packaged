@@ -10,8 +10,8 @@ from app.capabilities.calendar.calendar_sync.tools import (
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
-from shared.wrappers import DepsWrapper
+from app.core.llm import get_llm_model
+from app.core.wrappers import DepsWrapper
 
 
 class CalendarState(BaseModel):

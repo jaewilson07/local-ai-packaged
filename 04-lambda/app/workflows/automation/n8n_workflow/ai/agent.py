@@ -18,8 +18,8 @@ from app.workflows.automation.n8n_workflow.tools import (
     update_workflow,
 )
 
-from shared.llm import get_llm_model as _get_n8n_workflow_model
-from shared.wrappers import DepsWrapper
+from app.core.llm import get_llm_model as _get_n8n_workflow_model
+from app.core.wrappers import DepsWrapper
 
 
 class N8nWorkflowState(BaseModel):

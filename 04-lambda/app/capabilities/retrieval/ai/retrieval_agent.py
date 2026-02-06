@@ -4,7 +4,7 @@ from app.capabilities.retrieval.ai.dependencies import RetrievalDeps
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 
 class RetrievalState(BaseModel):

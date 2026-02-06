@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from app.workflows.ingestion.youtube_rag.config import config
 from app.workflows.ingestion.youtube_rag.services.youtube_client import YouTubeClient
 
-from shared.dependencies import BaseDependencies, MongoDBMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from app.services.storage.blob_storage.tools import (
     upload_file_tool,
 )
 
-from shared.context_helpers import create_run_context
+from app.core.context_helpers import create_run_context
 
 logger = logging.getLogger(__name__)
 

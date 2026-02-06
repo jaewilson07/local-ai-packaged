@@ -11,7 +11,7 @@ from app.capabilities.persona.persona_workflow import (
 from app.capabilities.persona.schemas import ChatRequest, ChatResponse
 from fastapi import APIRouter, Depends, HTTPException
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 

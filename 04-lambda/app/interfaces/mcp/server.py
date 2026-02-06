@@ -56,7 +56,7 @@ async def search_knowledge_base(
     from capabilities.retrieval.mongo_rag.dependencies import AgentDependencies
     from capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_search, text_search
 
-    from shared.context_helpers import create_run_context
+    from app.core.context_helpers import create_run_context
 
     try:
         # Create dependencies for the search

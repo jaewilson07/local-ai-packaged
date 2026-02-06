@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         GraphitiIngestionOptions,
     )
 
-    from shared.models import IngestionOptions, ScrapedContent
+    from app.core.models import IngestionOptions, ScrapedContent
 from app.capabilities.retrieval.graphiti_rag.config import config as graphiti_config
 from app.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
 from app.capabilities.retrieval.graphiti_rag.ingestion.adapter import GraphitiIngestionAdapter
@@ -660,7 +660,7 @@ class ContentIngestionService:
             ContentIngestionResult with document ID and statistics
 
         Example:
-            from shared.models import ScrapedContent, IngestionOptions
+            from app.core.models import ScrapedContent, IngestionOptions
 
             scraped = ScrapedContent(
                 content="# My Document\\n...",
@@ -679,7 +679,7 @@ class ContentIngestionService:
             GraphitiIngestionOptions,
         )
 
-        from shared.models import IngestionOptions
+        from app.core.models import IngestionOptions
 
         # Get options with defaults
         options = scraped.options or IngestionOptions()

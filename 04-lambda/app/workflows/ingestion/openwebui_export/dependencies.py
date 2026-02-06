@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import httpx
 from app.workflows.ingestion.openwebui_export.config import config
 
-from shared.dependencies import BaseDependencies, MongoDBMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin
 
 logger = logging.getLogger(__name__)
 

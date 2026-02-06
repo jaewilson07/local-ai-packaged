@@ -12,7 +12,7 @@ from docling.document_converter import DocumentConverter
 from app.core.config import settings as global_settings
 from app.workflows.research.deep_research.config import config
 
-from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

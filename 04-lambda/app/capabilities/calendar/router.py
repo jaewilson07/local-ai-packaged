@@ -20,7 +20,7 @@ from app.capabilities.calendar.schemas import (
 )
 from fastapi import APIRouter, Depends, HTTPException
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities", "calendar"])
 logger = logging.getLogger(__name__)

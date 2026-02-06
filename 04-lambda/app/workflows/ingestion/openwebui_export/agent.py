@@ -12,7 +12,7 @@ from app.workflows.ingestion.openwebui_export.tools import (
     get_conversations,
 )
 
-from shared.llm import get_llm_model as _get_openwebui_export_model
+from app.core.llm import get_llm_model as _get_openwebui_export_model
 
 # Create the Open WebUI export agent with OpenWebUIExportDeps
 openwebui_export_agent = Agent(

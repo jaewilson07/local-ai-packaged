@@ -6,7 +6,7 @@ import logging
 from pymongo import AsyncMongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from shared.security import generate_secure_password
+from app.core.security import generate_secure_password
 
 from .config import RAGConfig
 from .schemas import MongoCredentials

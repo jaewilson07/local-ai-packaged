@@ -14,7 +14,7 @@ from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
 from app.core.config import settings as global_settings
-from shared.embedding_service import EmbeddingService
+from app.core.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 

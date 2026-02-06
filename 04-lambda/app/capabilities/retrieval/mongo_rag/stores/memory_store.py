@@ -8,7 +8,7 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-from shared.stores.base import BaseMongoStore
+from app.core.stores.base import BaseMongoStore
 
 logger = logging.getLogger(__name__)
 

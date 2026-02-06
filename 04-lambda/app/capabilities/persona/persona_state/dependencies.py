@@ -7,7 +7,7 @@ from app.capabilities.persona.persona_state.config import config
 from app.capabilities.persona.persona_state.stores.mongodb_store import MongoPersonaStore
 from pymongo import AsyncMongoClient
 
-from shared.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
+from app.core.dependencies import BaseDependencies, MongoDBMixin, OpenAIClientMixin
 
 logger = logging.getLogger(__name__)
 

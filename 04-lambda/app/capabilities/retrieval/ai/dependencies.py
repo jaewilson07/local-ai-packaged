@@ -9,7 +9,7 @@ from app.capabilities.retrieval.graphiti_rag.dependencies import GraphitiRAGDeps
 from app.capabilities.retrieval.mongo_rag.config import config
 from pymongo import AsyncMongoClient
 
-from shared.dependencies import BaseDependencies
+from app.core.dependencies import BaseDependencies
 
 logger = logging.getLogger(__name__)
 

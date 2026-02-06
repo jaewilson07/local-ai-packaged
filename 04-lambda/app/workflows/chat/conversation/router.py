@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.workflows.chat.conversation.schemas import ConversationRequest, ConversationResponse
 from app.workflows.chat.conversation.services.orchestrator import ConversationOrchestrator
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter(prefix="/api/v1/conversation", tags=["workflows", "conversation"])
 logger = logging.getLogger(__name__)

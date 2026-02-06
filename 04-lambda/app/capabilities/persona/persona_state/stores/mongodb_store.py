@@ -16,7 +16,7 @@ from app.capabilities.persona.persona_state.models import (
 from pymongo import ASCENDING
 from pymongo.database import Database
 
-from shared.stores.base import BaseMongoStore
+from app.core.stores.base import BaseMongoStore
 
 logger = logging.getLogger(__name__)
 

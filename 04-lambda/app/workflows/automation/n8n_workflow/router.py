@@ -26,7 +26,7 @@ from app.workflows.automation.n8n_workflow.ai.tools import (
     update_workflow,
 )
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter(prefix="/api/v1/n8n", tags=["workflows", "n8n"])
 logger = logging.getLogger(__name__)

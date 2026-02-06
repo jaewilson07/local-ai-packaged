@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model as _get_graphiti_model
+from app.core.llm import get_llm_model as _get_graphiti_model
 
 from .dependencies import GraphitiRAGDeps
 from .tools import (

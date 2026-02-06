@@ -16,7 +16,7 @@ from app.capabilities.retrieval.schemas import (
 )
 from fastapi import APIRouter, Depends, HTTPException
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 logger = logging.getLogger(__name__)
 

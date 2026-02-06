@@ -21,7 +21,7 @@ from pydantic_ai import RunContext
 from app.services.compute.crawl4ai import crawl_deep, crawl_single_page
 from app.workflows.ingestion.crawl4ai_rag.ai.dependencies import Crawl4AIDependencies
 
-from shared.models import IngestionOptions, ScrapedContent
+from app.core.models import IngestionOptions, ScrapedContent
 
 logger = logging.getLogger(__name__)
 

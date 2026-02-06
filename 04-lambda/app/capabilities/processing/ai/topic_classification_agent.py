@@ -8,7 +8,7 @@ from app.capabilities.processing.schemas import (
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 
 class ProcessingState(BaseModel):

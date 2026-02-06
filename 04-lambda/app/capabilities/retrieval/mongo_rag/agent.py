@@ -7,8 +7,8 @@ from app.capabilities.retrieval.mongo_rag.tools import hybrid_search, semantic_s
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model
-from shared.wrappers import DepsWrapper
+from app.core.llm import get_llm_model
+from app.core.wrappers import DepsWrapper
 
 # Optional Neo4j import (only if neo4j package is available)
 try:

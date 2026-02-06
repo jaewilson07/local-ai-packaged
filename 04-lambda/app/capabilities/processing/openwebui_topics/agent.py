@@ -6,7 +6,7 @@ from app.capabilities.processing.openwebui_topics.tools import classify_topics
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from shared.llm import get_llm_model as _get_openwebui_topics_model
+from app.core.llm import get_llm_model as _get_openwebui_topics_model
 
 
 class OpenWebUITopicsState(BaseModel):

@@ -33,7 +33,7 @@ from pymongo import AsyncMongoClient
 from app.services.auth.dependencies import get_current_user
 from app.services.auth.models import User
 
-from shared.constants import DatabaseDefaults
+from app.core.constants import DatabaseDefaults
 
 router = APIRouter(prefix="/api/v1/kb", tags=["knowledge_base"])
 logger = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from app.services.storage.blob_storage.tools import (
     upload_file_tool,
 )
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from pydantic_ai import Agent
 from app.workflows.chat.conversation.ai.dependencies import ConversationDeps
 from app.workflows.chat.conversation.tools import orchestrate_conversation
 
-from shared.llm import get_llm_model
+from app.core.llm import get_llm_model
 
 CONVERSATION_SYSTEM_PROMPT = """You are a conversation orchestrator that coordinates multiple AI agents and tools.
 

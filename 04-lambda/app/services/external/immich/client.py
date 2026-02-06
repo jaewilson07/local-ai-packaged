@@ -5,7 +5,7 @@ import logging
 import aiohttp
 from app.services.auth.config import AuthConfig
 
-from shared.security import generate_secure_password
+from app.core.security import generate_secure_password
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.core.api_utils import DependencyContext
 from app.workflows.automation.n8n_workflow.ai.dependencies import N8nWorkflowDeps
 
-from shared.dependency_factory import create_dependency_factory
+from app.core.dependency_factory import create_dependency_factory
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

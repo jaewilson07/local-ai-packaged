@@ -30,7 +30,7 @@ from app.workflows.ingestion.youtube_rag.services.youtube_client import (
     YouTubeClient,
 )
 
-from shared.models import ChapterInfo, IngestionOptions, ScrapedContent
+from app.core.models import ChapterInfo, IngestionOptions, ScrapedContent
 
 logger = logging.getLogger(__name__)
 

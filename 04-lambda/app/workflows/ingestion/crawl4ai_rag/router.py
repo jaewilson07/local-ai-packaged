@@ -17,8 +17,8 @@ from app.workflows.ingestion.crawl4ai_rag.tools import (
     crawl_and_ingest_single_page,
 )
 
-from shared.dependency_factory import create_dependency_factory
-from shared.wrappers import DepsWrapper
+from app.core.dependency_factory import create_dependency_factory
+from app.core.wrappers import DepsWrapper
 
 router = APIRouter(prefix="/api/v1/crawl", tags=["workflows", "crawl"])
 logger = logging.getLogger(__name__)
