@@ -12,16 +12,93 @@ FastAPI multi-project server providing REST APIs and MCP (Model Context Protocol
 
 ### Core Philosophy
 
-**Multi-Project Lambda Server**: A unified FastAPI application that hosts multiple independent capabilities and workflows while maintaining clean boundaries and shared infrastructure.
+**Multi-Project Lambda Server**: A unified FastAPI application that hosts multiple independent capabilities and workflows while maintaining clean boundaries and shared infrastructure using **Layered Service Orchestration**.
 
 **Key Principles:**
-1. **Capability Isolation**: Each capability is self-contained in `src/capabilities/{category}/{name}/`
-2. **Workflow Organization**: Workflows are organized in `src/workflows/{category}/{name}/`
-3. **Dual Interface**: Every capability/workflow exposes both REST API and MCP endpoints
-4. **Shared Infrastructure**: Common utilities (logging, config, exceptions) in `src/shared/`
-5. **Type Safety**: Pydantic models for all data structures
-6. **Async First**: All I/O operations are async
-6. **Clean Architecture**: No backward compatibility concerns, modern patterns only
+1. **Capability Isolation**: Each capability is self-contained in `app/capabilities/{category}/{name}/` - capabilities are the **source of truth** for business logic
+2. **Workflow Organization**: Workflows are organized in `app/workflows/{category}/{name}/` - workflows orchestrate capabilities for complex operations
+3. **Service Abstraction**: External service integrations are "dumb pipes" in `app/services/` - no business logic, just I/O
+4. **Dual Interface**: Every capability/workflow exposes both REST API (via `app/interfaces/http/`) and MCP endpoints (via `app/interfaces/mcp/`)
+5. **Core Infrastructure**: Common utilities (logging, config, exceptions, protocols) in `app/core/`
+6. **Type Safety**: Pydantic models for all data structures
+7. **Async First**: All I/O operations are async
+8. **Clean Architecture**: No backward compatibility concerns, modern patterns only
+
+### Layered Architecture
+
+The project follows a strict layered architecture where responsibilities are clearly separated:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    /infra Layer                          │
+│  Docker configuration, infrastructure as code           │
+│  (docker-compose.yml, Dockerfile, entrypoint)           │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                    /config Layer                         │
+│  Non-secret configuration templates                     │
+│  (settings.yaml.example, workflow templates)            │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│              /app/interfaces Layer (Triggers)            │
+│  ┌──────────────┐  ┌──────────────┐                     │
+│  │  HTTP (REST) │  │  MCP Server  │                     │
+│  │  main.py     │  │  Protocol    │                     │
+│  │  routers     │  │  server.py   │                     │
+│  └──────────────┘  └──────────────┘                     │
+│         │                  │                             │
+│         └──────┬───────────┘                             │
+└────────────────┼─────────────────────────────────────────┘
+                 │ (thin triggers, no logic)
+┌────────────────┼─────────────────────────────────────────┐
+│                ▼                                          │
+│         /app/workflows Layer (Orchestration)             │
+│  Coordinate multiple capabilities for complex operations │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  automation  │  │  ingestion   │  │  research    │  │
+│  │  chat        │  │              │  │              │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└────────────────┬─────────────────────────────────────────┘
+                 │ (orchestration logic)
+┌────────────────┼─────────────────────────────────────────┐
+│                ▼                                          │
+│      /app/capabilities Layer (Source of Truth)           │
+│  Business logic for atomic operations                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  calendar    │  │  persona     │  │  retrieval   │  │
+│  │  processing  │  │  knowledge   │  │              │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└────────────────┬─────────────────────────────────────────┘
+                 │ (business logic)
+┌────────────────┼─────────────────────────────────────────┐
+│                ▼                                          │
+│         /app/services Layer (Dumb Pipes)                 │
+│  External service integrations - I/O only, no logic     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  auth        │  │  database    │  │  storage     │  │
+│  │  compute     │  │  external    │  │  preferences │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└────────────────┬─────────────────────────────────────────┘
+                 │ (external I/O)
+┌────────────────┼─────────────────────────────────────────┐
+│                ▼                                          │
+│            /app/core Layer (Foundation)                  │
+│  Shared infrastructure, protocols, base classes          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  config.py   │  │  exceptions  │  │  api_models  │  │
+│  │  logging.py  │  │  protocols   │  │  base classes│  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Layer Rules:**
+- **Interfaces** may call **Workflows** and **Capabilities**, but contain NO logic
+- **Workflows** may call **Capabilities** and **Services** to orchestrate operations
+- **Capabilities** may call **Services** and use **Core** utilities for atomic operations
+- **Services** may ONLY perform I/O operations - no business logic
+- **Core** has no dependencies on other layers (foundation layer)
 
 ### Architecture Layers
 
@@ -119,7 +196,7 @@ async def tool_name(ctx: RunContext[ProjectDeps], arg: str) -> str:
 - Tools MUST use `RunContext[DepsType]` as first parameter
 - Access dependencies via `ctx.deps` (never initialize dependencies inside tools)
 - Samples and tests MUST use `create_run_context()` helper for RunContext creation
-- See `src/shared/context_helpers.py` for helper implementation
+- See `app/core/context_helpers.py` for helper implementation (if available)
 
 # 7. Output Validation (optional)
 @project_agent.output_validator
@@ -135,17 +212,77 @@ async def validate_output(
 
 ### Project Structure Standard
 
-Each project follows this structure:
+The project follows a strict directory structure:
 
 ```
-src/capabilities/{category}/{name}/
+/04-lambda/
+├── /infra/                           # Infrastructure & Operations
+│   ├── docker-compose.yml            # Container orchestration
+│   ├── Dockerfile                    # Container image definition
+│   └── docker-entrypoint.sh          # Container startup script
+│
+├── /config/                          # Non-secret Configuration
+│   ├── settings.yaml.example         # Configuration template
+│   └── workflows/                    # Workflow templates
+│
+├── /app/                             # Application Code
+│   ├── /core/                        # Foundation Layer
+│   │   ├── config.py                 # Global configuration
+│   │   ├── exceptions.py             # Shared exceptions
+│   │   ├── api_models.py             # API response models
+│   │   ├── logging.py                # Logging setup
+│   │   └── ...                       # Other shared utilities
+│   │
+│   ├── /services/                    # External Integration Layer (Dumb Pipes)
+│   │   ├── /auth/                    # Authentication service
+│   │   ├── /database/                # Database services
+│   │   ├── /storage/                 # Storage services
+│   │   └── ...                       # Other external services
+│   │
+│   ├── /capabilities/                # Business Logic Layer (Source of Truth)
+│   │   ├── /{category}/{name}/       # Atomic operations
+│   │   │   ├── config.py             # Capability config
+│   │   │   ├── dependencies.py       # CapabilityDeps class
+│   │   │   ├── agent.py              # Agent definition
+│   │   │   ├── tools.py              # Agent tools
+│   │   │   ├── router.py             # API routes
+│   │   │   └── ...                   # Other capability modules
+│   │   └── ...
+│   │
+│   ├── /workflows/                   # Orchestration Layer
+│   │   ├── /{category}/{name}/       # Complex operations
+│   │   │   ├── config.py             # Workflow config
+│   │   │   ├── workflow.py           # Orchestration logic
+│   │   │   ├── router.py             # API routes
+│   │   │   └── ...                   # Other workflow modules
+│   │   └── ...
+│   │
+│   └── /interfaces/                  # Entry Point Layer (Triggers)
+│       ├── /http/                    # REST API
+│       │   ├── main.py               # FastAPI application
+│       │   ├── health.py             # Health check routes
+│       │   ├── admin.py              # Admin routes
+│       │   └── ...                   # Other HTTP routes
+│       └── /mcp/                     # MCP Protocol Server
+│           ├── server.py             # MCP server implementation
+│           ├── router.py             # MCP REST routes
+│           └── ...                   # MCP tools
+│
+├── /tests/                           # Test Suite
+└── pyproject.toml                    # Python package configuration
+```
+
+**Capability Structure Example:**
+```
+app/capabilities/{category}/{name}/
 ├── __init__.py
 ├── config.py              # Capability-specific configuration
 ├── dependencies.py        # CapabilityDeps class
 ├── agent.py              # Agent definition
 ├── tools.py              # Agent tools
-├── prompts.py            # System prompts
-└── {domain}/             # Domain-specific modules
+├── router.py             # API routes
+├── prompts.py            # System prompts (optional)
+└── {domain}/             # Domain-specific modules (optional)
     ├── pipeline.py       # Data processing pipelines
     ├── validators.py     # Validation logic
     └── utils.py          # Utilities
@@ -157,8 +294,8 @@ src/capabilities/{category}/{name}/
 All API endpoints (except `/health` and `/docs`) require Cloudflare Access authentication via `get_current_user` dependency:
 
 ```python
-from server.projects.auth.dependencies import get_current_user
-from server.projects.auth.models import User
+from app.services.auth.dependencies import get_current_user
+from app.services.auth.models import User
 
 @router.get("/protected")
 async def endpoint(user: User = Depends(get_current_user)):
@@ -169,10 +306,10 @@ async def endpoint(user: User = Depends(get_current_user)):
 **Endpoint Pattern:**
 ```python
 from fastapi import APIRouter, HTTPException, Depends
-from server.models.{project} import RequestModel, ResponseModel
-from server.projects.{project}.dependencies import ProjectDeps
-from server.projects.auth.dependencies import get_current_user
-from server.projects.auth.models import User
+from app.capabilities.{capability}.models import RequestModel, ResponseModel
+from app.capabilities.{capability}.dependencies import CapabilityDeps
+from app.services.auth.dependencies import get_current_user
+from app.services.auth.models import User
 
 router = APIRouter()
 
@@ -182,7 +319,7 @@ async def endpoint(
     user: User = Depends(get_current_user)  # Authentication required
 ):
     """Endpoint description."""
-    deps = ProjectDeps.from_settings()
+    deps = CapabilityDeps.from_settings()
     await deps.initialize()  # If needed
 
     try:
@@ -198,12 +335,12 @@ async def endpoint(
 
 **Router Registration:**
 ```python
-# In server/main.py
-from server.api import project_router
+# In app/interfaces/http/main.py
+from app.capabilities.{capability}.router import router as capability_router
 app.include_router(
-    project_router.router,
-    prefix="/api/v1/project",
-    tags=["project"]
+    capability_router,
+    prefix="/api/v1/{capability}",
+    tags=["{capability}"]
 )
 ```
 
@@ -258,7 +395,7 @@ def setup_routes(app: FastAPI):
 
 **Three-Level Configuration:**
 
-1. **Global Config** (`server/config.py`):
+1. **Global Config** (`app/core/config.py`):
 ```python
 from pydantic_settings import BaseSettings
 
@@ -275,9 +412,9 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-2. **Project Config** (`src/capabilities/{category}/{name}/config.py` or `src/workflows/{category}/{name}/config.py`):
+2. **Capability/Workflow Config** (`app/capabilities/{category}/{name}/config.py` or `app/workflows/{category}/{name}/config.py`):
 ```python
-from server.config import settings as global_settings
+from app.core.config import settings as global_settings
 
 class ProjectConfig:
     """Project-specific configuration."""
