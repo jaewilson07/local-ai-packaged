@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from workflows.ingestion.crawl4ai_rag.tools import crawl_and_ingest_single_page
+from app.workflows.ingestion.crawl4ai_rag.tools import crawl_and_ingest_single_page
 
 from tests.conftest import MockRunContext
 
