@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from capabilities.retrieval.mongo_rag.router import get_agent_deps
+from app.capabilities.retrieval.mongo_rag.router import get_agent_deps
 from fastapi.testclient import TestClient
 from server.main import app
 from server.projects.mongo_rag.agent import rag_agent

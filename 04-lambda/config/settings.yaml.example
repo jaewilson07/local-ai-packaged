@@ -1,0 +1,48 @@
+# Lambda Server Configuration Template
+# Copy this to settings.yaml and customize for your deployment
+
+# Application Settings
+app:
+  name: "Lambda Server"
+  version: "1.0.0"
+  environment: "development"  # development, staging, production
+  
+# Service Endpoints (Docker internal network)
+infrastructure:
+  comfy_host: "http://comfyui:8188"
+  ollama_host: "http://ollama:11434"
+  mongodb_host: "mongodb://mongodb:27017"
+  neo4j_host: "bolt://neo4j:7687"
+  minio_endpoint: "minio:9000"
+  supabase_url: "http://kong:8000"
+  
+# Storage Configuration
+storage:
+  input_dir: "/app/data/inputs"
+  output_dir: "/app/data/outputs"
+  temp_dir: "/app/data/temp"
+
+# LLM Defaults
+llm:
+  provider: "ollama"  # ollama, openai, anthropic
+  model: "llama3.2"
+  temperature: 0.7
+  max_tokens: 2048
+  
+# Embedding Defaults
+embedding:
+  model: "qwen3-embedding:4b"
+  provider: "ollama"
+  
+# Logging
+logging:
+  level: "info"  # debug, info, warning, error
+  format: "json"
+  
+# API Settings
+api:
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://datacrew.space"
+  rate_limit: 100  # requests per minute
+  timeout: 300  # seconds
